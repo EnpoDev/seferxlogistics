@@ -180,17 +180,26 @@
 
             <!-- Sidebar Footer -->
             <div class="border-t border-gray-200 dark:border-gray-800 p-4">
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center space-x-3">
                         <div class="w-8 h-8 bg-black dark:bg-white rounded-full flex items-center justify-center">
-                            <span class="text-white dark:text-black font-medium text-sm">MH</span>
+                            <span class="text-white dark:text-black font-medium text-sm">{{ substr(auth()->user()->name, 0, 2) }}</span>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-black dark:text-white truncate">Muhammet Hüseyin</p>
+                            <p class="text-sm font-medium text-black dark:text-white truncate">{{ auth()->user()->name }}</p>
                             <p class="text-xs text-gray-600 dark:text-gray-400 truncate">Yönetici</p>
                         </div>
                     </div>
                 </div>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="w-full px-3 py-2 text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-900 rounded-lg transition-colors text-left flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                        </svg>
+                        <span>Çıkış Yap</span>
+                    </button>
+                </form>
             </div>
         </aside>
 

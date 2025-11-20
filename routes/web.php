@@ -2,65 +2,86 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Livewire\Harita;
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\RegisterController;
 
-// Ana Sayfa - Redirect to Harita
-Route::get('/', function () {
-    return redirect()->route('harita');
+// Guest Routes (Authentication)
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [LoginController::class, 'login']);
+    Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register');
+    Route::post('/register', [RegisterController::class, 'register']);
+
+    // Password Reset (placeholder routes)
+    Route::get('/forgot-password', function () {
+        return view('auth.login');
+    })->name('password.request');
 });
 
-// Harita & Kurye Takip
-Route::get('/harita', Harita::class)->name('harita');
+// Authenticated Routes
+Route::middleware('auth')->group(function () {
+    // Logout
+    Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-// Sipariş Yönetimi
-Route::get('/siparis/aktif', function () {
-    return view('pages.siparis.aktif');
-})->name('siparis.aktif');
+    // Ana Sayfa - Redirect to Harita
+    Route::get('/', function () {
+        return redirect()->route('harita');
+    });
 
-Route::get('/siparis/gecmis', function () {
-    return view('pages.siparis.gecmis');
-})->name('siparis.gecmis');
+    // Harita & Kurye Takip
+    Route::get('/harita', Harita::class)->name('harita');
 
-Route::get('/siparis/iptal', function () {
-    return view('pages.siparis.iptal');
-})->name('siparis.iptal');
+    // Sipariş Yönetimi
+    Route::get('/siparis/aktif', function () {
+        return view('pages.siparis.aktif');
+    })->name('siparis.aktif');
 
-Route::get('/siparis/istatistik', function () {
-    return view('pages.siparis.istatistik');
-})->name('siparis.istatistik');
+    Route::get('/siparis/gecmis', function () {
+        return view('pages.siparis.gecmis');
+    })->name('siparis.gecmis');
 
-// Gelişmiş İstatistik
-Route::get('/gelismis-istatistik', function () {
-    return view('pages.gelismis-istatistik');
-})->name('gelismis-istatistik');
+    Route::get('/siparis/iptal', function () {
+        return view('pages.siparis.iptal');
+    })->name('siparis.iptal');
 
-// Yönetim
-Route::get('/yonetim/kullanicilar', function () {
-    return view('pages.yonetim.kullanicilar');
-})->name('yonetim.kullanicilar');
+    Route::get('/siparis/istatistik', function () {
+        return view('pages.siparis.istatistik');
+    })->name('siparis.istatistik');
 
-Route::get('/yonetim/roller', function () {
-    return view('pages.yonetim.roller');
-})->name('yonetim.roller');
+    // Gelişmiş İstatistik
+    Route::get('/gelismis-istatistik', function () {
+        return view('pages.gelismis-istatistik');
+    })->name('gelismis-istatistik');
 
-// Menü Yönetimi
-Route::get('/menu', function () {
-    return view('pages.menu');
-})->name('menu');
+    // Yönetim
+    Route::get('/yonetim/kullanicilar', function () {
+        return view('pages.yonetim.kullanicilar');
+    })->name('yonetim.kullanicilar');
 
-// İşletmem
-Route::get('/isletmem/bilgiler', function () {
-    return view('pages.isletmem.bilgiler');
-})->name('isletmem.bilgiler');
+    Route::get('/yonetim/roller', function () {
+        return view('pages.yonetim.roller');
+    })->name('yonetim.roller');
 
-Route::get('/isletmem/subeler', function () {
-    return view('pages.isletmem.subeler');
-})->name('isletmem.subeler');
+    // Menü Yönetimi
+    Route::get('/menu', function () {
+        return view('pages.menu');
+    })->name('menu');
 
-// Hesap Ayarları
-Route::get('/hesap/profil', function () {
-    return view('pages.hesap.profil');
-})->name('hesap.profil');
+    // İşletmem
+    Route::get('/isletmem/bilgiler', function () {
+        return view('pages.isletmem.bilgiler');
+    })->name('isletmem.bilgiler');
 
-Route::get('/hesap/guvenlik', function () {
-    return view('pages.hesap.guvenlik');
-})->name('hesap.guvenlik');
+    Route::get('/isletmem/subeler', function () {
+        return view('pages.isletmem.subeler');
+    })->name('isletmem.subeler');
+
+    // Hesap Ayarları
+    Route::get('/hesap/profil', function () {
+        return view('pages.hesap.profil');
+    })->name('hesap.profil');
+
+    Route::get('/hesap/guvenlik', function () {
+        return view('pages.hesap.guvenlik');
+    })->name('hesap.guvenlik');
+});
