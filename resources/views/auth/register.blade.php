@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Kayıt Ol - Kurye Yönetim Sistemi</title>
+    <title>Kayıt Ol - SeferX Lojistik</title>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -17,10 +17,8 @@
         <div class="w-full max-w-md">
             <!-- Logo / Header -->
             <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-black dark:bg-white rounded-xl mb-4">
-                    <span class="text-white dark:text-black font-bold text-2xl">K</span>
-                </div>
-                <h1 class="text-3xl font-bold text-black dark:text-white">Kurye Yönetim</h1>
+                <img src="{{ asset('logo.png') }}" alt="SeferX Logo" class="h-16 w-auto mx-auto mb-4">
+                <h1 class="text-3xl font-bold text-black dark:text-white">SeferX Lojistik</h1>
                 <p class="text-gray-600 dark:text-gray-400 mt-2">Yeni hesap oluşturun</p>
             </div>
 

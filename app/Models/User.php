@@ -21,6 +21,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'roles',
     ];
 
     /**
@@ -43,6 +44,47 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'roles' => 'array',
         ];
+    }
+
+    /**
+     * Check if user has a specific role
+     */
+    public function hasRole(string $role): bool
+    {
+        return in_array($role, $this->roles ?? []);
+    }
+
+    /**
+     * Check if user has bayi role
+     */
+    public function hasBayi(): bool
+    {
+        return in_array('bayi', $this->roles ?? []);
+    }
+
+    /**
+     * Check if user has isletme role
+     */
+    public function hasIsletme(): bool
+    {
+        return in_array('isletme', $this->roles ?? []);
+    }
+
+    /**
+     * Check if user has multiple roles
+     */
+    public function hasMultipleRoles(): bool
+    {
+        return count($this->roles ?? []) > 1;
+    }
+
+    /**
+     * Get user's first role
+     */
+    public function getFirstRole(): ?string
+    {
+        return $this->roles[0] ?? null;
     }
 }

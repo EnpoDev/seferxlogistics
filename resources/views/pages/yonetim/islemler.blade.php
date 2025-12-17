@@ -40,28 +40,25 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+                    @forelse($transactions as $transaction)
                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-900">
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">15 Kas 2025</td>
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">Profesyonel Plan - Aylık</td>
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">₺399.00</td>
+                        <td class="px-6 py-4 text-sm text-black dark:text-white">{{ $transaction['date'] }}</td>
+                        <td class="px-6 py-4 text-sm text-black dark:text-white">{{ $transaction['description'] }}</td>
+                        <td class="px-6 py-4 text-sm text-black dark:text-white">₺{{ number_format($transaction['amount'], 2) }}</td>
                         <td class="px-6 py-4 text-sm">
-                            <span class="px-2 py-1 text-xs border border-gray-300 dark:border-gray-700 rounded">Başarılı</span>
+                            <span class="px-2 py-1 text-xs border border-gray-300 dark:border-gray-700 rounded">{{ $transaction['status'] }}</span>
                         </td>
                         <td class="px-6 py-4 text-sm">
-                            <button class="text-black dark:text-white hover:opacity-60">İndir</button>
+                            <a href="{{ $transaction['invoice_url'] }}" class="text-black dark:text-white hover:opacity-60">İndir</a>
                         </td>
                     </tr>
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-900">
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">15 Eki 2025</td>
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">Profesyonel Plan - Aylık</td>
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">₺399.00</td>
-                        <td class="px-6 py-4 text-sm">
-                            <span class="px-2 py-1 text-xs border border-gray-300 dark:border-gray-700 rounded">Başarılı</span>
-                        </td>
-                        <td class="px-6 py-4 text-sm">
-                            <button class="text-black dark:text-white hover:opacity-60">İndir</button>
+                    @empty
+                    <tr>
+                        <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-600 dark:text-gray-400">
+                            İşlem bulunamadı
                         </td>
                     </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>

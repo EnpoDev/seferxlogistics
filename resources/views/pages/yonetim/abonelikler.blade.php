@@ -8,27 +8,30 @@
     </div>
 
     <!-- Aktif Abonelik -->
+    @if($subscription)
     <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6 mb-6">
         <div class="flex justify-between items-start mb-4">
             <div>
-                <h3 class="text-lg font-semibold text-black dark:text-white mb-1">Profesyonel Plan</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-400">Aylık abonelik</p>
+                <h3 class="text-lg font-semibold text-black dark:text-white mb-1">{{ $subscription['plan_name'] }}</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400">{{ $subscription['period'] }} abonelik</p>
             </div>
-            <span class="px-3 py-1 text-sm bg-black dark:bg-white text-white dark:text-black rounded">Aktif</span>
+            <span class="px-3 py-1 text-sm bg-black dark:bg-white text-white dark:text-black rounded">
+                {{ ucfirst($subscription['status'] == 'active' ? 'Aktif' : $subscription['status']) }}
+            </span>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Aylık Ücret</p>
-                <p class="text-2xl font-bold text-black dark:text-white">₺399</p>
+                <p class="text-2xl font-bold text-black dark:text-white">₺{{ $subscription['price'] }}</p>
             </div>
             <div>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Sonraki Ödeme</p>
-                <p class="text-lg font-semibold text-black dark:text-white">15 Aralık 2025</p>
+                <p class="text-lg font-semibold text-black dark:text-white">{{ $subscription['next_payment'] }}</p>
             </div>
             <div>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Başlangıç Tarihi</p>
-                <p class="text-lg font-semibold text-black dark:text-white">15 Kasım 2025</p>
+                <p class="text-lg font-semibold text-black dark:text-white">{{ $subscription['start_date'] }}</p>
             </div>
         </div>
 
@@ -41,6 +44,14 @@
             </button>
         </div>
     </div>
+    @else
+    <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6 mb-6 text-center">
+        <p class="text-gray-600 dark:text-gray-400 mb-4">Aktif aboneliğiniz bulunmamaktadır.</p>
+        <button class="px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80">
+            Plan Seç
+        </button>
+    </div>
+    @endif
 
     <!-- Özellikler -->
     <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">

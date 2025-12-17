@@ -34,19 +34,19 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
             <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Toplam Sipariş</p>
-            <p class="text-3xl font-bold text-black dark:text-white">1,234</p>
+            <p class="text-3xl font-bold text-black dark:text-white">{{ $orders->total() }}</p>
         </div>
         <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
             <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Toplam Gelir</p>
-            <p class="text-3xl font-bold text-black dark:text-white">₺45,670</p>
+            <p class="text-3xl font-bold text-black dark:text-white">₺{{ number_format($orders->sum('total'), 2) }}</p>
         </div>
         <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
             <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Ortalama Sepet</p>
-            <p class="text-3xl font-bold text-black dark:text-white">₺125</p>
+            <p class="text-3xl font-bold text-black dark:text-white">₺{{ $orders->count() > 0 ? number_format($orders->avg('total'), 2) : '0.00' }}</p>
         </div>
         <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Ort. Teslimat</p>
-            <p class="text-3xl font-bold text-black dark:text-white">28 dk</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Bu Sayfa</p>
+            <p class="text-3xl font-bold text-black dark:text-white">{{ $orders->count() }}</p>
         </div>
     </div>
 
@@ -65,47 +65,38 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+                    @forelse($orders as $order)
                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-900">
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">#1245</td>
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">Ayşe Demir</td>
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">₺185.00</td>
-                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">Mehmet Kaya</td>
-                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">19 Kas 2025, 14:30</td>
-                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">25 dk</td>
+                        <td class="px-6 py-4 text-sm text-black dark:text-white">{{ $order->order_number }}</td>
+                        <td class="px-6 py-4 text-sm text-black dark:text-white">{{ $order->customer_name }}</td>
+                        <td class="px-6 py-4 text-sm text-black dark:text-white">₺{{ number_format($order->total, 2) }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{{ $order->courier ? $order->courier->name : '-' }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{{ $order->created_at->format('d M Y, H:i') }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                            @if($order->delivered_at && $order->accepted_at)
+                                {{ $order->accepted_at->diffInMinutes($order->delivered_at) }} dk
+                            @else
+                                -
+                            @endif
+                        </td>
                     </tr>
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-900">
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">#1244</td>
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">Can Öztürk</td>
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">₺95.50</td>
-                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">Ali Demir</td>
-                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">19 Kas 2025, 13:15</td>
-                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">32 dk</td>
+                    @empty
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-sm text-gray-600 dark:text-gray-400">
+                            Geçmiş sipariş bulunamadı
+                        </td>
                     </tr>
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-900">
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">#1243</td>
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">Zeynep Aydın</td>
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">₺140.00</td>
-                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">Mehmet Kaya</td>
-                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">19 Kas 2025, 12:45</td>
-                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">28 dk</td>
-                    </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>
 
         <!-- Pagination -->
-        <div class="border-t border-gray-200 dark:border-gray-800 px-6 py-4 flex items-center justify-between">
-            <div class="text-sm text-gray-600 dark:text-gray-400">
-                Toplam 1,234 sipariş
-            </div>
-            <div class="flex gap-2">
-                <button class="px-3 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm text-black dark:text-white hover:bg-gray-50 dark:hover:bg-gray-900">Önceki</button>
-                <button class="px-3 py-1 bg-black dark:bg-white text-white dark:text-black rounded text-sm">1</button>
-                <button class="px-3 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm text-black dark:text-white hover:bg-gray-50 dark:hover:bg-gray-900">2</button>
-                <button class="px-3 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm text-black dark:text-white hover:bg-gray-50 dark:hover:bg-gray-900">3</button>
-                <button class="px-3 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm text-black dark:text-white hover:bg-gray-50 dark:hover:bg-gray-900">Sonraki</button>
-            </div>
+        @if($orders->hasPages())
+        <div class="border-t border-gray-200 dark:border-gray-800 px-6 py-4">
+            {{ $orders->links() }}
         </div>
+        @endif
     </div>
 </div>
 @endsection

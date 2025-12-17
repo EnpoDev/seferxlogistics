@@ -19,23 +19,23 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
             <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Toplam Sipariş</p>
-            <p class="text-3xl font-bold text-black dark:text-white mb-2">456</p>
-            <p class="text-xs text-gray-600 dark:text-gray-400">+12.5% önceki döneme göre</p>
+            <p class="text-3xl font-bold text-black dark:text-white mb-2">{{ $stats['total_orders'] }}</p>
+            <p class="text-xs text-gray-600 dark:text-gray-400">Bugün: {{ $stats['today_orders'] }}</p>
         </div>
         <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
             <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Toplam Gelir</p>
-            <p class="text-3xl font-bold text-black dark:text-white mb-2">₺54,320</p>
-            <p class="text-xs text-gray-600 dark:text-gray-400">+8.3% önceki döneme göre</p>
+            <p class="text-3xl font-bold text-black dark:text-white mb-2">₺{{ number_format($stats['total_revenue'], 2) }}</p>
+            <p class="text-xs text-gray-600 dark:text-gray-400">Bugün: ₺{{ number_format($stats['today_revenue'], 2) }}</p>
         </div>
         <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Ortalama Sepet</p>
-            <p class="text-3xl font-bold text-black dark:text-white mb-2">₺119</p>
-            <p class="text-xs text-gray-600 dark:text-gray-400">-2.1% önceki döneme göre</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Beklemede</p>
+            <p class="text-3xl font-bold text-black dark:text-white mb-2">{{ $stats['pending_orders'] }}</p>
+            <p class="text-xs text-gray-600 dark:text-gray-400">Hazırlanıyor: {{ $stats['preparing_orders'] }}</p>
         </div>
         <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Ort. Teslimat Süresi</p>
-            <p class="text-3xl font-bold text-black dark:text-white mb-2">28 dk</p>
-            <p class="text-xs text-gray-600 dark:text-gray-400">-3.4% önceki döneme göre</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Yolda</p>
+            <p class="text-3xl font-bold text-black dark:text-white mb-2">{{ $stats['on_delivery_orders'] }}</p>
+            <p class="text-xs text-gray-600 dark:text-gray-400">Teslim Edildi: {{ $stats['delivered_orders'] }}</p>
         </div>
     </div>
 

@@ -22,7 +22,23 @@ class LoginController extends Controller
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
-            return redirect()->intended(route('harita'));
+            
+            $user = Auth::user();
+            
+            // If user has multiple roles, redirect to panel selection
+            if ($user->hasMultipleRoles()) {
+                return redirect()->route('panel.selection');
+            }
+            
+            // If user has single role, auto-assign and redirect
+            $panel = $user->getFirstRole();
+            session(['active_panel' => $panel]);
+            
+            if ($panel === 'bayi') {
+                return redirect()->intended(route('bayi.harita'));
+            } else {
+                return redirect()->intended(route('harita'));
+            }
         }
 
         return back()->withErrors([

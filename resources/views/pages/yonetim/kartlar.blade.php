@@ -13,23 +13,26 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        @forelse($cards as $card)
         <!-- Kart -->
         <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
             <div class="flex justify-between items-start mb-4">
                 <div>
                     <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Kart Numarası</p>
-                    <p class="text-lg font-semibold text-black dark:text-white">**** **** **** 4532</p>
+                    <p class="text-lg font-semibold text-black dark:text-white">{{ $card['number'] }}</p>
                 </div>
+                @if($card['is_default'])
                 <span class="px-2 py-1 text-xs bg-black dark:bg-white text-white dark:text-black rounded">Varsayılan</span>
+                @endif
             </div>
             <div class="grid grid-cols-2 gap-4 mb-4">
                 <div>
                     <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Son Kullanma</p>
-                    <p class="text-sm text-black dark:text-white">12/25</p>
+                    <p class="text-sm text-black dark:text-white">{{ $card['expiry'] }}</p>
                 </div>
                 <div>
                     <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Kart Sahibi</p>
-                    <p class="text-sm text-black dark:text-white">AHMET YILMAZ</p>
+                    <p class="text-sm text-black dark:text-white">{{ $card['holder'] }}</p>
                 </div>
             </div>
             <div class="flex gap-2">
@@ -41,10 +44,13 @@
                 </button>
             </div>
         </div>
+        @empty
+        <!-- Kart Yok -->
+        @endforelse
 
-        <!-- Boş Kart Alanı -->
+        <!-- Yeni Kart Ekle Alanı -->
         <div class="bg-white dark:bg-[#181818] border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 flex flex-col items-center justify-center min-h-[200px]">
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Henüz başka kart eklenmemiş</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Yeni ödeme yöntemi ekle</p>
             <button class="px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80">
                 Kart Ekle
             </button>
