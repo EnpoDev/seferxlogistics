@@ -242,7 +242,7 @@
                     <x-ui.button type="button" variant="secondary" @click="showPaymentModal = false" class="flex-1">
                         Iptal
                     </x-ui.button>
-                    <x-ui.button type="button" @click="submitPayment()" :disabled="loading" class="flex-1">
+                    <x-ui.button type="button" @click="submitPayment()" x-bind:disabled="loading" class="flex-1">
                         <span x-show="!loading">Odemeyi Kaydet</span>
                         <span x-show="loading">Kaydediliyor...</span>
                     </x-ui.button>

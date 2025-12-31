@@ -237,7 +237,7 @@
                     <x-ui.button type="button" variant="secondary" @click="showCollectionModal = false" class="flex-1">
                         Iptal
                     </x-ui.button>
-                    <x-ui.button type="button" @click="submitCollection()" :disabled="loading" class="flex-1">
+                    <x-ui.button type="button" @click="submitCollection()" x-bind:disabled="loading" class="flex-1">
                         <span x-show="!loading">Tahsilati Kaydet</span>
                         <span x-show="loading">Kaydediliyor...</span>
                     </x-ui.button>

@@ -216,22 +216,22 @@
         @if(!in_array($order->status, ['delivered', 'cancelled']))
         <div class="space-y-3 pb-4">
             @if($order->status === 'assigned')
-                <button @click="updateStatus('picked_up')" 
-                        :disabled="loading"
+                <button @click="updateStatus('picked_up')"
+                        x-bind:disabled="loading"
                         class="w-full py-4 bg-purple-600 text-white rounded-xl font-semibold text-lg disabled:opacity-50 touch-active">
                     <span x-show="!loading">📦 Siparişi Aldım</span>
                     <span x-show="loading">İşleniyor...</span>
                 </button>
             @elseif($order->status === 'picked_up')
-                <button @click="updateStatus('on_way')" 
-                        :disabled="loading"
+                <button @click="updateStatus('on_way')"
+                        x-bind:disabled="loading"
                         class="w-full py-4 bg-cyan-600 text-white rounded-xl font-semibold text-lg disabled:opacity-50 touch-active">
                     <span x-show="!loading">🚗 Yola Çıktım</span>
                     <span x-show="loading">İşleniyor...</span>
                 </button>
             @elseif($order->status === 'on_way')
-                <button @click="updateStatus('delivered')" 
-                        :disabled="loading"
+                <button @click="updateStatus('delivered')"
+                        x-bind:disabled="loading"
                         class="w-full py-4 bg-green-600 text-white rounded-xl font-semibold text-lg disabled:opacity-50 touch-active">
                     <span x-show="!loading">✅ Teslim Ettim</span>
                     <span x-show="loading">İşleniyor...</span>
