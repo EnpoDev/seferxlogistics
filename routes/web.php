@@ -275,6 +275,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/ayarlar/kurye', [BayiController::class, 'ayarlarKurye'])->name('ayarlar.kurye');
         Route::get('/ayarlar/uygulama', [BayiController::class, 'ayarlarUygulama'])->name('ayarlar.uygulama');
         Route::get('/ayarlar/havuz', [BayiController::class, 'ayarlarHavuz'])->name('ayarlar.havuz');
+        Route::post('/ayarlar/havuz', [BayiController::class, 'updateHavuz'])->name('ayarlar.havuz.update');
         Route::get('/ayarlar/bildirim', [BayiController::class, 'ayarlarBildirim'])->name('ayarlar.bildirim');
         Route::get('/tema', [BayiController::class, 'tema'])->name('tema');
         Route::post('/tema', [BayiController::class, 'updateTheme'])->name('tema.update');

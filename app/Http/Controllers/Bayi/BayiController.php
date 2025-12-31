@@ -852,7 +852,41 @@ class BayiController extends Controller
 
     public function ayarlarHavuz()
     {
-        return view('bayi.ayarlar.havuz');
+        $branch = \App\Models\Branch::whereNull('parent_id')->first();
+        $settings = $branch ? \App\Models\BranchSetting::getOrCreateForBranch($branch->id) : null;
+
+        return view('bayi.ayarlar.havuz', compact('settings'));
+    }
+
+    public function updateHavuz(Request $request)
+    {
+        $validated = $request->validate([
+            'pool_enabled' => 'nullable|boolean',
+            'pool_wait_time' => 'required|integer|min:1|max:60',
+            'pool_auto_assign' => 'nullable|boolean',
+            'pool_max_orders' => 'required|integer|min:1|max:100',
+            'pool_priority_by_distance' => 'nullable|boolean',
+            'pool_notify_couriers' => 'nullable|boolean',
+        ]);
+
+        $branch = \App\Models\Branch::whereNull('parent_id')->first();
+
+        if (!$branch) {
+            return back()->with('error', 'Şube bulunamadı.');
+        }
+
+        $settings = \App\Models\BranchSetting::getOrCreateForBranch($branch->id);
+
+        $settings->update([
+            'pool_enabled' => $request->boolean('pool_enabled'),
+            'pool_wait_time' => $validated['pool_wait_time'],
+            'pool_auto_assign' => $request->boolean('pool_auto_assign'),
+            'pool_max_orders' => $validated['pool_max_orders'],
+            'pool_priority_by_distance' => $request->boolean('pool_priority_by_distance'),
+            'pool_notify_couriers' => $request->boolean('pool_notify_couriers'),
+        ]);
+
+        return back()->with('success', 'Havuz ayarları başarıyla güncellendi.');
     }
 
     public function ayarlarBildirim()
