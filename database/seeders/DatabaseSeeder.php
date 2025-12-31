@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             ProductSeeder::class,
             CourierSeeder::class,
             OrderSeeder::class,
+            PlanSeeder::class,
         ]);
     }
 }

@@ -40,4 +40,19 @@ class Branch extends Model
     {
         return $this->hasMany(Branch::class, 'parent_id');
     }
+
+    public function settings()
+    {
+        return $this->hasOne(BranchSetting::class);
+    }
+
+    public function pricingPolicies()
+    {
+        return $this->hasMany(PricingPolicy::class);
+    }
+
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class);
+    }
 }

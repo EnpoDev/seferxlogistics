@@ -16,11 +16,15 @@ class BusinessInfo extends Model
         'tax_number',
         'logo',
         'default_shifts',
+        'default_break_duration',
+        'default_break_parts',
         'auto_assign_shifts',
     ];
 
     protected $casts = [
         'default_shifts' => 'array',
+        'default_break_duration' => 'integer',
+        'default_break_parts' => 'integer',
         'auto_assign_shifts' => 'boolean',
     ];
 }

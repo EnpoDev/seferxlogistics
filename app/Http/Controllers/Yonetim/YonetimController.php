@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Yonetim;
 
 use App\Http\Controllers\Controller;
+use App\Models\Plan;
 use App\Models\Product;
+use App\Models\Subscription;
 use Illuminate\Http\Request;
 
 class YonetimController extends Controller
@@ -15,7 +17,13 @@ class YonetimController extends Controller
 
     public function paketler()
     {
-        return view('pages.yonetim.paketler');
+        $plans = Plan::active()->orderBy('sort_order')->get();
+        $currentSubscription = auth()->user()->subscriptions()
+            ->with('plan')
+            ->valid()
+            ->first();
+
+        return view('pages.yonetim.paketler', compact('plans', 'currentSubscription'));
     }
 
     public function urunler()
@@ -26,55 +34,36 @@ class YonetimController extends Controller
 
     public function kartlar()
     {
-        // Mock data for now
-        $cards = collect([
-            [
-                'id' => 1,
-                'number' => '**** **** **** 4532',
-                'holder' => 'AHMET YILMAZ',
-                'expiry' => '12/25',
-                'is_default' => true,
-                'type' => 'mastercard'
-            ]
-        ]);
+        $cards = auth()->user()->paymentCards()->orderBy('is_default', 'desc')->get();
         return view('pages.yonetim.kartlar', compact('cards'));
     }
 
     public function abonelikler()
     {
-        // Mock data
-        $subscription = [
-            'plan_name' => 'Profesyonel Plan',
-            'status' => 'active',
-            'price' => 399,
-            'period' => 'Aylık',
-            'next_payment' => '15 Aralık 2025',
-            'start_date' => '15 Kasım 2025'
-        ];
+        $subscription = auth()->user()->subscriptions()
+            ->with(['plan', 'paymentCard'])
+            ->latest()
+            ->first();
+            
         return view('pages.yonetim.abonelikler', compact('subscription'));
     }
 
-    public function islemler()
+    public function islemler(Request $request)
     {
-        // Mock data
-        $transactions = collect([
-            [
-                'id' => 1,
-                'date' => '15 Kas 2025',
-                'description' => 'Profesyonel Plan - Aylık',
-                'amount' => 399.00,
-                'status' => 'Başarılı',
-                'invoice_url' => '#'
-            ],
-            [
-                'id' => 2,
-                'date' => '15 Eki 2025',
-                'description' => 'Profesyonel Plan - Aylık',
-                'amount' => 399.00,
-                'status' => 'Başarılı',
-                'invoice_url' => '#'
-            ]
-        ]);
+        $query = auth()->user()->transactions()
+            ->with(['subscription.plan', 'paymentCard'])
+            ->orderBy('created_at', 'desc');
+
+        // Filter by date range
+        if ($request->filled('start_date')) {
+            $query->whereDate('created_at', '>=', $request->input('start_date'));
+        }
+        if ($request->filled('end_date')) {
+            $query->whereDate('created_at', '<=', $request->input('end_date'));
+        }
+
+        $transactions = $query->paginate(20);
+
         return view('pages.yonetim.islemler', compact('transactions'));
     }
 }

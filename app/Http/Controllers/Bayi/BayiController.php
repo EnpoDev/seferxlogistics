@@ -135,6 +135,14 @@ class BayiController extends Controller
 
     public function isletmeDuzenle(\App\Models\Branch $branch)
     {
+        // Ensure branch has settings
+        if (!$branch->settings) {
+            $branch->settings()->create([]);
+        }
+
+        // Load relationships
+        $branch->load(['settings', 'pricingPolicies.rules']);
+
         return view('bayi.isletme-duzenle', compact('branch'));
     }
 
@@ -202,19 +210,25 @@ class BayiController extends Controller
     public function vardiyaGuncelle(Request $request, Courier $courier)
     {
         $validated = $request->validate([
-            'day' => 'required|integer|min:0|max:6', // 0=Mon, 6=Sun or 0=Sun, 6=Sat? Let's assume 0=Monday based on view loop
-            'hours' => 'nullable|string|max:50'
+            'day' => 'required|integer|min:0|max:6',
+            'hours' => 'nullable|string|max:50',
+            'break_duration' => 'nullable|integer|min:0',
+            'break_parts' => 'nullable|integer|min:0',
         ]);
 
         $shifts = $courier->shifts ?? [];
         $shifts[$validated['day']] = $validated['hours'];
-        
-        // Ensure array is saved properly even if sparse, but json_encode handles it.
-        // If we want to keep it clean, maybe keyed by day name?
-        // View loop uses $i=0..6. 
-        // Let's use keys '0', '1', etc.
-        
+
+        $breakDurations = $courier->break_durations ?? [];
+        if ($request->filled('break_duration') && $request->filled('break_parts')) {
+            $breakDurations[$validated['day']] = [
+                'duration' => $validated['break_duration'],
+                'parts' => $validated['break_parts'],
+            ];
+        }
+
         $courier->shifts = $shifts;
+        $courier->break_durations = $breakDurations;
         $courier->save();
 
         return response()->json(['success' => true]);
@@ -224,31 +238,32 @@ class BayiController extends Controller
     {
         $validated = $request->validate([
             'default_shifts' => 'nullable|array',
+            'default_break_duration' => 'nullable|integer|min:0',
+            'default_break_parts' => 'nullable|integer|min:0',
             'auto_assign_shifts' => 'boolean'
         ]);
 
         $businessInfo = \App\Models\BusinessInfo::first();
         if (!$businessInfo) {
-            // Should not happen usually, but handle it or create one?
-            // Assuming one exists as per current logic
             $businessInfo = \App\Models\BusinessInfo::create([
-                'name' => 'Default Business', 
-                'phone' => '', 
-                'email' => '', 
+                'name' => 'Default Business',
+                'phone' => '',
+                'email' => '',
                 'address' => ''
             ]);
         }
 
         $businessInfo->update([
             'default_shifts' => $request->default_shifts,
-            'auto_assign_shifts' => $request->has('auto_assign_shifts') // checkbox sends 'on' or nothing, usually handled by boolean validation if present, but let's be safe
+            'default_break_duration' => $request->default_break_duration ?? 60,
+            'default_break_parts' => $request->default_break_parts ?? 2,
+            'auto_assign_shifts' => $request->has('auto_assign_shifts')
         ]);
-        
-        // If request is JSON (ajax) return json, else redirect
+
         if ($request->wantsJson()) {
             return response()->json(['success' => true]);
         }
-        
+
         return back()->with('success', 'Varsayılan vardiya ayarları güncellendi.');
     }
 
@@ -256,19 +271,15 @@ class BayiController extends Controller
     {
         $validated = $request->validate([
             'shifts' => 'required|array',
-            'courier_ids' => 'nullable|array', // If null/empty, maybe update all? Or none? Let's say all visible/filtered? For safety, require ids or a flag 'all'
+            'break_durations' => 'nullable|array',
+            'courier_ids' => 'nullable|array',
             'apply_to_all' => 'boolean'
         ]);
 
         $query = Courier::query();
 
         if ($request->apply_to_all) {
-            // Apply to all filtered couriers? Or absolutely all?
-            // "Tüm kuryeleri çek ve ... güncelleyebilmemizi sağla"
-            // Usually bulk action applies to selected checkboxes or all.
-            // Let's assume the user selects via checkboxes or chooses "Update All".
-            // If we implement search, "apply to all" might mean "all matching search".
-            // For simplicity, let's implement "apply to selected ids".
+            // Apply to all couriers
         } else {
              if (empty($request->courier_ids)) {
                  return back()->with('error', 'Lütfen en az bir kurye seçin.');
@@ -276,42 +287,31 @@ class BayiController extends Controller
              $query->whereIn('id', $request->courier_ids);
         }
 
-        // We only want to update specific days if provided? Or replace the whole schedule?
-        // The prompt says "Toplu güncelle". Usually replaces the schedule.
-        // But what if I only want to update Monday?
-        // Let's assume the modal provides a full week schedule input, similar to default settings.
-        // And we overwrite the shifts.
-        
-        // Wait, merging might be better if the user only fills one day in the bulk modal?
-        // Let's assume overwrite for now as it's simpler and safer than partial merges which might be confusing.
-        // Actually, merging is better UX: "Update Monday for everyone".
-        // Let's see how we implement the modal. If the modal has all 7 days inputs, blank means "no change" or "clear"?
-        // Better: The modal has inputs for 7 days. If an input is empty, do we clear it or keep existing?
-        // Let's add a "clear" option or assume non-empty inputs overwrite.
-        
-        // Implementation:
-        // Load couriers.
-        // For each courier, update shifts.
-        // If we want to support "only update Monday", we need to merge.
-        
-        $shiftsToUpdate = $request->shifts; // ['0' => '09:00-18:00', '1' => null, ...]
-        
-        // Filter out nulls/empty strings if we want to "keep existing".
-        // If the user wants to clear a day, maybe they send specific value?
-        // For simplicity: The modal will show "Leave empty to keep current".
-        // If they want to clear, maybe they type "OFF"?
-        
-        // Let's just update provided non-null values.
-        
+        $shiftsToUpdate = $request->shifts;
+        $breaksToUpdate = $request->break_durations ?? [];
+
         $couriers = $query->get();
         foreach ($couriers as $courier) {
             $currentShifts = $courier->shifts ?? [];
+            $currentBreaks = $courier->break_durations ?? [];
+
             foreach ($shiftsToUpdate as $day => $time) {
                 if (!is_null($time) && $time !== '') {
                     $currentShifts[$day] = $time;
                 }
             }
+
+            foreach ($breaksToUpdate as $day => $breakData) {
+                if (isset($breakData['duration']) && isset($breakData['parts'])) {
+                    $currentBreaks[$day] = [
+                        'duration' => $breakData['duration'],
+                        'parts' => $breakData['parts'],
+                    ];
+                }
+            }
+
             $courier->shifts = $currentShifts;
+            $courier->break_durations = $currentBreaks;
             $courier->save();
         }
 
@@ -320,6 +320,82 @@ class BayiController extends Controller
         }
 
         return back()->with('success', 'Seçilen kuryelerin vardiya saatleri güncellendi.');
+    }
+
+    public function vardiyaSil(Request $request, Courier $courier)
+    {
+        $validated = $request->validate([
+            'day' => 'required|integer|min:0|max:6',
+        ]);
+
+        $shifts = $courier->shifts ?? [];
+        $breakDurations = $courier->break_durations ?? [];
+
+        unset($shifts[$validated['day']]);
+        unset($breakDurations[$validated['day']]);
+
+        $courier->shifts = $shifts;
+        $courier->break_durations = $breakDurations;
+        $courier->save();
+
+        return response()->json(['success' => true]);
+    }
+
+    public function vardiyaKopyala(Request $request, Courier $courier)
+    {
+        $validated = $request->validate([
+            'source_day' => 'required|integer|min:0|max:6',
+            'target_days' => 'required|array',
+            'target_days.*' => 'integer|min:0|max:6',
+        ]);
+
+        $shifts = $courier->shifts ?? [];
+        $breakDurations = $courier->break_durations ?? [];
+
+        $sourceShift = $shifts[$validated['source_day']] ?? null;
+        $sourceBreak = $breakDurations[$validated['source_day']] ?? null;
+
+        foreach ($validated['target_days'] as $targetDay) {
+            if ($sourceShift) {
+                $shifts[$targetDay] = $sourceShift;
+            }
+            if ($sourceBreak) {
+                $breakDurations[$targetDay] = $sourceBreak;
+            }
+        }
+
+        $courier->shifts = $shifts;
+        $courier->break_durations = $breakDurations;
+        $courier->save();
+
+        return response()->json(['success' => true]);
+    }
+
+    public function vardiyaSablonUygula(Request $request, Courier $courier)
+    {
+        $businessInfo = \App\Models\BusinessInfo::first();
+
+        if (!$businessInfo || !$businessInfo->default_shifts) {
+            return response()->json(['success' => false, 'message' => 'Varsayılan şablon bulunamadı.'], 404);
+        }
+
+        $courier->shifts = $businessInfo->default_shifts;
+
+        // Apply default breaks to all days
+        $breakDurations = [];
+        for ($i = 0; $i < 7; $i++) {
+            if (isset($businessInfo->default_shifts[$i])) {
+                $breakDurations[$i] = [
+                    'duration' => $businessInfo->default_break_duration ?? 60,
+                    'parts' => $businessInfo->default_break_parts ?? 2,
+                ];
+            }
+        }
+
+        $courier->break_durations = $breakDurations;
+        $courier->save();
+
+        return response()->json(['success' => true]);
     }
 
     public function kullaniciYonetimi()
@@ -365,32 +441,52 @@ class BayiController extends Controller
         return view('bayi.istatistik', compact('stats'));
     }
 
-    public function gelismisIstatistik()
+    public function gelismisIstatistik(Request $request)
     {
-        // Last 7 days stats
-        $dates = collect();
-        for ($i = 6; $i >= 0; $i--) {
-            $dates->push(now()->subDays($i)->format('Y-m-d'));
-        }
+        // Date range filtering
+        $period = $request->get('period', '7days');
 
-        $dailyOrders = [];
-        $dailyRevenue = [];
+        [$startDate, $endDate] = $this->getDateRange($period);
 
-        foreach ($dates as $date) {
-            $orders = Order::whereDate('created_at', $date)->get();
-            $dailyOrders[] = $orders->count();
-            $dailyRevenue[] = $orders->where('status', 'delivered')->sum('total');
-        }
+        // Initialize statistics service
+        $statsService = new \App\Services\AdvancedStatisticsService($startDate, $endDate);
 
-        $stats = [
-            'dates' => $dates->map(fn($d) => \Carbon\Carbon::parse($d)->format('d M'))->toArray(),
-            'orders' => $dailyOrders,
-            'revenue' => $dailyRevenue,
-            'top_couriers' => Courier::withCount('orders')->orderBy('orders_count', 'desc')->take(5)->get(),
-            'top_branches' => \App\Models\Branch::withCount('orders')->orderBy('orders_count', 'desc')->take(5)->get(),
-        ];
+        // Get all statistics
+        $stats = $statsService->getAllStatistics();
+        $topPerformers = $statsService->getTopPerformers();
+
+        // Merge top performers
+        $stats['top_couriers'] = $topPerformers['top_couriers'];
+        $stats['top_branches'] = $topPerformers['top_branches'];
+
+        // Add period info
+        $stats['period'] = $period;
+        $stats['start_date'] = $startDate->format('d.m.Y');
+        $stats['end_date'] = $endDate->format('d.m.Y');
 
         return view('bayi.gelismis-istatistik', compact('stats'));
+    }
+
+    /**
+     * Helper method to get date range based on period
+     */
+    private function getDateRange(string $period): array
+    {
+        $endDate = now();
+
+        $startDate = match($period) {
+            '7days' => now()->subDays(7),
+            '30days' => now()->subDays(30),
+            'this_month' => now()->startOfMonth(),
+            'last_month' => now()->subMonth()->startOfMonth(),
+            default => now()->subDays(7),
+        };
+
+        if ($period === 'last_month') {
+            $endDate = now()->subMonth()->endOfMonth();
+        }
+
+        return [$startDate, $endDate];
     }
 
     public function bolgelendirme()
@@ -631,8 +727,37 @@ class BayiController extends Controller
             $q->where('status', 'delivered')
               ->whereMonth('delivered_at', now()->month);
         }])->get();
-        
+
         return view('bayi.odemeler.kurye', compact('couriers'));
+    }
+
+    public function kuryeOdemeStore(Request $request)
+    {
+        $validated = $request->validate([
+            'courier_id' => 'required|exists:couriers,id',
+            'amount' => 'required|numeric|min:0.01',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $courier = Courier::findOrFail($validated['courier_id']);
+
+        // Create cash transaction (avans verilen)
+        $transaction = \App\Models\CashTransaction::create([
+            'courier_id' => $courier->id,
+            'type' => \App\Models\CashTransaction::TYPE_ADVANCE_GIVEN,
+            'amount' => $validated['amount'],
+            'status' => \App\Models\CashTransaction::STATUS_COMPLETED,
+            'notes' => $validated['notes'] ?? "Aylik hakedis odemesi",
+            'created_by' => auth()->id(),
+        ]);
+
+        // Apply to balance
+        $transaction->applyToBalance();
+
+        return response()->json([
+            'success' => true,
+            'message' => $courier->name . ' icin ' . number_format($validated['amount'], 2) . ' TL odeme kaydedildi.',
+        ]);
     }
 
     public function isletmeOdemeleri()
@@ -643,6 +768,50 @@ class BayiController extends Controller
         }])->get();
 
         return view('bayi.odemeler.isletme', compact('branches'));
+    }
+
+    public function isletmeOdemeStore(Request $request, \App\Models\Branch $branch)
+    {
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0.01',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        // Create transaction record
+        \App\Models\Transaction::create([
+            'user_id' => auth()->id(),
+            'branch_id' => $branch->id,
+            'type' => \App\Models\Transaction::TYPE_COMMISSION,
+            'amount' => $validated['amount'],
+            'currency' => 'TRY',
+            'status' => \App\Models\Transaction::STATUS_COMPLETED,
+            'description' => $validated['notes'] ?? "Aylik komisyon tahsilati",
+            'paid_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $branch->name . ' icin ' . number_format($validated['amount'], 2) . ' TL tahsilat kaydedildi.',
+        ]);
+    }
+
+    public function isletmeOdemeRapor(Request $request)
+    {
+        $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->get('end_date', now()->format('Y-m-d'));
+
+        $branches = \App\Models\Branch::with(['orders' => function($q) use ($startDate, $endDate) {
+            $q->where('status', 'delivered')
+              ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+        }])->get();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.isletme-odemeler-rapor', [
+            'branches' => $branches,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+        ]);
+
+        return $pdf->download('isletme-odemeler-rapor-' . now()->format('Y-m-d') . '.pdf');
     }
 
     public function gecmisSiparisler()
@@ -693,12 +862,855 @@ class BayiController extends Controller
 
     public function tema()
     {
-        return view('bayi.tema');
+        $themeSettings = \App\Models\ThemeSetting::getOrCreateForUser(auth()->id());
+        return view('bayi.tema', compact('themeSettings'));
+    }
+
+    public function updateTheme(Request $request)
+    {
+        $validated = $request->validate([
+            'theme_mode' => 'required|in:light,dark,system',
+            'accent_color' => 'nullable|string|max:20',
+            'compact_mode' => 'nullable|boolean',
+            'animations_enabled' => 'nullable|boolean',
+            'sidebar_auto_hide' => 'nullable|boolean',
+            'sidebar_width' => 'nullable|in:narrow,normal,wide',
+        ]);
+
+        $themeSettings = \App\Models\ThemeSetting::getOrCreateForUser(auth()->id());
+        $themeSettings->update([
+            'theme_mode' => $validated['theme_mode'],
+            'accent_color' => $validated['accent_color'] ?? '#000000',
+            'compact_mode' => $request->boolean('compact_mode'),
+            'animations_enabled' => $request->boolean('animations_enabled'),
+            'sidebar_auto_hide' => $request->boolean('sidebar_auto_hide'),
+            'sidebar_width' => $validated['sidebar_width'] ?? 'normal',
+        ]);
+
+        return redirect()->route('bayi.tema')->with('success', 'Tema ayarları başarıyla güncellendi.');
     }
 
     public function yardim()
     {
         return view('bayi.yardim');
+    }
+
+    // Kurye Şifre Yönetimi
+    public function kuryeSifreAyarla(Request $request, Courier $courier)
+    {
+        $request->validate([
+            'password' => ['required', 'string', 'min:6', 'confirmed'],
+        ]);
+
+        $courier->update([
+            'password' => $request->password, // Will be hashed via model cast
+            'is_app_enabled' => true,
+        ]);
+
+        return back()->with('success', "{$courier->name} için şifre başarıyla ayarlandı.");
+    }
+
+    public function kuryeAppToggle(Request $request, Courier $courier)
+    {
+        $courier->update([
+            'is_app_enabled' => !$courier->is_app_enabled,
+        ]);
+
+        $status = $courier->is_app_enabled ? 'aktif edildi' : 'devre dışı bırakıldı';
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$courier->name} için uygulama erişimi {$status}.",
+            'is_app_enabled' => $courier->is_app_enabled,
+        ]);
+    }
+
+    // Branch Settings Methods
+    public function updateBranchSettings(Request $request, \App\Models\Branch $branch)
+    {
+        $validated = $request->validate([
+            'nickname' => 'nullable|string|max:255',
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|max:20',
+            'courier_enabled' => 'nullable|boolean',
+            'balance_tracking' => 'nullable|boolean',
+            'cash_balance_tracking' => 'nullable|boolean',
+            'map_display' => 'nullable|boolean',
+        ]);
+
+        // Update branch basic info
+        $branch->update([
+            'name' => $validated['name'],
+            'phone' => $validated['phone'],
+        ]);
+
+        // Update or create settings
+        $branch->settings()->updateOrCreate(
+            ['branch_id' => $branch->id],
+            [
+                'nickname' => $validated['nickname'],
+                'courier_enabled' => $request->boolean('courier_enabled'),
+                'balance_tracking' => $request->boolean('balance_tracking'),
+                'cash_balance_tracking' => $request->boolean('cash_balance_tracking'),
+                'map_display' => $request->boolean('map_display'),
+            ]
+        );
+
+        return back()->with('success', 'Ayarlar başarıyla güncellendi.');
+    }
+
+    public function addBranchBalance(Request $request, \App\Models\Branch $branch)
+    {
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0.01',
+        ]);
+
+        if (!$branch->settings) {
+            return back()->with('error', 'İşletme ayarları bulunamadı.');
+        }
+
+        // Update balance
+        $newBalance = $branch->settings->current_balance + $validated['amount'];
+        $branch->settings->update([
+            'current_balance' => $newBalance,
+        ]);
+
+        // Create transaction record
+        \App\Models\Transaction::create([
+            'user_id' => auth()->id(),
+            'branch_id' => $branch->id,
+            'type' => \App\Models\Transaction::TYPE_BALANCE_ADDITION,
+            'amount' => $validated['amount'],
+            'currency' => 'TRY',
+            'status' => \App\Models\Transaction::STATUS_COMPLETED,
+            'description' => "İşletme bakiyesi eklendi",
+            'paid_at' => now(),
+        ]);
+
+        return back()->with('success', '₺' . number_format($validated['amount'], 2) . ' bakiye başarıyla eklendi.');
+    }
+
+    public function getBranchOrders(Request $request, \App\Models\Branch $branch)
+    {
+        $type = $request->get('type', 'past'); // past or cancelled
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
+
+        $query = $branch->orders()->with('courier');
+
+        if ($type === 'past') {
+            $query->whereIn('status', ['delivered']);
+        } else {
+            $query->where('status', 'cancelled');
+        }
+
+        if ($startDate) {
+            $query->whereDate('created_at', '>=', $startDate);
+        }
+
+        if ($endDate) {
+            $query->whereDate('created_at', '<=', $endDate);
+        }
+
+        $orders = $query->orderBy('created_at', 'desc')->get()->map(function ($order) {
+            return [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'customer_name' => $order->customer_name,
+                'customer_phone' => $order->customer_phone,
+                'total' => number_format($order->total, 2),
+                'payment_method' => $order->payment_method,
+                'status' => $order->status,
+                'status_label' => $order->getStatusLabel(),
+                'courier_name' => $order->courier?->name ?? '-',
+                'created_at' => $order->created_at->format('d.m.Y H:i'),
+                'delivered_at' => $order->delivered_at?->format('d.m.Y H:i'),
+                'cancelled_at' => $order->cancelled_at?->format('d.m.Y H:i'),
+            ];
+        });
+
+        return response()->json($orders);
+    }
+
+    public function getBranchStatistics(Request $request, \App\Models\Branch $branch)
+    {
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
+
+        if (!$startDate || !$endDate) {
+            $startDate = now()->startOfDay();
+            $endDate = now()->endOfDay();
+        } else {
+            $startDate = \Carbon\Carbon::parse($startDate)->startOfDay();
+            $endDate = \Carbon\Carbon::parse($endDate)->endOfDay();
+        }
+
+        $orders = $branch->orders()
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->get();
+
+        $deliveredOrders = $orders->where('status', 'delivered');
+        $cancelledOrders = $orders->where('status', 'cancelled');
+
+        // Payment method breakdown
+        $paymentMethods = $deliveredOrders->groupBy('payment_method')->map(function ($group, $method) {
+            return [
+                'method' => $method,
+                'method_label' => match($method) {
+                    'cash' => 'Nakit',
+                    'card' => 'Kart',
+                    'online' => 'Online',
+                    default => $method,
+                },
+                'count' => $group->count(),
+                'total' => $group->sum('total'),
+            ];
+        })->values();
+
+        return response()->json([
+            'total_orders' => $orders->count(),
+            'cancelled_orders' => $cancelledOrders->count(),
+            'total_amount' => $deliveredOrders->sum('total'),
+            'payment_methods' => $paymentMethods,
+            'start_date' => $startDate->format('d.m.Y H:i'),
+            'end_date' => $endDate->format('d.m.Y H:i'),
+        ]);
+    }
+
+    public function getBranchDetailedStatistics(Request $request, \App\Models\Branch $branch)
+    {
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
+
+        if (!$startDate || !$endDate) {
+            $startDate = now()->startOfDay();
+            $endDate = now()->endOfDay();
+        } else {
+            $startDate = \Carbon\Carbon::parse($startDate)->startOfDay();
+            $endDate = \Carbon\Carbon::parse($endDate)->endOfDay();
+        }
+
+        $orders = $branch->orders()
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->get();
+
+        $deliveredOrders = $orders->where('status', 'delivered');
+        $cancelledOrders = $orders->where('status', 'cancelled');
+
+        // Paid cancellations (assuming cancelled orders with status = cancelled and is_paid = true are paid cancellations)
+        $paidCancellations = $cancelledOrders->where('is_paid', true);
+
+        // Payment method breakdown
+        $paymentMethods = $deliveredOrders->groupBy('payment_method')->map(function ($group, $method) {
+            return [
+                'method' => $method,
+                'method_label' => match($method) {
+                    'cash' => 'Nakit',
+                    'card' => 'Kart',
+                    'online' => 'Online',
+                    default => $method,
+                },
+                'count' => $group->count(),
+                'total' => $group->sum('total'),
+            ];
+        })->values();
+
+        return response()->json([
+            'overall' => [
+                'total_orders' => $orders->count(),
+                'cancelled_orders' => $cancelledOrders->count(),
+                'paid_cancellations' => $paidCancellations->count(),
+                'total_amount' => $deliveredOrders->sum('total'),
+                'payment_methods' => $paymentMethods,
+            ],
+            'dealer' => [
+                'total_orders' => $orders->count(),
+                'cancelled_orders' => $cancelledOrders->count(),
+                'paid_cancellations' => $paidCancellations->count(),
+                'total_amount' => $deliveredOrders->sum('total'),
+                'payment_methods' => $paymentMethods,
+            ],
+            'business' => [
+                'total_orders' => $orders->count(),
+                'cancelled_orders' => $cancelledOrders->count(),
+                'paid_cancellations' => $paidCancellations->count(),
+                'total_amount' => $deliveredOrders->sum('total'),
+                'payment_methods' => $paymentMethods,
+            ],
+        ]);
+    }
+
+    // Pricing Policy Methods
+    public function storePricingPolicy(Request $request, \App\Models\Branch $branch)
+    {
+        $validated = $request->validate([
+            'type' => 'required|in:business,courier',
+            'policy_type' => 'required|in:fixed,package_based,distance_based,periodic,unit_price,consecutive_discount',
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $policy = $branch->pricingPolicies()->create([
+            'type' => $validated['type'],
+            'policy_type' => $validated['policy_type'],
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? '',
+            'is_active' => $request->boolean('is_active'),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Fiyatlandırma politikası başarıyla oluşturuldu.',
+            'policy' => $policy,
+        ]);
+    }
+
+    public function updatePricingPolicy(Request $request, \App\Models\Branch $branch, \App\Models\PricingPolicy $policy)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $policy->update([
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? '',
+            'is_active' => $request->boolean('is_active'),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Fiyatlandırma politikası güncellendi.',
+            'policy' => $policy->fresh(),
+        ]);
+    }
+
+    public function deletePricingPolicy(\App\Models\Branch $branch, \App\Models\PricingPolicy $policy)
+    {
+        $policy->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Fiyatlandırma politikası silindi.',
+        ]);
+    }
+
+    public function storePricingPolicyRule(Request $request, \App\Models\PricingPolicy $policy)
+    {
+        $validated = $request->validate([
+            'min_value' => 'nullable|numeric|min:0',
+            'max_value' => 'nullable|numeric|min:0',
+            'price' => 'nullable|numeric|min:0',
+            'percentage' => 'nullable|numeric|min:0|max:100',
+            'order' => 'nullable|integer|min:0',
+        ]);
+
+        $rule = $policy->rules()->create($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Kural başarıyla eklendi.',
+            'rule' => $rule,
+        ]);
+    }
+
+    public function updatePricingPolicyRule(Request $request, \App\Models\PricingPolicyRule $rule)
+    {
+        $validated = $request->validate([
+            'min_value' => 'nullable|numeric|min:0',
+            'max_value' => 'nullable|numeric|min:0',
+            'price' => 'nullable|numeric|min:0',
+            'percentage' => 'nullable|numeric|min:0|max:100',
+            'order' => 'nullable|integer|min:0',
+        ]);
+
+        $rule->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Kural güncellendi.',
+            'rule' => $rule->fresh(),
+        ]);
+    }
+
+    public function deletePricingPolicyRule(\App\Models\PricingPolicyRule $rule)
+    {
+        $rule->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Kural silindi.',
+        ]);
+    }
+
+    // ============================================
+    // NAKİT ÖDEMELER
+    // ============================================
+
+    public function nakitOdemeler(Request $request)
+    {
+        // Tüm kuryeler (form için)
+        $allCouriers = Courier::orderBy('name')->get();
+
+        // Son bakiyeler için sadece işlem yapılmış kuryeler
+        $couriersWithTransactions = Courier::whereHas('cashTransactions')
+            ->with(['cashTransactions' => function($q) {
+                $q->latest()->take(5);
+            }])
+            ->withCount(['cashTransactions as total_cash_received' => function($q) {
+                $q->where('type', \App\Models\CashTransaction::TYPE_PAYMENT_RECEIVED)
+                  ->where('status', \App\Models\CashTransaction::STATUS_COMPLETED);
+            }])
+            ->orderBy('name')
+            ->get();
+
+        // Toplam nakit (tüm kuryelerin bakiyelerinin toplamı)
+        $totalCash = Courier::sum('cash_balance');
+
+        // Son işlemler
+        $recentTransactions = \App\Models\CashTransaction::with(['courier', 'branch', 'creator'])
+            ->latest()
+            ->take(20)
+            ->get();
+
+        return view('bayi.nakit-odemeler', compact('allCouriers', 'couriersWithTransactions', 'totalCash', 'recentTransactions'));
+    }
+
+    public function nakitOdemeStore(Request $request)
+    {
+        $validated = $request->validate([
+            'courier_id' => 'required|exists:couriers,id',
+            'amount' => 'required|numeric|min:0.01',
+            'type' => 'required|in:payment_received,advance_given',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $validated['created_by'] = auth()->id();
+        $validated['status'] = \App\Models\CashTransaction::STATUS_COMPLETED;
+
+        // Create transaction
+        $transaction = \App\Models\CashTransaction::create($validated);
+
+        // Apply to courier balance
+        $transaction->applyToBalance();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'İşlem başarıyla kaydedildi.',
+            'transaction' => $transaction->load(['courier', 'branch', 'creator']),
+        ]);
+    }
+
+    public function nakitOdemeCancel(\App\Models\CashTransaction $transaction)
+    {
+        if ($transaction->status === \App\Models\CashTransaction::STATUS_CANCELLED) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu işlem zaten iptal edilmiş.',
+            ], 400);
+        }
+
+        // Reverse from balance
+        if ($transaction->status === \App\Models\CashTransaction::STATUS_COMPLETED) {
+            $transaction->reverseFromBalance();
+        }
+
+        // Mark as cancelled
+        $transaction->update(['status' => \App\Models\CashTransaction::STATUS_CANCELLED]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'İşlem iptal edildi.',
+        ]);
+    }
+
+    public function nakitOdemeHistory(Courier $courier)
+    {
+        $transactions = $courier->cashTransactions()
+            ->with(['branch', 'creator'])
+            ->latest()
+            ->paginate(20);
+
+        return response()->json([
+            'transactions' => $transactions,
+            'courier' => $courier,
+        ]);
+    }
+
+    // ============================================
+    // KURYE DETAY ROUTES
+    // ============================================
+
+    public function kuryeDetay(Courier $courier)
+    {
+        // Eager load relationships
+        $courier->load([
+            'pricingPolicy.rules',
+            'zones',
+            'orders' => function($q) {
+                $q->whereIn('status', ['delivered', 'cancelled'])
+                  ->latest()
+                  ->take(10);
+            }
+        ]);
+
+        // Hızlı istatistikler hesapla
+        $totalOrders = $courier->orders()->whereIn('status', ['delivered', 'cancelled'])->count();
+        $deliveredOrders = $courier->orders()->where('status', 'delivered')->count();
+        $cancelledOrders = $courier->orders()->where('status', 'cancelled')->count();
+        $successRate = $totalOrders > 0 ? round(($deliveredOrders / $totalOrders) * 100, 1) : 0;
+
+        // Atanabilir politikaları getir
+        $availablePolicies = \App\Models\PricingPolicy::where('type', 'courier')
+            ->where('is_active', true)
+            ->with('rules')
+            ->get();
+
+        return view('bayi.kurye-detay', compact(
+            'courier',
+            'totalOrders',
+            'deliveredOrders',
+            'cancelledOrders',
+            'successRate',
+            'availablePolicies'
+        ));
+    }
+
+    public function kuryePastOrders(Request $request, Courier $courier)
+    {
+        $startDate = $request->input('start_date', now()->subDays(30)->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->format('Y-m-d'));
+
+        $orders = $courier->orders()
+            ->with('branch')
+            ->whereIn('status', ['delivered', 'cancelled'])
+            ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function($order) {
+                return [
+                    'id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'customer_name' => $order->customer_name,
+                    'customer_phone' => $order->customer_phone,
+                    'total' => number_format($order->total, 2),
+                    'payment_method' => $order->payment_method === 'cash' ? 'Nakit' : 'Kart',
+                    'status' => $order->status,
+                    'status_label' => $order->status === 'delivered' ? 'Teslim Edildi' : 'İptal Edildi',
+                    'branch_name' => $order->branch->name ?? '-',
+                    'created_at' => $order->created_at->format('d.m.Y H:i'),
+                    'delivered_at' => $order->delivered_at ? $order->delivered_at->format('d.m.Y H:i') : '-',
+                ];
+            });
+
+        return response()->json($orders);
+    }
+
+    public function kuryeStatistics(Request $request, Courier $courier)
+    {
+        $period = $request->input('period', 'week'); // day, week, month
+
+        $startDate = match($period) {
+            'day' => now()->startOfDay(),
+            'week' => now()->startOfWeek(),
+            'month' => now()->startOfMonth(),
+            default => now()->startOfWeek(),
+        };
+
+        $orders = $courier->orders()
+            ->where('created_at', '>=', $startDate)
+            ->whereIn('status', ['delivered', 'cancelled'])
+            ->get();
+
+        $totalOrders = $orders->count();
+        $delivered = $orders->where('status', 'delivered')->count();
+        $cancelled = $orders->where('status', 'cancelled')->count();
+        $successRate = $totalOrders > 0 ? round(($delivered / $totalOrders) * 100, 1) : 0;
+        $totalEarnings = $orders->where('status', 'delivered')->sum('total');
+
+        // Saatlik dağılım
+        $hourlyDistribution = array_fill(0, 24, 0);
+        foreach ($orders as $order) {
+            $hour = $order->created_at->hour;
+            $hourlyDistribution[$hour]++;
+        }
+
+        // Günlük istatistikler
+        $dailyStats = $orders->groupBy(function($order) {
+            return $order->created_at->format('d.m');
+        })->map(function($dayOrders, $date) {
+            return [
+                'date' => $date,
+                'day' => \Carbon\Carbon::createFromFormat('d.m', $date)->locale('tr')->dayName,
+                'orders' => $dayOrders->count(),
+                'delivered' => $dayOrders->where('status', 'delivered')->count(),
+                'revenue' => number_format($dayOrders->where('status', 'delivered')->sum('total'), 2),
+            ];
+        })->values();
+
+        // Bölge istatistikleri
+        $zoneStats = $courier->zones->map(function($zone) use ($courier, $startDate) {
+            $zoneOrders = $courier->orders()
+                ->where('created_at', '>=', $startDate)
+                ->whereHas('branch', function($q) use ($zone) {
+                    $q->whereHas('zones', function($q2) use ($zone) {
+                        $q2->where('zones.id', $zone->id);
+                    });
+                })
+                ->count();
+
+            return [
+                'zone_name' => $zone->name,
+                'orders' => $zoneOrders,
+            ];
+        });
+
+        return response()->json([
+            'summary' => [
+                'total_orders' => $totalOrders,
+                'delivered' => $delivered,
+                'cancelled' => $cancelled,
+                'success_rate' => $successRate,
+                'total_earnings' => number_format($totalEarnings, 2),
+            ],
+            'hourly_distribution' => $hourlyDistribution,
+            'daily_stats' => $dailyStats,
+            'zone_stats' => $zoneStats,
+        ]);
+    }
+
+    public function kuryeMesaiLogs(Request $request, Courier $courier)
+    {
+        $startDate = $request->input('start_date', now()->subDays(30)->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->format('Y-m-d'));
+
+        $timeLogs = $courier->timeLogs()
+            ->forDateRange($startDate . ' 00:00:00', $endDate . ' 23:59:59')
+            ->orderBy('event_time', 'asc')
+            ->get();
+
+        // Günlere göre grupla
+        $logsByDate = $timeLogs->groupBy(function($log) {
+            return $log->event_time->format('Y-m-d');
+        });
+
+        $dailyStats = [];
+        $totalWorkHours = 0;
+        $totalBreakHours = 0;
+        $daysWorked = 0;
+
+        foreach ($logsByDate as $date => $logs) {
+            $clockIn = $logs->firstWhere('event_type', \App\Models\CourierTimeLog::CLOCK_IN);
+            $clockOut = $logs->firstWhere('event_type', \App\Models\CourierTimeLog::CLOCK_OUT);
+
+            $breakStart = $logs->where('event_type', \App\Models\CourierTimeLog::BREAK_START);
+            $breakEnd = $logs->where('event_type', \App\Models\CourierTimeLog::BREAK_END);
+
+            $workHours = 0;
+            $breakHours = 0;
+
+            if ($clockIn && $clockOut) {
+                $workHours = $clockOut->event_time->diffInMinutes($clockIn->event_time) / 60;
+                $daysWorked++;
+            }
+
+            // Mola sürelerini hesapla
+            foreach ($breakStart as $index => $start) {
+                $end = $breakEnd->get($index);
+                if ($end) {
+                    $breakHours += $end->event_time->diffInMinutes($start->event_time) / 60;
+                }
+            }
+
+            $netWorkHours = $workHours - $breakHours;
+            $totalWorkHours += $workHours;
+            $totalBreakHours += $breakHours;
+
+            $dailyStats[] = [
+                'date' => \Carbon\Carbon::parse($date)->format('d.m.Y'),
+                'day' => \Carbon\Carbon::parse($date)->locale('tr')->dayName,
+                'clock_in' => $clockIn ? $clockIn->event_time->format('H:i') : '-',
+                'clock_out' => $clockOut ? $clockOut->event_time->format('H:i') : '-',
+                'total_work_hours' => number_format($workHours, 1),
+                'break_hours' => number_format($breakHours, 1),
+                'net_work_hours' => number_format($netWorkHours, 1),
+            ];
+        }
+
+        $avgDailyHours = $daysWorked > 0 ? $totalWorkHours / $daysWorked : 0;
+
+        return response()->json([
+            'daily_stats' => $dailyStats,
+            'summary' => [
+                'total_work_hours' => number_format($totalWorkHours, 1),
+                'total_break_hours' => number_format($totalBreakHours, 1),
+                'avg_daily_hours' => number_format($avgDailyHours, 1),
+                'days_worked' => $daysWorked,
+            ],
+            'time_logs' => $timeLogs->map(function($log) {
+                return [
+                    'event_type' => $log->getEventTypeLabel(),
+                    'event_time' => $log->event_time->format('d.m.Y H:i'),
+                    'color' => $log->getEventTypeColor(),
+                ];
+            }),
+        ]);
+    }
+
+    public function kuryePricingPolicyOlustur(Request $request)
+    {
+        $validated = $request->validate([
+            'policy_type' => 'required|in:fixed,package_based,distance_based,periodic,unit_price,consecutive_discount',
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'is_active' => 'nullable|boolean',
+            'fixed_price' => 'nullable|numeric|min:0',
+            'fixed_percentage' => 'nullable|numeric|min:0|max:100',
+            'price_per_km' => 'nullable|numeric|min:0',
+            'rules' => 'nullable|array',
+            'rules.*.min_value' => 'nullable|numeric|min:0',
+            'rules.*.max_value' => 'nullable|numeric|min:0',
+            'rules.*.price' => 'nullable|numeric|min:0',
+            'rules.*.percentage' => 'nullable|numeric|min:0|max:100',
+        ]);
+
+        // Ana branch'i kullan (kurye politikaları için)
+        $branch = \App\Models\Branch::whereNull('parent_id')->first();
+
+        if (!$branch) {
+            return response()->json([
+                'success' => false,
+                'message' => 'İşletme bulunamadı.',
+            ], 404);
+        }
+
+        $policy = $branch->pricingPolicies()->create([
+            'type' => 'courier',
+            'policy_type' => $validated['policy_type'],
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? '',
+            'is_active' => $request->boolean('is_active'),
+        ]);
+
+        // Politika tipine göre kuralları oluştur
+        $policyType = $validated['policy_type'];
+
+        if ($policyType === 'fixed') {
+            // Sabit fiyat/yüzde için tek kural
+            if ($request->fixed_price || $request->fixed_percentage) {
+                $policy->rules()->create([
+                    'min_value' => 0,
+                    'max_value' => 999999,
+                    'price' => $request->fixed_price ?? 0,
+                    'percentage' => $request->fixed_percentage ?? 0,
+                    'order' => 1,
+                ]);
+            }
+        } elseif ($policyType === 'unit_price') {
+            // Birim fiyat için tek kural
+            if ($request->price_per_km) {
+                $policy->rules()->create([
+                    'min_value' => 0,
+                    'max_value' => 999999,
+                    'price' => $request->price_per_km,
+                    'percentage' => 0,
+                    'order' => 1,
+                ]);
+            }
+        } else {
+            // Diğer tipler için çoklu kurallar
+            $rules = $request->input('rules', []);
+            foreach ($rules as $index => $rule) {
+                if (($rule['price'] ?? 0) > 0 || ($rule['percentage'] ?? 0) > 0) {
+                    $policy->rules()->create([
+                        'min_value' => $rule['min_value'] ?? 0,
+                        'max_value' => $rule['max_value'] ?? 999999,
+                        'price' => $rule['price'] ?? 0,
+                        'percentage' => $rule['percentage'] ?? 0,
+                        'order' => $index + 1,
+                    ]);
+                }
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Fiyatlandırma politikası başarıyla oluşturuldu.',
+            'policy' => $policy->load('rules'),
+        ]);
+    }
+
+    public function kuryePricingPolicyAta(Request $request, Courier $courier)
+    {
+        $request->validate([
+            'pricing_policy_id' => 'nullable|exists:pricing_policies,id',
+        ]);
+
+        $courier->update([
+            'pricing_policy_id' => $request->pricing_policy_id,
+        ]);
+
+        $message = $request->pricing_policy_id
+            ? "Fiyatlandırma politikası başarıyla atandı."
+            : "Fiyatlandırma politikası kaldırıldı.";
+
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+        ]);
+    }
+
+    public function pricingPolicySil(\App\Models\PricingPolicy $pricingPolicy)
+    {
+        // Önce bu politikayı kullanan kuryeler varsa, ilişkiyi kaldır
+        \App\Models\Courier::where('pricing_policy_id', $pricingPolicy->id)
+            ->update(['pricing_policy_id' => null]);
+
+        // Politikanın kurallarını sil
+        $pricingPolicy->rules()->delete();
+
+        // Politikayı sil
+        $pricingPolicy->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Fiyatlandırma politikası başarıyla silindi.',
+        ]);
+    }
+
+    public function kuryeAyarlarGuncelle(Request $request, Courier $courier)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'required|string|max:20',
+        ]);
+
+        $courier->update([
+            'name' => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+        ]);
+
+        return back()->with('success', 'Kurye ayarları başarıyla güncellendi.');
+    }
+
+    public function kuryeSil(Courier $courier)
+    {
+        // Aktif sipariş kontrolü
+        $activeOrdersCount = $courier->orders()->active()->count();
+
+        if ($activeOrdersCount > 0) {
+            return back()->with('error', 'Aktif siparişi olan kurye silinemez.');
+        }
+
+        $courierName = $courier->name;
+        $courier->delete();
+
+        return redirect()->route('bayi.kuryelerim')
+            ->with('success', "{$courierName} başarıyla silindi.");
     }
 }
 

@@ -11,6 +11,11 @@ class OrderSeeder extends Seeder
 {
     public function run(): void
     {
+        // Skip if orders already exist
+        if (Order::count() > 0) {
+            return;
+        }
+
         // Active order - preparing
         $order1 = Order::create([
             'order_number' => 'ORD-' . str_pad(1, 6, '0', STR_PAD_LEFT),
@@ -18,7 +23,7 @@ class OrderSeeder extends Seeder
             'courier_id' => null,
             'branch_id' => 1,
             'customer_name' => 'Ayşe Demir',
-            'customer_phone' => '+90 (555) 987-6543',
+            'customer_phone' => '5559876543',
             'customer_address' => 'Beşiktaş, İstanbul',
             'lat' => 41.0422,
             'lng' => 29.0087,
@@ -54,7 +59,7 @@ class OrderSeeder extends Seeder
             'courier_id' => 1,
             'branch_id' => 1,
             'customer_name' => 'Ahmet Yılmaz',
-            'customer_phone' => '+90 (555) 123-4567',
+            'customer_phone' => '5551234567',
             'customer_address' => 'Kadıköy, İstanbul',
             'lat' => 40.9903,
             'lng' => 29.0234,
@@ -92,7 +97,7 @@ class OrderSeeder extends Seeder
             'courier_id' => 2,
             'branch_id' => 1,
             'customer_name' => 'Zeynep Kaya',
-            'customer_phone' => '+90 (555) 999-8888',
+            'customer_phone' => '5559998888',
             'customer_address' => 'Şişli, İstanbul',
             'lat' => 41.0605,
             'lng' => 28.9887,

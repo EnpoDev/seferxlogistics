@@ -181,15 +181,15 @@
                 <div class="flex items-center gap-2">
                     <div class="w-4 h-4 bg-gray-400 rounded-full"></div>
                     <span class="text-sm text-gray-600 dark:text-gray-400">Çevrimdışı</span>
-                </div>
+                        </div>
                 <div class="flex items-center gap-2">
                     <div class="w-4 h-4 bg-yellow-500 rounded"></div>
                     <span class="text-sm text-gray-600 dark:text-gray-400">Bekleyen Sipariş</span>
-                </div>
+                        </div>
                 <div class="flex items-center gap-2">
                     <div class="w-4 h-4 bg-blue-500 rounded"></div>
                     <span class="text-sm text-gray-600 dark:text-gray-400">Hazırlanıyor</span>
-                </div>
+                    </div>
                 <div class="flex items-center gap-2">
                     <div class="w-4 h-4 bg-indigo-500 rounded"></div>
                     <span class="text-sm text-gray-600 dark:text-gray-400">Yolda</span>

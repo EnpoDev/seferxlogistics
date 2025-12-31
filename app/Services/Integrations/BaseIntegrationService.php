@@ -4,8 +4,11 @@ namespace App\Services\Integrations;
 
 use App\Models\Integration;
 use App\Models\Order;
+use App\Models\Customer;
+use App\Models\Restaurant;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 abstract class BaseIntegrationService implements IntegrationInterface
 {
@@ -61,12 +64,26 @@ abstract class BaseIntegrationService implements IntegrationInterface
     abstract public function getRequiredCredentials(): array;
 
     /**
+     * Map platform order status to internal status
+     */
+    abstract protected function mapOrderStatus(string $platformStatus): string;
+
+    /**
+     * Map internal status to platform status
+     */
+    abstract protected function mapToPlatformStatus(string $internalStatus): string;
+
+    /**
+     * Parse platform order data to internal format
+     */
+    abstract protected function parseOrderData(array $platformOrder): array;
+
+    /**
      * Test connection with credentials
      */
     public function testConnection(array $credentials): bool
     {
         try {
-            // Override in child classes for platform-specific testing
             return $this->doTestConnection($credentials);
         } catch (\Exception $e) {
             Log::error("[{$this->getPlatform()}] Connection test failed: " . $e->getMessage());
@@ -142,9 +159,23 @@ abstract class BaseIntegrationService implements IntegrationInterface
         }
 
         try {
-            return $this->doFetchOrders();
+            $platformOrders = $this->doFetchOrders();
+            $orders = [];
+
+            foreach ($platformOrders as $platformOrder) {
+                $order = $this->createOrUpdateOrder($platformOrder);
+                if ($order) {
+                    $orders[] = $order;
+                }
+            }
+
+            // Update last sync time
+            $this->integration->update(['last_sync_at' => now()]);
+
+            return $orders;
         } catch (\Exception $e) {
             Log::error("[{$this->getPlatform()}] Fetch orders failed: " . $e->getMessage());
+            $this->integration->markAsError($e->getMessage());
             return [];
         }
     }
@@ -159,6 +190,76 @@ abstract class BaseIntegrationService implements IntegrationInterface
     }
 
     /**
+     * Create or update an order from platform data
+     */
+    protected function createOrUpdateOrder(array $platformOrder): ?Order
+    {
+        try {
+            $orderData = $this->parseOrderData($platformOrder);
+            
+            // Check if order already exists
+            $existingOrder = Order::where('order_number', $orderData['order_number'])->first();
+            
+            if ($existingOrder) {
+                // Update existing order status if changed
+                if ($existingOrder->status !== $orderData['status']) {
+                    $existingOrder->update(['status' => $orderData['status']]);
+                }
+                return $existingOrder;
+            }
+
+            // Find or create customer
+            $customer = null;
+            if (!empty($orderData['customer_phone'])) {
+                $customer = Customer::firstOrCreate(
+                    ['phone' => $orderData['customer_phone']],
+                    ['name' => $orderData['customer_name'] ?? 'Platform Müşterisi']
+                );
+            }
+
+            // Create new order
+            return DB::transaction(function () use ($orderData, $customer) {
+                $order = Order::create([
+                    'order_number' => $orderData['order_number'],
+                    'customer_id' => $customer?->id,
+                    'customer_name' => $orderData['customer_name'] ?? '',
+                    'customer_phone' => $orderData['customer_phone'] ?? '',
+                    'customer_address' => $orderData['customer_address'] ?? '',
+                    'lat' => $orderData['lat'] ?? null,
+                    'lng' => $orderData['lng'] ?? null,
+                    'subtotal' => $orderData['subtotal'] ?? 0,
+                    'delivery_fee' => $orderData['delivery_fee'] ?? 0,
+                    'total' => $orderData['total'] ?? 0,
+                    'payment_method' => $orderData['payment_method'] ?? Order::PAYMENT_ONLINE,
+                    'is_paid' => $orderData['is_paid'] ?? true,
+                    'status' => $orderData['status'] ?? Order::STATUS_PENDING,
+                    'notes' => $orderData['notes'] ?? null,
+                ]);
+
+                // Create order items if provided
+                if (!empty($orderData['items'])) {
+                    foreach ($orderData['items'] as $item) {
+                        $order->items()->create([
+                            'product_name' => $item['name'] ?? '',
+                            'quantity' => $item['quantity'] ?? 1,
+                            'unit_price' => $item['price'] ?? 0,
+                            'total_price' => ($item['quantity'] ?? 1) * ($item['price'] ?? 0),
+                            'notes' => $item['notes'] ?? null,
+                        ]);
+                    }
+                }
+
+                Log::info("[{$this->getPlatform()}] Order created: {$order->order_number}");
+                
+                return $order;
+            });
+        } catch (\Exception $e) {
+            Log::error("[{$this->getPlatform()}] Failed to create order: " . $e->getMessage(), $platformOrder);
+            return null;
+        }
+    }
+
+    /**
      * Update order status on platform
      */
     public function updateOrderStatus(Order $order, string $status): bool
@@ -168,7 +269,14 @@ abstract class BaseIntegrationService implements IntegrationInterface
         }
 
         try {
-            return $this->doUpdateOrderStatus($order, $status);
+            $platformStatus = $this->mapToPlatformStatus($status);
+            $result = $this->doUpdateOrderStatus($order, $platformStatus);
+            
+            if ($result) {
+                Log::info("[{$this->getPlatform()}] Order status updated: {$order->order_number} -> {$status}");
+            }
+            
+            return $result;
         } catch (\Exception $e) {
             Log::error("[{$this->getPlatform()}] Update order status failed: " . $e->getMessage());
             return false;
@@ -194,7 +302,14 @@ abstract class BaseIntegrationService implements IntegrationInterface
         }
 
         try {
-            return $this->doSyncMenu();
+            $result = $this->doSyncMenu();
+            
+            if ($result) {
+                $this->integration->update(['last_sync_at' => now()]);
+                Log::info("[{$this->getPlatform()}] Menu synced successfully");
+            }
+            
+            return $result;
         } catch (\Exception $e) {
             Log::error("[{$this->getPlatform()}] Menu sync failed: " . $e->getMessage());
             return false;
@@ -226,12 +341,18 @@ abstract class BaseIntegrationService implements IntegrationInterface
     {
         $credentials = $this->integration?->credentials ?? [];
         $baseUrl = $this->getApiBaseUrl();
+        $url = rtrim($baseUrl, '/') . '/' . ltrim($endpoint, '/');
+
+        Log::debug("[{$this->getPlatform()}] API Request: {$method} {$url}");
 
         $response = Http::withHeaders($this->getApiHeaders($credentials))
-            ->$method("{$baseUrl}{$endpoint}", $data);
+            ->timeout(30)
+            ->$method($url, $data);
 
         if ($response->failed()) {
-            throw new \Exception("API request failed: " . $response->body());
+            $error = "API request failed [{$response->status()}]: " . $response->body();
+            Log::error("[{$this->getPlatform()}] {$error}");
+            throw new \Exception($error);
         }
 
         return $response->json() ?? [];
@@ -246,6 +367,22 @@ abstract class BaseIntegrationService implements IntegrationInterface
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
         ];
+    }
+
+    /**
+     * Validate required credentials
+     */
+    protected function validateCredentials(array $credentials): bool
+    {
+        $required = $this->getRequiredCredentials();
+        
+        foreach ($required as $key => $config) {
+            if ($config['required'] && empty($credentials[$key])) {
+                return false;
+            }
+        }
+        
+        return true;
     }
 }
 

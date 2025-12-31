@@ -2,41 +2,33 @@
 
 @section('content')
 <div class="p-6 animate-fadeIn">
-    <!-- Başlık -->
-    <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-            <h1 class="text-2xl font-bold text-black dark:text-white flex items-center gap-2">
-                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                </svg>
-                Kuryelerim
-            </h1>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Kurye ekibinizi yönetin ve performanslarını takip edin</p>
-        </div>
-        <div class="flex flex-col sm:flex-row gap-4 items-center">
-            <form action="{{ route('bayi.kuryelerim') }}" method="GET" class="relative" id="searchForm">
-                <div class="absolute inset-y-0 left-0 flex items-center pointer-events-none" style="padding-left: 10px;">
-                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                    </svg>
-                </div>
-                <input type="text" name="search" value="{{ request('search') }}" 
-                    placeholder="Kurye ara..." 
-                    class="pr-4 py-2.5 bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-transparent w-full sm:w-96 transition-all"
-                    style="padding-left: 2rem; width: 200px;"
-                >
-            </form>
-            <a href="{{ route('bayi.kurye-ekle') }}" class="group ripple inline-flex items-center gap-2 px-5 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium whitespace-nowrap">
-                <svg class="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                </svg>
-                Kurye Ekle
-            </a>
-        </div>
-    </div>
+    {{-- Page Header --}}
+    <x-layout.page-header
+        title="Kuryelerim"
+        subtitle="Kurye ekibinizi yönetin ve performanslarını takip edin"
+    >
+        <x-slot name="icon">
+            <x-ui.icon name="users" class="w-7 h-7 text-black dark:text-white" />
+        </x-slot>
 
-    <!-- İstatistik Kartları -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <x-slot name="actions">
+            <form action="{{ route('bayi.kuryelerim') }}" method="GET">
+                <x-form.search-input
+                    name="search"
+                    placeholder="Kurye ara..."
+                    :value="request('search')"
+                    :autoSubmit="true"
+                />
+            </form>
+
+            <x-ui.button href="{{ route('bayi.kurye-ekle') }}" icon="plus">
+                Kurye Ekle
+            </x-ui.button>
+        </x-slot>
+    </x-layout.page-header>
+
+    {{-- Istatistik Kartlari --}}
+    <x-layout.grid cols="1" mdCols="2" lgCols="4" gap="4" class="mb-6">
         <div class="bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl p-5 text-white shadow-lg hover:shadow-xl transition-shadow">
             <div class="flex items-center justify-between">
                 <div>
@@ -44,9 +36,7 @@
                     <p class="text-3xl font-bold">{{ $couriers->count() }}</p>
                 </div>
                 <div class="bg-white/20 p-3 rounded-lg">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                    </svg>
+                    <x-ui.icon name="users" class="w-8 h-8" />
                 </div>
             </div>
         </div>
@@ -58,9 +48,7 @@
                     <p class="text-3xl font-bold">{{ $couriers->whereIn('status', ['available', 'active'])->count() }}</p>
                 </div>
                 <div class="bg-white/20 p-3 rounded-lg">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
+                    <x-ui.icon name="success" class="w-8 h-8" />
                 </div>
             </div>
         </div>
@@ -72,10 +60,7 @@
                     <p class="text-3xl font-bold">{{ $couriers->where('status', 'delivering')->count() }}</p>
                 </div>
                 <div class="bg-white/20 p-3 rounded-lg">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path>
-                    </svg>
+                    <x-ui.icon name="truck" class="w-8 h-8" />
                 </div>
             </div>
         </div>
@@ -87,183 +72,310 @@
                     <p class="text-3xl font-bold">{{ $couriers->sum('today_deliveries') }}</p>
                 </div>
                 <div class="bg-white/20 p-3 rounded-lg">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
+                    <x-ui.icon name="check" class="w-8 h-8" />
                 </div>
             </div>
         </div>
-    </div>
+    </x-layout.grid>
 
-    <!-- Kurye Listesi -->
-    <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-        <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800">
-                    <tr>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Kurye</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">İletişim</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Durum</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Bugün</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Toplam</th>
-                        <th class="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">İşlemler</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-                    @forelse($couriers as $courier)
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors group">
-                        <td class="px-6 py-4">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold overflow-hidden {{ $courier->photo_path ? 'cursor-pointer hover:opacity-80 transition-opacity' : '' }}"
-                                    @if($courier->photo_path) onclick="showPhotoModal('{{ Storage::url($courier->photo_path) }}', '{{ $courier->name }}')" @endif>
-                                    @if($courier->photo_path)
-                                        <img src="{{ Storage::url($courier->photo_path) }}" alt="{{ $courier->name }}" class="w-full h-full object-cover">
-                                    @else
-                                        {{ substr($courier->name, 0, 2) }}
-                                    @endif
-                                </div>
-                                <div>
-                                    <p class="text-sm font-medium text-black dark:text-white">{{ $courier->name }}</p>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">ID: #{{ $courier->id }}</p>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4">
-                            <div>
-                                <p class="text-sm text-black dark:text-white flex items-center gap-1.5">
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
-                                    </svg>
-                                    {{ $courier->phone }}
-                                </p>
-                                @if($courier->email)
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1.5">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                                    </svg>
-                                    {{ $courier->email }}
-                                </p>
-                                @endif
-                            </div>
-                        </td>
-                        <td class="px-6 py-4">
-                            @php
-                                $statusMap = [
-                                    'available' => ['text' => 'Müsait', 'color' => 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800'],
-                                    'delivering' => ['text' => 'Teslimat', 'color' => 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800'],
-                                    'offline' => ['text' => 'Çevrimdışı', 'color' => 'bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-800'],
-                                    'active' => ['text' => 'Aktif', 'color' => 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800'],
-                                ];
-                                $status = $statusMap[$courier->status] ?? ['text' => $courier->status, 'color' => 'bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-800'];
-                            @endphp
-                            <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full border {{ $status['color'] }}">
-                                <span class="w-1.5 h-1.5 rounded-full bg-current mr-1.5 animate-pulse-slow"></span>
-                                {{ $status['text'] }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4">
-                            <span class="text-sm font-bold text-black dark:text-white">{{ $courier->today_deliveries ?? 0 }}</span>
-                            <span class="text-xs text-gray-500">teslimat</span>
-                        </td>
-                        <td class="px-6 py-4">
-                            <span class="text-sm font-bold text-black dark:text-white">{{ $courier->total_deliveries ?? 0 }}</span>
-                            <span class="text-xs text-gray-500">teslimat</span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right">
-                            <div class="flex items-center justify-end gap-2">
-                                <a href="{{ route('bayi.kurye-duzenle', $courier->id) }}" 
-                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                    </svg>
-                                    Düzenle
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="6" class="px-6 py-16 text-center">
-                            <div class="flex flex-col items-center justify-center">
-                                <svg class="w-16 h-16 text-gray-300 dark:text-gray-700 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                                </svg>
-                                <p class="text-lg font-medium text-gray-600 dark:text-gray-400">Henüz kurye eklenmemiş</p>
-                                <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">Yeni kurye eklemek için yukarıdaki butonu kullanın</p>
-                            </div>
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
+    {{-- Kurye Listesi --}}
+    <x-table.table hoverable>
+        <x-table.thead>
+            <x-table.tr :hoverable="false">
+                <x-table.th>Sınıf</x-table.th>
+                <x-table.th>Durum</x-table.th>
+                <x-table.th>Kurye Adı</x-table.th>
+                <x-table.th>Telefon</x-table.th>
+                <x-table.th>Çalışma Şekli</x-table.th>
+                <x-table.th>KDV</x-table.th>
+                <x-table.th>Tevkifat</x-table.th>
+                <x-table.th align="center">Ödeme</x-table.th>
+                <x-table.th align="center">Durum Değ.</x-table.th>
+                <x-table.th align="center">Paket Limiti</x-table.th>
+                <x-table.th align="right">İşlemler</x-table.th>
+            </x-table.tr>
+        </x-table.thead>
+
+        <x-table.tbody>
+            @forelse($couriers as $courier)
+                <x-table.tr>
+                    {{-- Sınıf --}}
+                    <x-table.td>
+                        <x-data.tier-badge :tier="$courier->tier ?? 'bronze'" />
+                    </x-table.td>
+
+                    {{-- Durum --}}
+                    <x-table.td>
+                        <x-data.status-badge :status="$courier->status" entity="courier" />
+                    </x-table.td>
+
+                    {{-- Kurye Adı --}}
+                    <x-table.td>
+                        <x-data.courier-avatar
+                            :courier="$courier"
+                            size="sm"
+                            :showStatus="false"
+                            :showPhone="false"
+                        />
+                    </x-table.td>
+
+                    {{-- Telefon --}}
+                    <x-table.td>
+                        <x-data.phone :number="$courier->phone" :clickable="false" />
+                    </x-table.td>
+
+                    {{-- Çalışma Şekli --}}
+                    <x-table.td>
+                        <span class="text-sm text-gray-600 dark:text-gray-400">
+                            {{ $courier->getWorkingTypeLabel() }}
+                        </span>
+                    </x-table.td>
+
+                    {{-- KDV Orani --}}
+                    <x-table.td>
+                        <span class="text-sm font-medium">{{ $courier->vat_rate ?? 0 }}</span>
+                    </x-table.td>
+
+                    {{-- Tevkifat Orani --}}
+                    <x-table.td>
+                        <span class="text-sm font-medium">{{ $courier->withholding_rate ?? 0 }}</span>
+                    </x-table.td>
+
+                    {{-- Ödeme Düzenleme --}}
+                    <x-table.td align="center">
+                        @if($courier->payment_editing_enabled ?? true)
+                            <x-ui.badge type="success" size="sm">Açık</x-ui.badge>
+                        @else
+                            <x-ui.badge type="danger" size="sm">Kapalı</x-ui.badge>
+                        @endif
+                    </x-table.td>
+
+                    {{-- Durum Değiştirme --}}
+                    <x-table.td align="center">
+                        @if($courier->status_change_enabled ?? true)
+                            <x-ui.badge type="success" size="sm">Açık</x-ui.badge>
+                        @else
+                            <x-ui.badge type="danger" size="sm">Kapalı</x-ui.badge>
+                        @endif
+                    </x-table.td>
+
+                    {{-- Paket Taşıma Limiti --}}
+                    <x-table.td align="center">
+                        <span class="text-sm font-bold">{{ $courier->max_package_limit ?? 5 }}</span>
+                    </x-table.td>
+
+                    {{-- İşlemler --}}
+                    <x-table.td align="right" nowrap>
+                        <div class="flex items-center justify-end gap-1">
+                            {{-- Detay --}}
+                            <a href="{{ route('bayi.kurye-detay', $courier->id) }}"
+                                class="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                title="Detay">
+                                <x-ui.icon name="info" class="w-4 h-4" />
+                            </a>
+
+                            {{-- Şifre/Mobil Erişim --}}
+                            <button
+                                onclick="openPasswordModal({{ $courier->id }}, '{{ $courier->name }}', {{ $courier->password ? 'true' : 'false' }}, {{ $courier->is_app_enabled ? 'true' : 'false' }})"
+                                class="p-1.5 {{ $courier->password ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400' }} hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                                title="{{ $courier->password ? 'Şifre Ayarlanmış' : 'Şifre Ayarlanmamış' }}">
+                                <x-ui.icon name="phone" class="w-4 h-4" />
+                            </button>
+
+                            {{-- Düzenle --}}
+                            <a href="{{ route('bayi.kurye-duzenle', $courier->id) }}"
+                                class="p-1.5 text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                                title="Düzenle">
+                                <x-ui.icon name="edit" class="w-4 h-4" />
+                            </a>
+                        </div>
+                    </x-table.td>
+                </x-table.tr>
+            @empty
+                <x-table.empty
+                    colspan="11"
+                    icon="users"
+                    message="Henüz kurye eklenmemiş"
+                >
+                    <x-slot name="action">
+                        <x-ui.button href="{{ route('bayi.kurye-ekle') }}" icon="plus" size="sm">
+                            Kurye Ekle
+                        </x-ui.button>
+                    </x-slot>
+                </x-table.empty>
+            @endforelse
+        </x-table.tbody>
+    </x-table.table>
+</div>
+
+{{-- Photo Modal --}}
+<x-ui.modal name="photoModal" size="3xl" :title="null">
+    <div class="flex flex-col items-center justify-center" x-data="{ src: '', caption: '' }">
+        <img :src="src" :alt="caption" class="max-w-full max-h-[70vh] rounded-lg shadow-2xl object-contain">
+        <p class="mt-4 text-black dark:text-white font-medium text-lg" x-text="caption"></p>
+    </div>
+</x-ui.modal>
+
+{{-- Password Modal --}}
+<div
+    x-data="passwordModal()"
+    x-on:open-password-modal.window="openModal($event.detail)"
+    x-on:keydown.escape.window="open = false"
+    x-show="open"
+    x-cloak
+    class="fixed inset-0 z-50 overflow-y-auto"
+>
+    <!-- Backdrop -->
+    <div
+        x-show="open"
+        x-transition:enter="ease-out duration-300"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="ease-in duration-200"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        class="fixed inset-0 bg-background/80 backdrop-blur-sm"
+        @click="open = false"
+    ></div>
+
+    <!-- Modal Panel -->
+    <div class="flex min-h-full items-center justify-center p-4">
+        <div
+            x-show="open"
+            x-transition:enter="ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+            x-transition:leave="ease-in duration-200"
+            x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+            x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            class="relative bg-card text-card-foreground rounded-xl shadow-lg border border-border w-full max-w-md transform transition-all"
+            @click.stop
+        >
+            <div class="flex items-center justify-between px-6 py-4 border-b border-border">
+                <h3 class="text-lg font-semibold leading-none tracking-tight text-foreground">Kurye Mobil Erişimi</h3>
+                <button type="button" @click="open = false" class="rounded-lg p-1.5 opacity-70 hover:opacity-100 transition-opacity">
+                    <x-ui.icon name="x" class="w-4 h-4" />
+                </button>
+            </div>
+
+            <div class="p-6">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    <span x-text="courierName" class="font-medium text-black dark:text-white"></span> için mobil uygulama erişim ayarları
+                </p>
+
+                <p :class="hasPassword ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'" class="text-sm mb-4">
+                    <span x-text="hasPassword ? '✓ Şifre ayarlanmış' : '✗ Şifre ayarlanmamış'"></span>
+                </p>
+
+                {{-- App Access Toggle --}}
+                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-xl mb-4">
+                    <div>
+                        <p class="text-sm font-medium text-black dark:text-white">Uygulama Erişimi</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Kurye uygulamaya girebilir</p>
+                    </div>
+                    <button type="button" @click="toggleAppAccess()"
+                            :class="isAppEnabled ? 'bg-green-500' : 'bg-gray-300'"
+                            class="relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none">
+                        <span :class="isAppEnabled ? 'translate-x-5' : 'translate-x-0'"
+                              class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-200"></span>
+                    </button>
+                </div>
+
+                {{-- Password Form --}}
+                <form :action="'/bayi/kuryeler/' + courierId + '/sifre'" method="POST" class="space-y-4">
+                    @csrf
+                    <x-form.input
+                        type="password"
+                        name="password"
+                        label="Yeni Şifre"
+                        required
+                        hint="En az 6 karakter"
+                    />
+
+                    <x-form.input
+                        type="password"
+                        name="password_confirmation"
+                        label="Şifre Tekrar"
+                        required
+                    />
+
+                    <div class="flex gap-3 mt-6">
+                        <x-ui.button type="button" variant="secondary" @click="open = false" class="flex-1">
+                            İptal
+                        </x-ui.button>
+                        <x-ui.button type="submit" class="flex-1">
+                            Şifreyi Kaydet
+                        </x-ui.button>
+                    </div>
+                </form>
+
+                <x-feedback.alert type="info" class="mt-4">
+                    <strong>Kurye Uygulaması:</strong> Kuryeler <code class="bg-blue-100 dark:bg-blue-900 px-1 rounded">{{ url('/kurye') }}</code> adresinden telefon numarası ve şifre ile giriş yapabilir.
+                </x-feedback.alert>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Photo Modal -->
-<div id="photoModal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm z-[60] flex items-center justify-center p-4 transition-all duration-300" onclick="closePhotoModal()">
-    <div class="relative max-w-4xl max-h-[90vh] w-full flex flex-col items-center justify-center animate-scaleIn" onclick="event.stopPropagation()">
-        <div class="relative">
-            <button onclick="closePhotoModal()" class="absolute top-4 cursor-pointer right-4 md:-right-12 md:-top-12 text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white transition-colors z-10 flex items-center justify-center" style="background-color: rgba(0, 0, 0, 0.2); width: 40px; height: 40px; border-radius: 50%;">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
-            <img id="modalImage" src="" alt="Kurye Fotoğrafı" class="max-w-full max-h-[80vh] rounded-lg shadow-2xl object-contain ring-1 ring-black/10 dark:ring-white/10">
-        </div>
-        <p id="modalCaption" class="mt-4 text-black dark:text-white font-medium text-lg tracking-wide"></p>
-    </div>
-</div>
-
+@push('scripts')
 <script>
+    // Password Modal Alpine Component
+    function passwordModal() {
+        return {
+            open: false,
+            courierId: null,
+            courierName: '',
+            hasPassword: false,
+            isAppEnabled: false,
+
+            openModal(data) {
+                if (!data || !data.id) return;
+                this.courierId = data.id;
+                this.courierName = data.name;
+                this.hasPassword = data.hasPassword;
+                this.isAppEnabled = data.isAppEnabled;
+                this.open = true;
+            },
+
+            async toggleAppAccess() {
+                try {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+                    const response = await fetch('/bayi/kuryeler/' + this.courierId + '/app-toggle', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        }
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        this.isAppEnabled = data.is_app_enabled;
+                        showToast(data.message, 'success');
+                    }
+                } catch (error) {
+                    showToast('Bir hata olustu', 'error');
+                }
+            }
+        };
+    }
+
+    // Photo Modal
     function showPhotoModal(src, name) {
-        const modal = document.getElementById('photoModal');
-        const img = document.getElementById('modalImage');
-        const caption = document.getElementById('modalCaption');
-        
-        img.src = src;
-        caption.textContent = name;
-        
-        modal.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
+        window.dispatchEvent(new CustomEvent('open-modal', { detail: 'photoModal' }));
+        // TODO: Set src and caption
     }
 
-    function closePhotoModal() {
-        const modal = document.getElementById('photoModal');
-        modal.classList.add('hidden');
-        document.body.style.overflow = 'auto';
-    }
-
-    // Close on escape key
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            closePhotoModal();
-        }
-    });
-
-    const searchInput = document.querySelector('input[name="search"]');
-    if (searchInput) {
-        // Debounce function to limit request frequency
-        function debounce(func, wait) {
-            let timeout;
-            return function(...args) {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => func.apply(this, args), wait);
-            };
-        }
-
-        // Handle input changes
-        searchInput.addEventListener('input', debounce(function(e) {
-            this.form.submit();
-        }, 500));
-
-        // Focus input and move cursor to end if there's a search value
-        if (searchInput.value) {
-            searchInput.focus();
-            const val = searchInput.value;
-            searchInput.value = '';
-            searchInput.value = val;
-        }
+    // Open Password Modal
+    function openPasswordModal(courierId, courierName, hasPassword, isAppEnabled) {
+        window.dispatchEvent(new CustomEvent('open-password-modal', {
+            detail: {
+                id: courierId,
+                name: courierName,
+                hasPassword: hasPassword,
+                isAppEnabled: isAppEnabled
+            }
+        }));
     }
 </script>
+@endpush
 @endsection

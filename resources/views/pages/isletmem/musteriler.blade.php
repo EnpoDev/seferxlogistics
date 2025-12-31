@@ -1,72 +1,84 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="p-6">
-    <div class="mb-6 flex justify-between items-center">
-        <div>
-            <h1 class="text-2xl font-bold text-black dark:text-white">Müşteri Yönetimi</h1>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Müşterilerinizi görüntüleyin ve yönetin</p>
-        </div>
-        <button class="px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80">
-            + Yeni Müşteri
-        </button>
-    </div>
+<div class="p-6 animate-fadeIn">
+    {{-- Page Header --}}
+    <x-layout.page-header
+        title="Müşteri Yönetimi"
+        subtitle="Müşterilerinizi görüntüleyin ve yönetin"
+    >
+        <x-slot name="icon">
+            <x-ui.icon name="users" class="w-7 h-7 text-black dark:text-white" />
+        </x-slot>
 
-    <!-- Arama ve Filtreler -->
-    <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-4 mb-6">
-        <div class="flex gap-4">
-            <input type="text" placeholder="Müşteri ara..." class="flex-1 px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white placeholder-gray-500">
-            <button class="px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80">
-                Ara
-            </button>
-        </div>
-    </div>
+        <x-slot name="actions">
+            <x-ui.button icon="plus">
+                Yeni Müşteri
+            </x-ui.button>
+        </x-slot>
+    </x-layout.page-header>
 
-    <!-- Müşteri Listesi -->
-    <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead class="border-b border-gray-200 dark:border-gray-800">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">AD SOYAD</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">TELEFON</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">ADRES</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">SİPARİŞ SAYISI</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">SON SİPARİŞ</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">İŞLEMLER</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-                    @forelse($customers as $customer)
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-900">
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">{{ $customer->customer_name ?? 'İsimsiz Müşteri' }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{{ $customer->customer_phone }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate" title="{{ $customer->customer_address }}">
+    {{-- Arama --}}
+    <x-ui.card class="mb-6">
+        <form method="GET" action="{{ route('isletmem.musteriler') }}" class="flex gap-4">
+            <x-form.search-input name="search" :value="request('search')" placeholder="Müşteri ara..." class="flex-1" />
+            <x-ui.button type="submit" icon="search">Ara</x-ui.button>
+        </form>
+    </x-ui.card>
+
+    {{-- Müşteri Listesi --}}
+    <x-ui.card>
+        <x-table.table hoverable>
+            <x-table.thead>
+                <x-table.tr :hoverable="false">
+                    <x-table.th>Ad Soyad</x-table.th>
+                    <x-table.th>Telefon</x-table.th>
+                    <x-table.th>Adres</x-table.th>
+                    <x-table.th>Sipariş Sayısı</x-table.th>
+                    <x-table.th>Son Sipariş</x-table.th>
+                    <x-table.th align="right">İşlemler</x-table.th>
+                </x-table.tr>
+            </x-table.thead>
+
+            <x-table.tbody>
+                @forelse($customers as $customer)
+                <x-table.tr>
+                    <x-table.td>
+                        <span class="text-black dark:text-white">{{ $customer->customer_name ?? 'İsimsiz Müşteri' }}</span>
+                    </x-table.td>
+                    <x-table.td>
+                        <x-data.phone :number="$customer->customer_phone" />
+                    </x-table.td>
+                    <x-table.td>
+                        <span class="text-gray-600 dark:text-gray-400 max-w-xs truncate block" title="{{ $customer->customer_address }}">
                             {{ $customer->customer_address ?? '-' }}
-                        </td>
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">{{ $customer->order_count }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                            {{ $customer->last_order_date ? \Carbon\Carbon::parse($customer->last_order_date)->format('d.m.Y') : '-' }}
-                        </td>
-                        <td class="px-6 py-4 text-sm">
-                            <button class="text-black dark:text-white hover:opacity-60 mr-3">Görüntüle</button>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="6" class="px-6 py-8 text-center text-sm text-gray-600 dark:text-gray-400">
-                            Müşteri bulunamadı
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+                        </span>
+                    </x-table.td>
+                    <x-table.td>
+                        <span class="text-black dark:text-white">{{ $customer->order_count }}</span>
+                    </x-table.td>
+                    <x-table.td>
+                        @if($customer->last_order_date)
+                            <x-data.date-time :date="$customer->last_order_date" />
+                        @else
+                            <span class="text-gray-400">-</span>
+                        @endif
+                    </x-table.td>
+                    <x-table.td align="right">
+                        <x-ui.button variant="ghost" size="sm">Görüntüle</x-ui.button>
+                    </x-table.td>
+                </x-table.tr>
+                @empty
+                <x-table.empty colspan="6" icon="users" message="Müşteri bulunamadı" />
+                @endforelse
+            </x-table.tbody>
+        </x-table.table>
+
         @if($customers->hasPages())
         <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-800">
             {{ $customers->links() }}
         </div>
         @endif
-    </div>
+    </x-ui.card>
 </div>
 @endsection

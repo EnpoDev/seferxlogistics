@@ -42,7 +42,7 @@ class CourierController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:20'],
             'email' => ['nullable', 'email', 'max:255'],
-            'status' => ['required', 'in:available,busy,offline,on_break'],
+            'status' => ['required', 'in:available,busy,offline,on_break,active'],
             'photo' => ['nullable', 'image', 'max:2048'],
             'tc_no' => ['nullable', 'string', 'max:11'],
             'vehicle_plate' => ['nullable', 'string', 'max:20'],
@@ -50,6 +50,26 @@ class CourierController extends Controller
             'shift_end' => ['nullable', 'date_format:H:i'],
             'max_delivery_minutes' => ['nullable', 'integer', 'min:1'],
             'notification_enabled' => ['nullable', 'boolean'],
+            // Yeni alanlar
+            'password' => ['nullable', 'string', 'min:4'],
+            'platform' => ['nullable', 'in:android,ios'],
+            'work_type' => ['nullable', 'in:full_time,part_time,freelance'],
+            'tier' => ['nullable', 'in:bronze,silver,gold,platinum'],
+            'vat_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'withholding_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'company_name' => ['nullable', 'string', 'max:255'],
+            'tax_office' => ['nullable', 'string', 'max:255'],
+            'tax_number' => ['nullable', 'string', 'max:11'],
+            'company_address' => ['nullable', 'string'],
+            'iban' => ['nullable', 'string', 'max:50'],
+            'kobi_key' => ['nullable', 'string', 'max:100'],
+            'can_reject_package' => ['nullable'],
+            'max_package_limit' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'payment_editing_enabled' => ['nullable'],
+            'status_change_enabled' => ['nullable'],
+            // Calisma sekli ve fiyatlandirma
+            'working_type' => ['nullable', 'in:per_package,per_km,km_range,package_plus_km,fixed_km_plus_km,commission,tiered_package'],
+            'pricing_data' => ['nullable', 'array'],
         ]);
 
         if ($request->hasFile('photo')) {
@@ -59,6 +79,14 @@ class CourierController extends Controller
 
         unset($validated['photo']);
         $validated['notification_enabled'] = $request->boolean('notification_enabled', true);
+        $validated['can_reject_package'] = $request->boolean('can_reject_package', true);
+        $validated['payment_editing_enabled'] = $request->boolean('payment_editing_enabled', true);
+        $validated['status_change_enabled'] = $request->boolean('status_change_enabled', true);
+
+        // Sifre ayarlandiysa app erisimini ac
+        if (!empty($validated['password'])) {
+            $validated['is_app_enabled'] = true;
+        }
 
         $courier = Courier::create($validated);
 
@@ -86,7 +114,7 @@ class CourierController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:20'],
             'email' => ['nullable', 'email', 'max:255'],
-            'status' => ['required', 'in:available,busy,offline,on_break'],
+            'status' => ['required', 'in:available,busy,offline,on_break,active'],
             'lat' => ['nullable', 'numeric'],
             'lng' => ['nullable', 'numeric'],
             'photo' => ['nullable', 'image', 'max:2048'],
@@ -96,6 +124,26 @@ class CourierController extends Controller
             'shift_end' => ['nullable', 'date_format:H:i'],
             'max_delivery_minutes' => ['nullable', 'integer', 'min:1'],
             'notification_enabled' => ['nullable', 'boolean'],
+            // Yeni alanlar
+            'password' => ['nullable', 'string', 'min:4'],
+            'platform' => ['nullable', 'in:android,ios'],
+            'work_type' => ['nullable', 'in:full_time,part_time,freelance'],
+            'tier' => ['nullable', 'in:bronze,silver,gold,platinum'],
+            'vat_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'withholding_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'company_name' => ['nullable', 'string', 'max:255'],
+            'tax_office' => ['nullable', 'string', 'max:255'],
+            'tax_number' => ['nullable', 'string', 'max:11'],
+            'company_address' => ['nullable', 'string'],
+            'iban' => ['nullable', 'string', 'max:50'],
+            'kobi_key' => ['nullable', 'string', 'max:100'],
+            'can_reject_package' => ['nullable'],
+            'max_package_limit' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'payment_editing_enabled' => ['nullable'],
+            'status_change_enabled' => ['nullable'],
+            // Calisma sekli ve fiyatlandirma
+            'working_type' => ['nullable', 'in:per_package,per_km,km_range,package_plus_km,fixed_km_plus_km,commission,tiered_package'],
+            'pricing_data' => ['nullable', 'array'],
         ]);
 
         if ($request->hasFile('photo')) {
@@ -108,6 +156,16 @@ class CourierController extends Controller
 
         unset($validated['photo']);
         $validated['notification_enabled'] = $request->boolean('notification_enabled');
+        $validated['can_reject_package'] = $request->boolean('can_reject_package');
+        $validated['payment_editing_enabled'] = $request->boolean('payment_editing_enabled');
+        $validated['status_change_enabled'] = $request->boolean('status_change_enabled');
+
+        // Sifre bos degilse guncelle
+        if (empty($validated['password'])) {
+            unset($validated['password']);
+        } else {
+            $validated['is_app_enabled'] = true;
+        }
 
         $courier->update($validated);
 

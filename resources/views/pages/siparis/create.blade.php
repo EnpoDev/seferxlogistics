@@ -2,6 +2,17 @@
 
 @section('content')
 <div class="h-[calc(100vh-7rem)] flex" x-data="orderForm()">
+    @if ($errors->any())
+    <div class="fixed top-20 right-4 z-50 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-lg" role="alert">
+        <strong class="font-bold">Hata!</strong>
+        <span class="block sm:inline">Lütfen formu kontrol ediniz.</span>
+        <ul class="mt-2 list-disc list-inside text-sm">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+    @endif
     <!-- Left Panel - Categories & Products -->
     <div class="flex-1 flex flex-col overflow-hidden">
         <!-- Category Tabs -->
@@ -156,7 +167,7 @@
             <div x-show="customer?.addresses?.length > 0" x-cloak class="mb-3">
                 <p class="text-xs text-gray-500 mb-2">Kayıtlı Adresler:</p>
                 <div class="flex flex-wrap gap-2">
-                    <template x-for="addr in customer.addresses" :key="addr.id">
+                    <template x-for="addr in (customer?.addresses ?? [])" :key="addr.id">
                         <button type="button" 
                             @click="customerAddress = addr.full_address; lat = addr.lat; lng = addr.lng"
                             class="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-xs rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -297,23 +308,50 @@
 
 <script>
 function orderForm() {
+    const productsMap = {};
+    @foreach($categories as $category)
+        @foreach($category->products as $product)
+            productsMap[{{ $product->id }}] = {
+                id: {{ $product->id }},
+                name: @json($product->name),
+                price: {{ $product->getCurrentPrice() }},
+                category: @json($category->name),
+                image: @json($product->image),
+                restaurant: @json($product->restaurant?->name)
+            };
+        @endforeach
+    @endforeach
+
     return {
         selectedCategory: null,
         cart: [],
-        customerPhone: '{{ $customer?->phone ?? '' }}',
-        customerName: '{{ $customer?->name ?? '' }}',
-        customerAddress: '{{ $customer?->address ?? '' }}',
+        customerPhone: @json(old('customer_phone', $customer?->phone ?? '')),
+        customerName: @json(old('customer_name', $customer?->name ?? '')),
+        customerAddress: @json(old('customer_address', $customer?->address ?? '')),
         customer: @json($customer),
-        lat: {{ $customer?->lat ?? 'null' }},
-        lng: {{ $customer?->lng ?? 'null' }},
-        deliveryFee: 10,
-        paymentMethod: 'cash',
-        notes: '',
-        restaurantId: '',
-        courierId: '',
-        autoAssignCourier: false,
+        lat: @json(old('lat', $customer?->lat ?? null)),
+        lng: @json(old('lng', $customer?->lng ?? null)),
+        deliveryFee: @json(old('delivery_fee', 10)),
+        paymentMethod: @json(old('payment_method', 'cash')),
+        notes: @json(old('notes', '')),
+        restaurantId: @json(old('restaurant_id', '')),
+        courierId: @json(old('courier_id', '')),
+        autoAssignCourier: {{ old('auto_assign_courier') ? 'true' : 'false' }},
         isSearching: false,
         isSubmitting: false,
+
+        init() {
+            const oldItems = @json(old('items', []));
+            if (Array.isArray(oldItems) && oldItems.length > 0) {
+                 this.cart = oldItems.map(item => {
+                    const product = productsMap[item.product_id];
+                    if (product) {
+                        return { ...product, quantity: parseInt(item.quantity) };
+                    }
+                    return null;
+                }).filter(Boolean);
+            }
+        },
 
         get subtotal() {
             return this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -399,7 +437,7 @@ function orderForm() {
                 notes: this.notes,
                 restaurant_id: this.restaurantId || null,
                 courier_id: this.courierId || null,
-                auto_assign_courier: this.autoAssignCourier,
+                auto_assign_courier: this.autoAssignCourier ? 1 : 0,
                 items: this.cart.map(item => ({
                     product_id: item.id,
                     quantity: item.quantity

@@ -1,199 +1,201 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="p-6">
-    <div class="mb-6 flex justify-between items-center">
-        <div>
-            <h1 class="text-2xl font-bold text-black dark:text-white">Sipariş İstatistikleri</h1>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Sipariş ve satış grafikleri</p>
-        </div>
-        <select class="px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white">
-            <option>Son 7 Gün</option>
-            <option>Son 30 Gün</option>
-            <option>Bu Ay</option>
-            <option>Geçen Ay</option>
-        </select>
-    </div>
+<div class="p-6 animate-fadeIn">
+    {{-- Page Header --}}
+    <x-layout.page-header
+        title="Sipariş İstatistikleri"
+        subtitle="Sipariş ve satış grafikleri"
+    >
+        <x-slot name="icon">
+            <x-ui.icon name="chart" class="w-7 h-7 text-black dark:text-white" />
+        </x-slot>
 
-    <!-- Özet Kartları -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Toplam Sipariş</p>
-            <p class="text-3xl font-bold text-black dark:text-white mb-2">{{ $stats['total_orders'] }}</p>
-            <p class="text-xs text-gray-600 dark:text-gray-400">Bugün: {{ $stats['today_orders'] }}</p>
-        </div>
-        <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Toplam Gelir</p>
-            <p class="text-3xl font-bold text-black dark:text-white mb-2">₺{{ number_format($stats['total_revenue'], 2) }}</p>
-            <p class="text-xs text-gray-600 dark:text-gray-400">Bugün: ₺{{ number_format($stats['today_revenue'], 2) }}</p>
-        </div>
-        <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Beklemede</p>
-            <p class="text-3xl font-bold text-black dark:text-white mb-2">{{ $stats['pending_orders'] }}</p>
-            <p class="text-xs text-gray-600 dark:text-gray-400">Hazırlanıyor: {{ $stats['preparing_orders'] }}</p>
-        </div>
-        <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Yolda</p>
-            <p class="text-3xl font-bold text-black dark:text-white mb-2">{{ $stats['on_delivery_orders'] }}</p>
-            <p class="text-xs text-gray-600 dark:text-gray-400">Teslim Edildi: {{ $stats['delivered_orders'] }}</p>
-        </div>
-    </div>
+        <x-slot name="actions">
+            <form method="GET" action="{{ route('siparis.istatistik') }}">
+                <x-form.select name="period" onchange="this.form.submit()" :options="[
+                    '7days' => 'Son 7 Gün',
+                    '30days' => 'Son 30 Gün',
+                    'this_month' => 'Bu Ay',
+                    'last_month' => 'Geçen Ay',
+                ]" :selected="request('period', '7days')" />
+            </form>
+        </x-slot>
+    </x-layout.page-header>
 
-    <!-- Grafikler -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <!-- Günlük Sipariş Grafiği -->
-        <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
+    {{-- Özet Kartları --}}
+    <x-layout.grid cols="1" mdCols="4" gap="6" class="mb-6">
+        <x-ui.stat-card
+            title="Toplam Sipariş"
+            :value="$stats['total_orders']"
+            :subtitle="'Bugün: ' . $stats['today_orders']"
+            icon="order"
+            color="blue"
+        />
+        <x-ui.stat-card
+            title="Toplam Gelir"
+            :value="'₺' . number_format($stats['total_revenue'], 2)"
+            :subtitle="'Bugün: ₺' . number_format($stats['today_revenue'], 2)"
+            icon="money"
+            color="green"
+        />
+        <x-ui.stat-card
+            title="Beklemede"
+            :value="$stats['pending_orders']"
+            :subtitle="'Hazırlanıyor: ' . $stats['preparing_orders']"
+            icon="clock"
+            color="yellow"
+        />
+        <x-ui.stat-card
+            title="Yolda"
+            :value="$stats['on_delivery_orders']"
+            :subtitle="'Teslim Edildi: ' . $stats['delivered_orders']"
+            icon="truck"
+            color="purple"
+        />
+    </x-layout.grid>
+
+    {{-- Grafikler --}}
+    <x-layout.grid cols="1" lgCols="2" gap="6" class="mb-6">
+        {{-- Günlük Sipariş Grafiği --}}
+        <x-ui.card>
             <h3 class="text-lg font-semibold text-black dark:text-white mb-4">Günlük Sipariş Sayısı</h3>
-            <div class="h-64 flex items-end justify-between gap-2">
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-black dark:bg-white" style="height: 45%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">Pzt</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-black dark:bg-white" style="height: 65%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">Sal</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-black dark:bg-white" style="height: 55%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">Çar</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-black dark:bg-white" style="height: 75%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">Per</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-black dark:bg-white" style="height: 85%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">Cum</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-black dark:bg-white" style="height: 95%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">Cmt</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-black dark:bg-white" style="height: 100%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">Paz</span>
-                </div>
+            <div class="h-64">
+                <canvas id="dailyOrdersChart"></canvas>
             </div>
-        </div>
+        </x-ui.card>
 
-        <!-- Sipariş Durumu Dağılımı -->
-        <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
+        {{-- Sipariş Durumu Dağılımı --}}
+        <x-ui.card>
             <h3 class="text-lg font-semibold text-black dark:text-white mb-4">Sipariş Durumu Dağılımı</h3>
             <div class="space-y-4">
+                @php
+                    $totalOrders = $stats['delivered_orders'] + $stats['cancelled_orders'] + $stats['returned_orders'];
+                    $completedPercent = $totalOrders > 0 ? round(($stats['delivered_orders'] / $totalOrders) * 100, 1) : 0;
+                    $cancelledPercent = $totalOrders > 0 ? round(($stats['cancelled_orders'] / $totalOrders) * 100, 1) : 0;
+                    $returnedPercent = $totalOrders > 0 ? round(($stats['returned_orders'] / $totalOrders) * 100, 1) : 0;
+                @endphp
                 <div>
                     <div class="flex justify-between mb-2">
                         <span class="text-sm text-black dark:text-white">Tamamlandı</span>
-                        <span class="text-sm font-semibold text-black dark:text-white">412 (90.4%)</span>
+                        <span class="text-sm font-semibold text-black dark:text-white">{{ $stats['delivered_orders'] }} ({{ $completedPercent }}%)</span>
                     </div>
                     <div class="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2">
-                        <div class="bg-black dark:bg-white h-2 rounded-full" style="width: 90.4%"></div>
+                        <div class="bg-green-500 h-2 rounded-full" style="width: {{ $completedPercent }}%"></div>
                     </div>
                 </div>
                 <div>
                     <div class="flex justify-between mb-2">
                         <span class="text-sm text-black dark:text-white">İptal Edildi</span>
-                        <span class="text-sm font-semibold text-black dark:text-white">32 (7.0%)</span>
+                        <span class="text-sm font-semibold text-black dark:text-white">{{ $stats['cancelled_orders'] }} ({{ $cancelledPercent }}%)</span>
                     </div>
                     <div class="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2">
-                        <div class="bg-black dark:bg-white h-2 rounded-full" style="width: 7%"></div>
+                        <div class="bg-red-500 h-2 rounded-full" style="width: {{ $cancelledPercent }}%"></div>
                     </div>
                 </div>
                 <div>
                     <div class="flex justify-between mb-2">
                         <span class="text-sm text-black dark:text-white">İade Edildi</span>
-                        <span class="text-sm font-semibold text-black dark:text-white">12 (2.6%)</span>
+                        <span class="text-sm font-semibold text-black dark:text-white">{{ $stats['returned_orders'] }} ({{ $returnedPercent }}%)</span>
                     </div>
                     <div class="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2">
-                        <div class="bg-black dark:bg-white h-2 rounded-full" style="width: 2.6%"></div>
+                        <div class="bg-orange-500 h-2 rounded-full" style="width: {{ $returnedPercent }}%"></div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
+        </x-ui.card>
+    </x-layout.grid>
 
-    <!-- En Çok Satılan Ürünler -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
+    {{-- En Çok Satılan Ürünler ve Saatlik Dağılım --}}
+    <x-layout.grid cols="1" lgCols="2" gap="6">
+        {{-- En Çok Satılan Ürünler --}}
+        <x-ui.card>
             <h3 class="text-lg font-semibold text-black dark:text-white mb-4">En Çok Satılan Ürünler</h3>
             <div class="space-y-3">
+                @forelse($stats['top_products'] ?? [] as $product)
                 <div class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-800 rounded-lg">
                     <div>
-                        <p class="text-sm font-medium text-black dark:text-white">Izgara Tavuk</p>
-                        <p class="text-xs text-gray-600 dark:text-gray-400">145 adet</p>
+                        <p class="text-sm font-medium text-black dark:text-white">{{ $product['name'] }}</p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400">{{ $product['quantity'] }} adet</p>
                     </div>
-                    <span class="text-sm font-semibold text-black dark:text-white">₺12,325</span>
+                    <x-data.money :amount="$product['revenue']" class="font-semibold" />
                 </div>
-                <div class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-800 rounded-lg">
-                    <div>
-                        <p class="text-sm font-medium text-black dark:text-white">Karışık Pizza</p>
-                        <p class="text-xs text-gray-600 dark:text-gray-400">128 adet</p>
-                    </div>
-                    <span class="text-sm font-semibold text-black dark:text-white">₺10,880</span>
-                </div>
-                <div class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-800 rounded-lg">
-                    <div>
-                        <p class="text-sm font-medium text-black dark:text-white">Köfte Tabağı</p>
-                        <p class="text-xs text-gray-600 dark:text-gray-400">112 adet</p>
-                    </div>
-                    <span class="text-sm font-semibold text-black dark:text-white">₺9,520</span>
-                </div>
+                @empty
+                <p class="text-sm text-gray-500 text-center py-4">Ürün verisi bulunamadı</p>
+                @endforelse
             </div>
-        </div>
+        </x-ui.card>
 
-        <!-- Saatlik Dağılım -->
-        <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
+        {{-- Saatlik Dağılım --}}
+        <x-ui.card>
             <h3 class="text-lg font-semibold text-black dark:text-white mb-4">Saatlik Sipariş Dağılımı</h3>
-            <div class="h-48 flex items-end justify-between gap-1">
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-gray-300 dark:bg-gray-700" style="height: 20%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">12</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-gray-300 dark:bg-gray-700" style="height: 35%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">13</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-black dark:bg-white" style="height: 55%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">14</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-black dark:bg-white" style="height: 45%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">15</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-gray-300 dark:bg-gray-700" style="height: 40%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">16</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-gray-300 dark:bg-gray-700" style="height: 30%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">17</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-black dark:bg-white" style="height: 85%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">18</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-black dark:bg-white" style="height: 100%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">19</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-black dark:bg-white" style="height: 90%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">20</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-gray-300 dark:bg-gray-700" style="height: 75%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">21</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-gray-300 dark:bg-gray-700" style="height: 50%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">22</span>
-                </div>
-                <div class="flex-1 flex flex-col items-center justify-end">
-                    <div class="w-full bg-gray-300 dark:bg-gray-700" style="height: 25%"></div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">23</span>
-                </div>
+            <div class="h-48">
+                <canvas id="hourlyChart"></canvas>
             </div>
-        </div>
-    </div>
+        </x-ui.card>
+    </x-layout.grid>
 </div>
+
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const isDark = document.documentElement.classList.contains('dark');
+    const textColor = isDark ? '#fff' : '#000';
+    const gridColor = isDark ? '#333' : '#e5e7eb';
+
+    // Günlük Sipariş Grafiği
+    const dailyCtx = document.getElementById('dailyOrdersChart');
+    if (dailyCtx) {
+        new Chart(dailyCtx, {
+            type: 'bar',
+            data: {
+                labels: @json($stats['daily_labels'] ?? ['Pzt', 'Sal', 'Car', 'Per', 'Cum', 'Cmt', 'Paz']),
+                datasets: [{
+                    label: 'Sipariş Sayısı',
+                    data: @json($stats['daily_orders'] ?? [0, 0, 0, 0, 0, 0, 0]),
+                    backgroundColor: isDark ? '#fff' : '#000',
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { color: textColor }, grid: { color: gridColor } },
+                    x: { ticks: { color: textColor }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Saatlik Dağılım Grafiği
+    const hourlyCtx = document.getElementById('hourlyChart');
+    if (hourlyCtx) {
+        new Chart(hourlyCtx, {
+            type: 'bar',
+            data: {
+                labels: @json($stats['hourly_labels'] ?? ['12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23']),
+                datasets: [{
+                    label: 'Sipariş',
+                    data: @json($stats['hourly_orders'] ?? [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+                    backgroundColor: isDark ? '#fff' : '#000',
+                    borderRadius: 2,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { color: textColor }, grid: { color: gridColor } },
+                    x: { ticks: { color: textColor }, grid: { display: false } }
+                }
+            }
+        });
+    }
+});
+</script>
+@endpush
 @endsection

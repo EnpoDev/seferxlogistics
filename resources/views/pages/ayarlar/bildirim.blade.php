@@ -1,162 +1,102 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="p-6">
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-black dark:text-white">Bildirim Ayarları</h1>
-        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Bildirim tercihlerinizi yönetin</p>
-    </div>
+<div class="p-6 animate-fadeIn">
+    {{-- Page Header --}}
+    <x-layout.page-header
+        title="Bildirim Ayarları"
+        subtitle="Bildirim tercihlerinizi yönetin"
+    >
+        <x-slot name="icon">
+            <x-ui.icon name="bell" class="w-7 h-7 text-black dark:text-white" />
+        </x-slot>
+    </x-layout.page-header>
 
     <form action="{{ route('ayarlar.notification.update') }}" method="POST">
         @csrf
-        
         <div class="max-w-2xl space-y-6">
-            <!-- Sipariş Bildirimleri -->
-            <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
+            {{-- Sipariş Bildirimleri --}}
+            <x-ui.card>
                 <h3 class="text-lg font-semibold text-black dark:text-white mb-4">Sipariş Bildirimleri</h3>
                 <div class="space-y-4">
-                    <label class="flex items-center justify-between cursor-pointer">
-                        <div>
-                            <p class="text-sm font-medium text-black dark:text-white">Yeni sipariş bildirimi</p>
-                            <p class="text-xs text-gray-600 dark:text-gray-400">Yeni sipariş geldiğinde bildirim al</p>
-                        </div>
-                        <div class="relative">
-                            <input type="checkbox" name="new_order_notification" value="1" 
-                                   {{ $settings->new_order_notification ? 'checked' : '' }}
-                                   class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-300 dark:bg-gray-700 rounded-full peer peer-checked:bg-black dark:peer-checked:bg-white transition-colors"></div>
-                            <div class="absolute left-1 top-1 w-4 h-4 bg-white dark:bg-black rounded-full transition-transform peer-checked:translate-x-5"></div>
-                        </div>
-                    </label>
-                    
-                    <label class="flex items-center justify-between cursor-pointer">
-                        <div>
-                            <p class="text-sm font-medium text-black dark:text-white">Sipariş durumu değişikliği</p>
-                            <p class="text-xs text-gray-600 dark:text-gray-400">Sipariş durumu değiştiğinde bildirim al</p>
-                        </div>
-                        <div class="relative">
-                            <input type="checkbox" name="order_status_notification" value="1"
-                                   {{ $settings->order_status_notification ? 'checked' : '' }}
-                                   class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-300 dark:bg-gray-700 rounded-full peer peer-checked:bg-black dark:peer-checked:bg-white transition-colors"></div>
-                            <div class="absolute left-1 top-1 w-4 h-4 bg-white dark:bg-black rounded-full transition-transform peer-checked:translate-x-5"></div>
-                        </div>
-                    </label>
-                    
-                    <label class="flex items-center justify-between cursor-pointer">
-                        <div>
-                            <p class="text-sm font-medium text-black dark:text-white">İptal edilen siparişler</p>
-                            <p class="text-xs text-gray-600 dark:text-gray-400">Sipariş iptal edildiğinde bildirim al</p>
-                        </div>
-                        <div class="relative">
-                            <input type="checkbox" name="order_cancelled_notification" value="1"
-                                   {{ $settings->order_cancelled_notification ? 'checked' : '' }}
-                                   class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-300 dark:bg-gray-700 rounded-full peer peer-checked:bg-black dark:peer-checked:bg-white transition-colors"></div>
-                            <div class="absolute left-1 top-1 w-4 h-4 bg-white dark:bg-black rounded-full transition-transform peer-checked:translate-x-5"></div>
-                        </div>
-                    </label>
+                    <x-form.toggle
+                        name="new_order_notification"
+                        label="Yeni sipariş bildirimi"
+                        description="Yeni sipariş geldiğinde bildirim al"
+                        :checked="$settings->new_order_notification"
+                    />
+                    <x-form.toggle
+                        name="order_status_notification"
+                        label="Sipariş durumu değişikliği"
+                        description="Sipariş durumu değiştiğinde bildirim al"
+                        :checked="$settings->order_status_notification"
+                    />
+                    <x-form.toggle
+                        name="order_cancelled_notification"
+                        label="İptal edilen siparişler"
+                        description="Sipariş iptal edildiğinde bildirim al"
+                        :checked="$settings->order_cancelled_notification"
+                    />
                 </div>
-            </div>
+            </x-ui.card>
 
-            <!-- Push Bildirimleri -->
-            <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
+            {{-- Tarayıcı Bildirimleri --}}
+            <x-ui.card>
                 <h3 class="text-lg font-semibold text-black dark:text-white mb-4">Tarayıcı Bildirimleri</h3>
                 <div class="space-y-4">
-                    <label class="flex items-center justify-between cursor-pointer">
-                        <div>
-                            <p class="text-sm font-medium text-black dark:text-white">Push bildirimleri</p>
-                            <p class="text-xs text-gray-600 dark:text-gray-400">Tarayıcı bildirimlerini etkinleştir</p>
-                        </div>
-                        <div class="relative">
-                            <input type="checkbox" name="push_enabled" value="1"
-                                   {{ $settings->push_enabled ? 'checked' : '' }}
-                                   class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-300 dark:bg-gray-700 rounded-full peer peer-checked:bg-black dark:peer-checked:bg-white transition-colors"></div>
-                            <div class="absolute left-1 top-1 w-4 h-4 bg-white dark:bg-black rounded-full transition-transform peer-checked:translate-x-5"></div>
-                        </div>
-                    </label>
-                    
-                    <label class="flex items-center justify-between cursor-pointer">
-                        <div>
-                            <p class="text-sm font-medium text-black dark:text-white">Bildirim sesi</p>
-                            <p class="text-xs text-gray-600 dark:text-gray-400">Bildirim geldiğinde ses çal</p>
-                        </div>
-                        <div class="relative">
-                            <input type="checkbox" name="sound_enabled" value="1"
-                                   {{ $settings->sound_enabled ? 'checked' : '' }}
-                                   class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-300 dark:bg-gray-700 rounded-full peer peer-checked:bg-black dark:peer-checked:bg-white transition-colors"></div>
-                            <div class="absolute left-1 top-1 w-4 h-4 bg-white dark:bg-black rounded-full transition-transform peer-checked:translate-x-5"></div>
-                        </div>
-                    </label>
+                    <x-form.toggle
+                        name="push_enabled"
+                        label="Push bildirimleri"
+                        description="Tarayıcı bildirimlerini etkinleştir"
+                        :checked="$settings->push_enabled"
+                    />
+                    <x-form.toggle
+                        name="sound_enabled"
+                        label="Bildirim sesi"
+                        description="Bildirim geldiğinde ses çal"
+                        :checked="$settings->sound_enabled"
+                    />
                 </div>
-                
-                <!-- Browser notification permission button -->
+
                 <div class="mt-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                    <button type="button" onclick="requestNotificationPermission()" 
-                            class="px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:opacity-80 transition-opacity">
+                    <x-ui.button type="button" onclick="requestNotificationPermission()">
                         Tarayıcı İzni Ver
-                    </button>
+                    </x-ui.button>
                     <p class="text-xs text-gray-500 mt-2">Push bildirimleri için tarayıcı izni gereklidir.</p>
                 </div>
-            </div>
+            </x-ui.card>
 
-            <!-- E-posta Bildirimleri -->
-            <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
+            {{-- E-posta Bildirimleri --}}
+            <x-ui.card>
                 <h3 class="text-lg font-semibold text-black dark:text-white mb-4">E-posta Bildirimleri</h3>
                 <div class="space-y-4">
-                    <label class="flex items-center justify-between cursor-pointer">
-                        <div>
-                            <p class="text-sm font-medium text-black dark:text-white">Günlük özet</p>
-                            <p class="text-xs text-gray-600 dark:text-gray-400">Her gün sonunda özet rapor al</p>
-                        </div>
-                        <div class="relative">
-                            <input type="checkbox" name="email_daily_summary" value="1"
-                                   {{ $settings->email_daily_summary ? 'checked' : '' }}
-                                   class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-300 dark:bg-gray-700 rounded-full peer peer-checked:bg-black dark:peer-checked:bg-white transition-colors"></div>
-                            <div class="absolute left-1 top-1 w-4 h-4 bg-white dark:bg-black rounded-full transition-transform peer-checked:translate-x-5"></div>
-                        </div>
-                    </label>
-                    
-                    <label class="flex items-center justify-between cursor-pointer">
-                        <div>
-                            <p class="text-sm font-medium text-black dark:text-white">Haftalık rapor</p>
-                            <p class="text-xs text-gray-600 dark:text-gray-400">Haftalık performans raporu al</p>
-                        </div>
-                        <div class="relative">
-                            <input type="checkbox" name="email_weekly_report" value="1"
-                                   {{ $settings->email_weekly_report ? 'checked' : '' }}
-                                   class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-300 dark:bg-gray-700 rounded-full peer peer-checked:bg-black dark:peer-checked:bg-white transition-colors"></div>
-                            <div class="absolute left-1 top-1 w-4 h-4 bg-white dark:bg-black rounded-full transition-transform peer-checked:translate-x-5"></div>
-                        </div>
-                    </label>
-                    
-                    <label class="flex items-center justify-between cursor-pointer">
-                        <div>
-                            <p class="text-sm font-medium text-black dark:text-white">Yeni sipariş e-postası</p>
-                            <p class="text-xs text-gray-600 dark:text-gray-400">Her yeni siparişte e-posta al</p>
-                        </div>
-                        <div class="relative">
-                            <input type="checkbox" name="email_new_order" value="1"
-                                   {{ $settings->email_new_order ? 'checked' : '' }}
-                                   class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-300 dark:bg-gray-700 rounded-full peer peer-checked:bg-black dark:peer-checked:bg-white transition-colors"></div>
-                            <div class="absolute left-1 top-1 w-4 h-4 bg-white dark:bg-black rounded-full transition-transform peer-checked:translate-x-5"></div>
-                        </div>
-                    </label>
+                    <x-form.toggle
+                        name="email_daily_summary"
+                        label="Günlük özet"
+                        description="Her gün sonunda özet rapor al"
+                        :checked="$settings->email_daily_summary"
+                    />
+                    <x-form.toggle
+                        name="email_weekly_report"
+                        label="Haftalık rapor"
+                        description="Haftalık performans raporu al"
+                        :checked="$settings->email_weekly_report"
+                    />
+                    <x-form.toggle
+                        name="email_new_order"
+                        label="Yeni sipariş e-postası"
+                        description="Her yeni siparişte e-posta al"
+                        :checked="$settings->email_new_order"
+                    />
                 </div>
-            </div>
+            </x-ui.card>
 
-            <button type="submit" class="w-full px-4 py-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80 transition-opacity font-medium">
-                Değişiklikleri Kaydet
-            </button>
+            <x-ui.button type="submit" class="w-full">Değişiklikleri Kaydet</x-ui.button>
         </div>
     </form>
 </div>
 
+@push('scripts')
 <script>
 function requestNotificationPermission() {
     if ('Notification' in window) {
@@ -172,4 +112,5 @@ function requestNotificationPermission() {
     }
 }
 </script>
+@endpush
 @endsection

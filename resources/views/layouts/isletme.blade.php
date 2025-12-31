@@ -1,5 +1,52 @@
+@php
+    $themeSettings = \App\Models\ThemeSetting::where('user_id', auth()->id())->first();
+    $themeMode = $themeSettings?->theme_mode ?? 'system';
+    $compactMode = $themeSettings?->compact_mode ?? false;
+    $animationsEnabled = $themeSettings?->animations_enabled ?? true;
+    $sidebarAutoHide = $themeSettings?->sidebar_auto_hide ?? true;
+    $sidebarWidth = $themeSettings?->sidebar_width ?? 'normal';
+    $initialDarkMode = $themeMode === 'dark' ? 'true' : ($themeMode === 'light' ? 'false' : "window.matchMedia('(prefers-color-scheme: dark)').matches");
+    
+    // Sidebar width classes
+    $sidebarWidthClass = match($sidebarWidth) {
+        'narrow' => 'w-52',
+        'wide' => 'w-80',
+        default => 'w-64',
+    };
+@endphp
 <!DOCTYPE html>
-<html lang="tr" x-data="{ darkMode: localStorage.getItem('darkMode') === 'true', sidebarOpen: true, openDropdown: null }" x-init="$watch('darkMode', val => localStorage.setItem('darkMode', val))" :class="{ 'dark': darkMode }">
+<html lang="tr" 
+      x-data="themeManager()" 
+      x-init="init()"
+      :class="{ 'dark': darkMode, 'compact-mode': compactMode, 'no-animations': !animationsEnabled }">
+<script>
+    function themeManager() {
+        return {
+            darkMode: {{ $initialDarkMode }},
+            sidebarOpen: {{ $sidebarAutoHide ? 'window.innerWidth >= 1024' : 'true' }},
+            openDropdown: null,
+            themeMode: '{{ $themeMode }}',
+            compactMode: {{ $compactMode ? 'true' : 'false' }},
+            animationsEnabled: {{ $animationsEnabled ? 'true' : 'false' }},
+            sidebarAutoHide: {{ $sidebarAutoHide ? 'true' : 'false' }},
+            init() {
+                // Watch for system theme changes if theme mode is 'system'
+                if (this.themeMode === 'system') {
+                    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+                        if (this.themeMode === 'system') this.darkMode = e.matches;
+                    });
+                }
+                // Handle sidebar auto-hide on resize
+                if (this.sidebarAutoHide) {
+                    window.addEventListener('resize', () => {
+                        this.sidebarOpen = window.innerWidth >= 1024;
+                    });
+                }
+                this.$watch('darkMode', val => localStorage.setItem('darkMode', val));
+            }
+        }
+    }
+</script>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,6 +60,32 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
         .dark { background-color: #181818; }
+        
+        /* Compact Mode */
+        .compact-mode .p-6 { padding: 1rem; }
+        .compact-mode .p-4 { padding: 0.75rem; }
+        .compact-mode .px-4 { padding-left: 0.75rem; padding-right: 0.75rem; }
+        .compact-mode .py-4 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+        .compact-mode .px-3 { padding-left: 0.5rem; padding-right: 0.5rem; }
+        .compact-mode .py-3 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+        .compact-mode .py-2 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+        .compact-mode .space-y-4 > * + * { margin-top: 0.75rem; }
+        .compact-mode .space-y-6 > * + * { margin-top: 1rem; }
+        .compact-mode .gap-4 { gap: 0.75rem; }
+        .compact-mode .gap-6 { gap: 1rem; }
+        .compact-mode .mb-6 { margin-bottom: 1rem; }
+        .compact-mode .mb-4 { margin-bottom: 0.75rem; }
+        .compact-mode .text-2xl { font-size: 1.25rem; }
+        .compact-mode .text-xl { font-size: 1.125rem; }
+        .compact-mode .h-16 { height: 3.5rem; }
+        
+        /* No Animations */
+        .no-animations *, .no-animations *::before, .no-animations *::after {
+            animation-duration: 0s !important;
+            animation-delay: 0s !important;
+            transition-duration: 0s !important;
+            transition-delay: 0s !important;
+        }
         
         /* Custom Animations */
         @keyframes fadeIn {
@@ -136,12 +209,13 @@
 
         <!-- Sidebar -->
         <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
-               class="fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-[#181818] border-r border-gray-200 dark:border-gray-800 transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static flex flex-col">
+               class="fixed inset-y-0 left-0 z-50 {{ $sidebarWidthClass }} bg-white dark:bg-[#181818] border-r border-gray-200 dark:border-gray-800 transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static flex flex-col">
 
             <!-- Sidebar Header -->
-            <div class="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-800 bg-black dark:bg-black">
-                <a href="{{ route('dashboard') }}" class="flex items-center space-x-2">
-                    <img src="{{ asset('logo.png') }}" alt="SeferX Logo" class="h-10 w-auto">
+            <div class="flex items-center justify-between h-20 px-4 border-b border-gray-200 dark:border-gray-800">
+            <a href="{{ route('dashboard') }}" class="flex mr-10 items-center space-x-2">
+                    <img src="{{ asset('logo-dark.png') }}" alt="SeferX Logo" class="h-16 w-auto dark:hidden">
+                    <img src="{{ asset('logo-white.png') }}" alt="SeferX Logo" class="h-16 w-auto hidden dark:block">
                 </a>
             </div>
 
@@ -385,7 +459,7 @@
         <div class="flex-1 flex flex-col overflow-hidden">
 
             <!-- Top Navbar -->
-            <header class="bg-black dark:bg-black border-b border-gray-200 dark:border-gray-800 h-16">
+            <header class="bg-white dark:bg-[#181818] border-b border-gray-200 dark:border-gray-800 h-16">
                 <div class="h-full px-4 flex items-center justify-between">
 
                     <!-- Left: Menu Toggle & Search -->

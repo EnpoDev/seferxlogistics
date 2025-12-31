@@ -1,112 +1,143 @@
-<x-bayi-layout>
-    <x-slot name="title">Harita - Bayi Paneli</x-slot>
+@extends('layouts.app')
 
-    <div class="space-y-6" x-data="bayiMapController()">
-        <!-- Page Header -->
-        <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-3xl font-bold text-black dark:text-white">Kurye Haritası</h1>
-                <p class="text-gray-600 dark:text-gray-400 mt-1">Kuryelerinizi ve siparişleri canlı olarak takip edin</p>
-            </div>
-            <div class="flex items-center space-x-3">
-                <button @click="refreshData()" class="px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80 transition-opacity flex items-center gap-2">
-                    <svg class="w-4 h-4" :class="{ 'animate-spin': isLoading }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+@section('content')
+<div class="p-6 animate-fadeIn" x-data="bayiMapController()">
+    {{-- Page Header --}}
+    <x-layout.page-header
+        title="Kurye Haritası"
+        subtitle="Kuryelerinizi ve siparişleri canlı olarak takip edin"
+    >
+        <x-slot name="icon">
+            <x-ui.icon name="map" class="w-7 h-7 text-black dark:text-white" />
+        </x-slot>
+
+        <x-slot name="actions">
+            <button @click="refreshData()"
+                    :disabled="isLoading"
+                    class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black dark:focus:ring-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
+                <template x-if="!isLoading">
+                    <x-ui.icon name="refresh" class="w-4 h-4" />
+                </template>
+                <template x-if="isLoading">
+                    <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span>Yenile</span>
-                </button>
-                <button @click="toggleFilters()" class="px-4 py-2 bg-gray-100 dark:bg-gray-900 text-black dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
-                    </svg>
-                </button>
+                </template>
+                Yenile
+            </button>
+            <x-ui.button variant="secondary" @click="toggleFilters()" icon="filter">
+                Filtreler
+            </x-ui.button>
+        </x-slot>
+    </x-layout.page-header>
+
+    {{-- Arama Kartları --}}
+    <x-layout.grid cols="1" mdCols="2" gap="4" class="mb-6">
+        {{-- Sipariş Ara --}}
+        <x-ui.card class="relative">
+            <x-form.form-group label="Sipariş Ara...">
+                <x-form.search-input
+                    x-model="orderSearch"
+                    @input.debounce.300ms="searchOrders()"
+                    @focus="showOrderResults = true"
+                    @click.away="showOrderResults = false"
+                    placeholder="Sipariş ID, müşteri adı..."
+                />
+            </x-form.form-group>
+
+            {{-- Arama Sonuçları --}}
+            <div x-show="showOrderResults && orderSearchResults.length > 0"
+                 x-cloak
+                 class="absolute left-4 right-4 top-full mt-2 bg-white dark:bg-[#181818] rounded-lg border border-gray-200 dark:border-gray-800 shadow-lg max-h-64 overflow-y-auto z-10">
+                <template x-for="order in orderSearchResults" :key="order.id">
+                    <div @click="selectOrder(order)"
+                         class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer border-b border-gray-100 dark:border-gray-800 last:border-0">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="font-mono font-semibold text-sm text-black dark:text-white" x-text="order.order_number"></p>
+                                <p class="text-xs text-gray-600 dark:text-gray-400" x-text="order.customer_name"></p>
+                                <p class="text-xs text-gray-500 truncate max-w-xs" x-text="order.customer_address"></p>
+                            </div>
+                            <x-data.status-badge x-bind:status="order.status" entity="order" />
+                        </div>
+                    </div>
+                </template>
             </div>
-        </div>
+        </x-ui.card>
 
-        <!-- Search Bars -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Sipariş Ara -->
-            <div class="bg-white dark:bg-[#181818] rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-                <label class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 block">Sipariş Ara...</label>
-                <div class="flex items-center space-x-2 px-3 py-2 bg-gray-100 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                    </svg>
-                    <input type="text" 
-                           x-model="orderSearch"
-                           @input.debounce.300ms="searchOrders()"
-                           placeholder="Sipariş ID, müşteri adı..."
-                           class="bg-transparent border-0 focus:outline-none text-sm text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 w-full">
-                </div>
+        {{-- Kurye Ara --}}
+        <x-ui.card class="relative">
+            <x-form.form-group label="Kurye Ara...">
+                <x-form.search-input
+                    x-model="courierSearch"
+                    @input.debounce.300ms="searchCouriers()"
+                    @focus="showCourierResults = true"
+                    @click.away="showCourierResults = false"
+                    placeholder="Kurye adı, plaka..."
+                />
+            </x-form.form-group>
+
+            {{-- Kurye Arama Sonuçları --}}
+            <div x-show="showCourierResults && courierSearchResults.length > 0"
+                 x-cloak
+                 class="absolute left-4 right-4 top-full mt-2 bg-white dark:bg-[#181818] rounded-lg border border-gray-200 dark:border-gray-800 shadow-lg max-h-64 overflow-y-auto z-10">
+                <template x-for="courier in courierSearchResults" :key="courier.id">
+                    <div @click="selectCourier(courier)"
+                         class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer border-b border-gray-100 dark:border-gray-800 last:border-0">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                                     :class="{
+                                         'bg-green-500': courier.status === 'available',
+                                         'bg-orange-500': courier.status === 'busy',
+                                         'bg-yellow-500': courier.status === 'on_break',
+                                         'bg-gray-400': courier.status === 'offline'
+                                     }">
+                                    <span x-text="courier.name.substring(0, 2).toUpperCase()"></span>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-sm text-black dark:text-white" x-text="courier.name"></p>
+                                    <p class="text-xs text-gray-600 dark:text-gray-400" x-text="courier.vehicle_plate || '-'"></p>
+                                    <p class="text-xs text-gray-500" x-text="courier.phone"></p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <x-data.status-badge x-bind:status="courier.status" entity="courier" />
+                                <p class="text-xs text-gray-400 mt-1" x-text="courier.active_orders_count + ' sipariş'"></p>
+                            </div>
+                        </div>
+                    </div>
+                </template>
             </div>
+        </x-ui.card>
+    </x-layout.grid>
 
-            <!-- Kurye Ara -->
-            <div class="bg-white dark:bg-[#181818] rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-                <label class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 block">Kurye Ara...</label>
-                <div class="flex items-center space-x-2 px-3 py-2 bg-gray-100 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                    </svg>
-                    <input type="text" 
-                           x-model="courierSearch"
-                           @input.debounce.300ms="searchCouriers()"
-                           placeholder="Kurye adı, plaka..."
-                           class="bg-transparent border-0 focus:outline-none text-sm text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 w-full">
-                </div>
-            </div>
-        </div>
+    {{-- Harita --}}
+    <x-ui.card class="mb-6">
+        @php
+            $courierData = $couriers->map(function($c) {
+                return [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'phone' => $c->phone,
+                    'lat' => (float)$c->lat,
+                    'lng' => (float)$c->lng,
+                    'status' => $c->status,
+                    'vehicle_plate' => $c->vehicle_plate,
+                    'active_orders_count' => $c->active_orders_count,
+                ];
+            });
+        @endphp
+        <div id="courier-map"
+             class="rounded-lg h-[600px] border border-gray-200 dark:border-gray-800 z-0"
+             data-couriers='@json($courierData)'
+             x-ref="map"></div>
+    </x-ui.card>
 
-        <!-- Map Card -->
-        <div class="bg-white dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-gray-800">
-            <div class="p-6">
-                <!-- Status Tabs -->
-                <div class="flex items-center space-x-4 mb-4 border-b border-gray-200 dark:border-gray-800">
-                    <button @click="activeTab = 'new'" 
-                            :class="activeTab === 'new' ? 'text-black dark:text-white border-black dark:border-white' : 'text-gray-600 dark:text-gray-400 border-transparent'"
-                            class="px-4 py-2 text-sm font-medium border-b-2 transition-colors">
-                        Yeni <span class="ml-1 px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-full text-xs" x-text="stats.pending"></span>
-                    </button>
-                    <button @click="activeTab = 'active'" 
-                            :class="activeTab === 'active' ? 'text-black dark:text-white border-black dark:border-white' : 'text-gray-600 dark:text-gray-400 border-transparent'"
-                            class="px-4 py-2 text-sm font-medium border-b-2 transition-colors">
-                        Aktif <span class="ml-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs" x-text="stats.active"></span>
-                    </button>
-                    <button @click="activeTab = 'pool'" 
-                            :class="activeTab === 'pool' ? 'text-black dark:text-white border-black dark:border-white' : 'text-gray-600 dark:text-gray-400 border-transparent'"
-                            class="px-4 py-2 text-sm font-medium border-b-2 transition-colors">
-                        Havuz <span class="ml-1 px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-full text-xs" x-text="stats.pool"></span>
-                    </button>
-                    <button @click="activeTab = 'cancelled'" 
-                            :class="activeTab === 'cancelled' ? 'text-black dark:text-white border-black dark:border-white' : 'text-gray-600 dark:text-gray-400 border-transparent'"
-                            class="px-4 py-2 text-sm font-medium border-b-2 transition-colors">
-                        İptal <span class="ml-1 px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-full text-xs" x-text="stats.cancelled"></span>
-                    </button>
-                </div>
-
-                <!-- Interactive Map -->
-                @php
-                    $courierData = $couriers->map(function($c) {
-                        return [
-                            'id' => $c->id,
-                            'name' => $c->name,
-                            'phone' => $c->phone,
-                            'lat' => (float)$c->lat,
-                            'lng' => (float)$c->lng,
-                            'status' => $c->status,
-                            'vehicle_plate' => $c->vehicle_plate,
-                            'active_orders_count' => $c->active_orders_count,
-                        ];
-                    });
-                @endphp
-                <div id="courier-map" 
-                     class="rounded-lg h-[600px] border border-gray-200 dark:border-gray-800 z-0"
-                     data-couriers='@json($courierData)'
-                     x-ref="map"></div>
-            </div>
-        </div>
-
-        <!-- Courier List Sidebar (if needed) -->
-        <div x-show="showCourierList" x-cloak class="bg-white dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+    {{-- Kurye Listesi --}}
+    <div x-show="showCourierList" x-cloak>
+        <x-ui.card>
             <h3 class="font-semibold text-black dark:text-white mb-3">Kuryeler</h3>
             <div class="space-y-2 max-h-64 overflow-y-auto">
                 @foreach($couriers as $courier)
@@ -126,143 +157,439 @@
                 </div>
                 @endforeach
             </div>
-        </div>
+        </x-ui.card>
     </div>
 
-    @push('scripts')
-    <script>
-    function bayiMapController() {
-        return {
-            mapManager: null,
-            activeTab: 'new',
-            orderSearch: '',
-            courierSearch: '',
-            isLoading: false,
-            showCourierList: false,
-            showFilters: false,
-            stats: {
-                pending: {{ $newOrders }},
-                active: {{ $activeOrders }},
-                pool: {{ $poolOrders }},
-                cancelled: {{ $cancelledOrders }}
-            },
-            
-            init() {
-                this.$nextTick(() => {
-                    if (window.CourierMapManager) {
+    {{-- Kurye Detay Modal --}}
+    <x-ui.modal name="courierDetailModal" size="2xl">
+        <div x-show="selectedCourier" class="space-y-6">
+            {{-- Modal Header --}}
+            <div class="flex items-center gap-4">
+                <div class="w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold"
+                     :class="{
+                         'bg-green-500': selectedCourier?.status === 'available',
+                         'bg-orange-500': selectedCourier?.status === 'busy',
+                         'bg-yellow-500': selectedCourier?.status === 'on_break',
+                         'bg-gray-400': selectedCourier?.status === 'offline'
+                     }">
+                    <span x-text="selectedCourier?.name?.substring(0, 2).toUpperCase()"></span>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-black dark:text-white" x-text="selectedCourier?.name"></h2>
+                    <p class="text-sm text-gray-600 dark:text-gray-400" x-text="selectedCourier?.status_label"></p>
+                </div>
+            </div>
+
+            {{-- İletişim Bilgileri --}}
+            <x-layout.grid cols="2" gap="4">
+                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Telefon</p>
+                    <p class="font-medium text-black dark:text-white" x-text="selectedCourier?.phone || '-'"></p>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Plaka</p>
+                    <p class="font-medium text-black dark:text-white" x-text="selectedCourier?.vehicle_plate || '-'"></p>
+                </div>
+            </x-layout.grid>
+
+            {{-- Günlük İstatistikler --}}
+            <x-layout.grid cols="3" gap="4">
+                <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 text-center">
+                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400" x-text="selectedCourier?.active_orders_count || 0"></p>
+                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Aktif Sipariş</p>
+                </div>
+                <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 text-center">
+                    <p class="text-2xl font-bold text-green-600 dark:text-green-400" x-text="selectedCourier?.today_deliveries || 0"></p>
+                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Bugün Teslim</p>
+                </div>
+                <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 text-center">
+                    <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                        <x-data.money x-bind:amount="selectedCourier?.today_earnings || 0" />
+                    </p>
+                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Bugün Kazanç</p>
+                </div>
+            </x-layout.grid>
+
+            {{-- Vardiya Durumu --}}
+            <div x-show="selectedCourier?.is_on_shift !== undefined">
+                <h3 class="font-semibold text-black dark:text-white mb-3">Vardiya Durumu</h3>
+                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">Şu an vardiyada mı?</span>
+                        <x-ui.badge
+                            x-bind:type="selectedCourier?.is_on_shift ? 'success' : 'danger'"
+                            x-text="selectedCourier?.is_on_shift ? 'Evet' : 'Hayır'"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {{-- Aktif Siparişler --}}
+            <div x-show="selectedCourier?.active_orders && selectedCourier.active_orders.length > 0">
+                <h3 class="font-semibold text-black dark:text-white mb-3">Aktif Siparişler</h3>
+                <div class="space-y-2">
+                    <template x-for="order in selectedCourier?.active_orders || []" :key="order.id">
+                        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-mono font-semibold text-black dark:text-white" x-text="order.order_number"></span>
+                                <x-data.status-badge x-bind:status="order.status" entity="order" />
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-400" x-text="order.customer_name"></p>
+                            <p class="text-xs text-gray-500 mt-1" x-text="order.customer_address"></p>
+                            <div class="flex items-center justify-between mt-2">
+                                <span class="text-xs text-gray-400" x-text="order.created_at"></span>
+                                <span class="font-semibold text-black dark:text-white">
+                                    <x-data.money x-bind:amount="parseFloat(order.total)" />
+                                </span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </x-ui.modal>
+</div>
+
+@push('scripts')
+<script>
+function bayiMapController() {
+    return {
+        mapManager: null,
+        activeTab: 'new',
+        orderSearch: '',
+        courierSearch: '',
+        orderSearchResults: [],
+        courierSearchResults: [],
+        showOrderResults: false,
+        showCourierResults: false,
+        isLoading: false,
+        showCourierList: false,
+        showFilters: false,
+        allOrders: [],
+        selectedCourier: null,
+        refreshInterval: null,
+        stats: {
+            pending: {{ $newOrders }},
+            active: {{ $activeOrders }},
+            pool: {{ $poolOrders }},
+            cancelled: {{ $cancelledOrders }}
+        },
+
+        init() {
+            this.$nextTick(() => {
+                const mapEl = document.getElementById('courier-map');
+
+                if (window.CourierMapManager && mapEl) {
+                    if (window.courierMap && window.courierMap.map) {
+                        this.mapManager = window.courierMap;
+                    } else {
                         this.mapManager = new CourierMapManager('courier-map');
                         this.mapManager.init();
-                        
-                        // Load initial data from data attributes
-                        const mapEl = document.getElementById('courier-map');
-                        if (mapEl?.dataset.couriers) {
-                            try {
-                                const couriers = JSON.parse(mapEl.dataset.couriers);
-                                this.mapManager.setCouriers(couriers.filter(c => c.lat && c.lng));
-                            } catch (e) {
-                                console.error('Error loading couriers:', e);
-                            }
+                    }
+
+                    if (mapEl.dataset.couriers) {
+                        try {
+                            const couriers = JSON.parse(mapEl.dataset.couriers);
+                            this.mapManager.setCouriers(couriers.filter(c => c.lat && c.lng));
+                        } catch (e) {
+                            console.error('Error loading couriers:', e);
                         }
+                    }
+
+                    this.loadOrders();
+                }
+            });
+
+            this.$watch('activeTab', () => {
+                this.filterOrdersByTab();
+            });
+
+            window.addEventListener('courier-clicked', (event) => {
+                this.showCourierDetails(event.detail.courierId);
+            });
+
+            this.startPolling();
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    this.stopPolling();
+                } else {
+                    this.startPolling();
+                }
+            });
+        },
+
+        startPolling() {
+            if (this.refreshInterval) {
+                clearInterval(this.refreshInterval);
+            }
+            this.refreshInterval = setInterval(() => {
+                this.refreshStats();
+            }, 5000);
+        },
+
+        stopPolling() {
+            if (this.refreshInterval) {
+                clearInterval(this.refreshInterval);
+                this.refreshInterval = null;
+            }
+        },
+
+        async refreshStats() {
+            try {
+                const response = await fetch('/api/map-data', {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+                        'X-Requested-With': 'XMLHttpRequest'
                     }
                 });
-            },
-            
-            async refreshData() {
-                this.isLoading = true;
-                try {
-                    const response = await fetch('/api/map-data', {
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (this.mapManager) {
-                            this.mapManager.setCouriers(data.couriers || []);
-                            this.mapManager.setOrders(data.orders || []);
-                        }
-                        this.stats = data.stats || this.stats;
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.stats) {
+                        this.stats = data.stats;
                     }
-                } catch (error) {
-                    console.error('Error refreshing data:', error);
-                } finally {
-                    this.isLoading = false;
                 }
-            },
-            
-            async searchOrders() {
-                if (!this.orderSearch.trim()) {
-                    this.refreshData();
-                    return;
-                }
-                
-                try {
-                    const response = await fetch(`/api/orders/search?q=${encodeURIComponent(this.orderSearch)}&status=active`, {
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        const orders = await response.json();
-                        if (this.mapManager) {
-                            this.mapManager.setOrders(orders);
-                            
-                            // Focus on first result if any
-                            if (orders.length > 0 && orders[0].lat && orders[0].lng) {
-                                this.mapManager.focusOn(orders[0].lat, orders[0].lng, 14);
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error searching orders:', error);
-                }
-            },
-            
-            async searchCouriers() {
-                if (!this.courierSearch.trim()) {
-                    this.refreshData();
-                    return;
-                }
-                
-                try {
-                    const response = await fetch(`/api/couriers/search?q=${encodeURIComponent(this.courierSearch)}`, {
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        const couriers = await response.json();
-                        if (this.mapManager) {
-                            this.mapManager.setCouriers(couriers);
-                            
-                            // Focus on first result if any
-                            if (couriers.length > 0 && couriers[0].lat && couriers[0].lng) {
-                                this.mapManager.focusOn(couriers[0].lat, couriers[0].lng, 14);
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error searching couriers:', error);
-                }
-            },
-            
-            focusOnCourier(courierId) {
-                if (this.mapManager) {
-                    this.mapManager.focusOnCourier(courierId);
-                }
-            },
-            
-            toggleFilters() {
-                this.showFilters = !this.showFilters;
+            } catch (error) {
+                console.error('Error refreshing stats:', error);
             }
+        },
+
+        destroy() {
+            this.stopPolling();
+            if (this.mapManager) {
+                this.mapManager.destroy();
+                this.mapManager = null;
+            }
+        },
+
+        async refreshData() {
+            this.isLoading = true;
+            try {
+                const response = await fetch('/api/map-data', {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (this.mapManager) {
+                        this.mapManager.setCouriers(data.couriers || []);
+                        this.mapManager.setOrders(data.orders || []);
+                    }
+                    this.stats = data.stats || this.stats;
+                }
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        async searchOrders() {
+            if (!this.orderSearch.trim()) {
+                this.orderSearchResults = [];
+                this.showOrderResults = false;
+                this.refreshData();
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/orders/search?q=${encodeURIComponent(this.orderSearch)}&status=active`, {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (response.ok) {
+                    const orders = await response.json();
+                    this.orderSearchResults = orders;
+                    this.showOrderResults = true;
+                }
+            } catch (error) {
+                console.error('Error searching orders:', error);
+            }
+        },
+
+        selectOrder(order) {
+            this.showOrderResults = false;
+            if (this.mapManager && order.lat && order.lng) {
+                this.mapManager.setOrders([order]);
+                this.mapManager.focusOn(order.lat, order.lng, 16);
+            }
+        },
+
+        clearOrderSearch() {
+            this.orderSearch = '';
+            this.orderSearchResults = [];
+            this.showOrderResults = false;
+            this.refreshData();
+        },
+
+        async searchCouriers() {
+            if (!this.courierSearch.trim()) {
+                this.courierSearchResults = [];
+                this.showCourierResults = false;
+                this.refreshData();
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/couriers/search?q=${encodeURIComponent(this.courierSearch)}`, {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (response.ok) {
+                    const couriers = await response.json();
+                    this.courierSearchResults = couriers;
+                    this.showCourierResults = true;
+                }
+            } catch (error) {
+                console.error('Error searching couriers:', error);
+            }
+        },
+
+        selectCourier(courier) {
+            this.showCourierResults = false;
+            if (this.mapManager && courier.lat && courier.lng) {
+                this.mapManager.setCouriers([courier]);
+                this.mapManager.focusOn(courier.lat, courier.lng, 16);
+            }
+            this.showCourierDetails(courier.id);
+        },
+
+        clearCourierSearch() {
+            this.courierSearch = '';
+            this.courierSearchResults = [];
+            this.showCourierResults = false;
+            this.refreshData();
+        },
+
+        async loadOrders() {
+            try {
+                const response = await fetch('/api/map-data', {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.allOrders = data.orders || [];
+                    this.filterOrdersByTab();
+                }
+            } catch (error) {
+                console.error('Error loading orders:', error);
+            }
+        },
+
+        filterOrdersByTab() {
+            if (!this.mapManager || !this.allOrders) return;
+
+            let filteredOrders = [];
+
+            switch(this.activeTab) {
+                case 'new':
+                    filteredOrders = this.allOrders.filter(o => o.status === 'pending');
+                    break;
+                case 'active':
+                    filteredOrders = this.allOrders.filter(o =>
+                        ['preparing', 'ready', 'on_delivery'].includes(o.status)
+                    );
+                    break;
+                case 'pool':
+                    filteredOrders = this.allOrders.filter(o =>
+                        o.status === 'ready' && !o.courier_name
+                    );
+                    break;
+                case 'cancelled':
+                    this.loadCancelledOrders();
+                    return;
+                default:
+                    filteredOrders = this.allOrders;
+            }
+
+            this.mapManager.setOrders(filteredOrders);
+        },
+
+        async loadCancelledOrders() {
+            try {
+                const response = await fetch('/api/orders/search?status=cancelled', {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (response.ok) {
+                    const orders = await response.json();
+                    if (this.mapManager) {
+                        this.mapManager.setOrders(orders);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading cancelled orders:', error);
+            }
+        },
+
+        async showCourierDetails(courierId) {
+            try {
+                const response = await fetch(`/api/couriers/${courierId}`, {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (response.ok) {
+                    this.selectedCourier = await response.json();
+                    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'courierDetailModal' }));
+                }
+            } catch (error) {
+                console.error('Error loading courier details:', error);
+            }
+        },
+
+        focusOnCourier(courierId) {
+            if (this.mapManager) {
+                this.mapManager.focusOnCourier(courierId);
+            }
+            this.showCourierDetails(courierId);
+        },
+
+        toggleFilters() {
+            this.showFilters = !this.showFilters;
         }
     }
-    </script>
-    @endpush
-</x-bayi-layout>
+}
+</script>
+@endpush
+@endsection

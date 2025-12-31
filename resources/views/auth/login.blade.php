@@ -16,10 +16,8 @@
     <div class="min-h-screen flex items-center justify-center p-6">
         <div class="w-full max-w-md">
             <!-- Logo / Header -->
-            <div class="text-center mb-8">
-                <img src="{{ asset('logo.png') }}" alt="SeferX Logo" class="h-16 w-auto mx-auto mb-4">
-                <h1 class="text-3xl font-bold text-black dark:text-white">SeferX Lojistik</h1>
-                <p class="text-gray-600 dark:text-gray-400 mt-2">Hesabınıza giriş yapın</p>
+            <div class="text-center mb-8 mx-auto">
+                <img src="{{ asset('logo-dark.png') }}" alt="SeferX Logo" class="h-24 w-auto mx-auto "> 
             </div>
 
             <!-- Login Form -->

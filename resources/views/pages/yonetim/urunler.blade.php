@@ -1,61 +1,68 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="p-6">
-    <div class="mb-6 flex justify-between items-center">
-        <div>
-            <h1 class="text-2xl font-bold text-black dark:text-white">Ürünler</h1>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Ürünlerinizi yönetin</p>
-        </div>
-        <button class="px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80">
-            + Yeni Ürün
-        </button>
-    </div>
+<div class="p-6 animate-fadeIn">
+    {{-- Page Header --}}
+    <x-layout.page-header
+        title="Ürünler"
+        subtitle="Ürünlerinizi yönetin"
+    >
+        <x-slot name="icon">
+            <x-ui.icon name="box" class="w-7 h-7 text-black dark:text-white" />
+        </x-slot>
 
-    <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead class="border-b border-gray-200 dark:border-gray-800">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">ÜRÜN ADI</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">KATEGORİ</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">FİYAT</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">DURUM</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">İŞLEMLER</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-                    @forelse($products as $product)
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-900">
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">{{ $product->name }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{{ $product->category->name ?? '-' }}</td>
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">₺{{ number_format($product->price, 2) }}</td>
-                        <td class="px-6 py-4 text-sm">
-                            @if($product->is_active)
-                                <span class="px-2 py-1 text-xs border border-green-200 bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800 rounded">Aktif</span>
-                            @else
-                                <span class="px-2 py-1 text-xs border border-red-200 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800 rounded">Pasif</span>
-                            @endif
-                        </td>
-                        <td class="px-6 py-4 text-sm">
-                            <button class="text-black dark:text-white hover:opacity-60">Düzenle</button>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-600 dark:text-gray-400">
-                            Ürün bulunamadı
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+        <x-slot name="actions">
+            <x-ui.button icon="plus">Yeni Ürün</x-ui.button>
+        </x-slot>
+    </x-layout.page-header>
+
+    {{-- Ürün Listesi --}}
+    <x-ui.card>
+        <x-table.table hoverable>
+            <x-table.thead>
+                <x-table.tr :hoverable="false">
+                    <x-table.th>Ürün Adı</x-table.th>
+                    <x-table.th>Kategori</x-table.th>
+                    <x-table.th>Fiyat</x-table.th>
+                    <x-table.th>Durum</x-table.th>
+                    <x-table.th align="right">İşlemler</x-table.th>
+                </x-table.tr>
+            </x-table.thead>
+
+            <x-table.tbody>
+                @forelse($products as $product)
+                <x-table.tr>
+                    <x-table.td>
+                        <span class="text-black dark:text-white">{{ $product->name }}</span>
+                    </x-table.td>
+                    <x-table.td>
+                        <span class="text-gray-600 dark:text-gray-400">{{ $product->category->name ?? '-' }}</span>
+                    </x-table.td>
+                    <x-table.td>
+                        <x-data.money :amount="$product->price" />
+                    </x-table.td>
+                    <x-table.td>
+                        @if($product->is_active)
+                            <x-ui.badge type="success">Aktif</x-ui.badge>
+                        @else
+                            <x-ui.badge type="danger">Pasif</x-ui.badge>
+                        @endif
+                    </x-table.td>
+                    <x-table.td align="right">
+                        <x-ui.button variant="ghost" size="sm">Düzenle</x-ui.button>
+                    </x-table.td>
+                </x-table.tr>
+                @empty
+                <x-table.empty colspan="5" icon="box" message="Ürün bulunamadı" />
+                @endforelse
+            </x-table.tbody>
+        </x-table.table>
+
         @if($products->hasPages())
         <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-800">
             {{ $products->links() }}
         </div>
         @endif
-    </div>
+    </x-ui.card>
 </div>
 @endsection

@@ -64,13 +64,13 @@ class CourierMapManager {
                     popupAnchor: [0, -20],
                 }),
                 offline: L.divIcon({
-                    className: 'custom-marker',
+        className: 'custom-marker',
                     html: `<div class="w-10 h-10 bg-gray-400 border-3 border-white rounded-full shadow-lg flex items-center justify-center opacity-60">
                             <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
-                                <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z"/>
-                            </svg>
-                          </div>`,
+                    <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
+                    <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z"/>
+                </svg>
+              </div>`,
                     iconSize: [40, 40],
                     iconAnchor: [20, 20],
                     popupAnchor: [0, -20],
@@ -117,19 +117,19 @@ class CourierMapManager {
                                 <path d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z"/>
                             </svg>
                           </div>`,
-                    iconSize: [32, 32],
+        iconSize: [32, 32],
                     iconAnchor: [16, 32],
                     popupAnchor: [0, -32],
                 }),
                 on_delivery: L.divIcon({
-                    className: 'custom-marker',
+        className: 'custom-marker',
                     html: `<div class="w-8 h-8 bg-indigo-500 border-2 border-white rounded-lg shadow-lg flex items-center justify-center">
-                            <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
-                                <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z"/>
-                            </svg>
-                          </div>`,
-                    iconSize: [32, 32],
+                <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
+                    <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z"/>
+                </svg>
+              </div>`,
+        iconSize: [32, 32],
                     iconAnchor: [16, 32],
                     popupAnchor: [0, -32],
                 }),
@@ -179,22 +179,34 @@ class CourierMapManager {
      */
     updateCourier(courier) {
         if (!this.map || !courier.lat || !courier.lng) return;
-        
+
         const statusKey = courier.status || 'available';
         const icon = this.icons.courier[statusKey] || this.icons.courier.available;
-        
+
+        // Create click handler function
+        const handleClick = () => {
+            const event = new CustomEvent('courier-clicked', { detail: { courierId: courier.id } });
+            window.dispatchEvent(event);
+        };
+
         if (this.courierMarkers.has(courier.id)) {
             // Mevcut marker'ı güncelle
             const marker = this.courierMarkers.get(courier.id);
             marker.setLatLng([courier.lat, courier.lng]);
             marker.setIcon(icon);
             marker.getPopup()?.setContent(this.createCourierPopup(courier));
+            // Remove old click handler and add new one
+            marker.off('click');
+            marker.on('click', handleClick);
         } else {
             // Yeni marker oluştur
             const marker = L.marker([courier.lat, courier.lng], { icon })
                 .addTo(this.map)
                 .bindPopup(this.createCourierPopup(courier));
-            
+
+            // Add click event to show courier details
+            marker.on('click', handleClick);
+
             this.courierMarkers.set(courier.id, marker);
         }
     }
@@ -591,16 +603,18 @@ window.initMap = function(elementId = 'courier-map', options = {}) {
     return manager;
 };
 
-// DOM hazır olduğunda otomatik başlat
+// DOM hazır olduğunda otomatik başlat (sadece Alpine.js kontrolü yoksa)
 document.addEventListener('DOMContentLoaded', function() {
     const mapElement = document.getElementById('courier-map');
-    if (mapElement) {
+
+    // Only auto-initialize if element exists and has no Alpine.js controller
+    if (mapElement && !mapElement.hasAttribute('x-ref')) {
         // Data attribute'lardan başlangıç verilerini al
         const couriersData = mapElement.dataset.couriers;
         const ordersData = mapElement.dataset.orders;
-        
+
         const manager = window.initMap('courier-map');
-        
+
         if (couriersData) {
             try {
                 const couriers = JSON.parse(couriersData);
@@ -609,7 +623,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error parsing couriers data:', e);
             }
         }
-        
+
         if (ordersData) {
             try {
                 const orders = JSON.parse(ordersData);

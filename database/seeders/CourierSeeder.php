@@ -10,14 +10,17 @@ class CourierSeeder extends Seeder
     public function run(): void
     {
         $couriers = [
-            ['name' => 'Mehmet Kaya', 'phone' => '+90 (555) 111-2233', 'status' => 'active'],
-            ['name' => 'Ali Demir', 'phone' => '+90 (555) 222-3344', 'status' => 'busy'],
-            ['name' => 'Can Yılmaz', 'phone' => '+90 (555) 333-4455', 'status' => 'active'],
-            ['name' => 'Emre Şahin', 'phone' => '+90 (555) 444-5566', 'status' => 'active'],
+            ['name' => 'Mehmet Kaya', 'phone' => '5551112233', 'status' => 'available'],
+            ['name' => 'Ali Demir', 'phone' => '5552223344', 'status' => 'busy'],
+            ['name' => 'Can Yılmaz', 'phone' => '5553334455', 'status' => 'available'],
+            ['name' => 'Emre Şahin', 'phone' => '5554445566', 'status' => 'available'],
         ];
 
         foreach ($couriers as $courier) {
-            Courier::create($courier);
+            Courier::firstOrCreate(
+                ['phone' => $courier['phone']],
+                $courier
+            );
         }
     }
 }

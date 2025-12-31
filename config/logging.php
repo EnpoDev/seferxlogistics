@@ -127,6 +127,39 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        /*
+        |--------------------------------------------------------------------------
+        | Security & Audit Log Channel
+        |--------------------------------------------------------------------------
+        |
+        | KVKK/GDPR uyumlu güvenlik ve denetim logları için ayrı kanal.
+        | Bu loglar 2 yıl boyunca saklanmalıdır (KVKK Madde 12).
+        |
+        */
+        'security' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/security/audit.log'),
+            'level' => 'debug',
+            'days' => 730, // 2 yıl saklama (KVKK uyumu)
+            'replace_placeholders' => true,
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | Integration Log Channel
+        |--------------------------------------------------------------------------
+        |
+        | Üçüncü parti entegrasyonlar (Getir, Trendyol, vb.) için log kanalı.
+        |
+        */
+        'integration' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/integrations/sync.log'),
+            'level' => 'debug',
+            'days' => 30,
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];

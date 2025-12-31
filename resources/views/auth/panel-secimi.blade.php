@@ -20,7 +20,8 @@
             <!-- Header -->
             <div class="text-center mb-12">
                 <div class="flex items-center justify-center mb-6">
-                    <img src="{{ asset('logo.png') }}" alt="SeferX Logo" class="h-16 w-auto">
+                    <img src="{{ asset('logo-dark.png') }}" alt="SeferX Logo" class="h-16 w-auto dark:hidden">
+                    <img src="{{ asset('logo-white.png') }}" alt="SeferX Logo" class="h-16 w-auto hidden dark:block">
                 </div>
                 <h1 class="text-3xl font-bold text-black dark:text-white mb-2">Hoş Geldiniz, {{ auth()->user()->name }}</h1>
                 <p class="text-gray-600 dark:text-gray-400">Hangi panele erişmek istersiniz?</p>

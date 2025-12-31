@@ -1,37 +1,39 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="p-6">
-    <div class="mb-6 flex justify-between items-center">
-        <div>
-            <h1 class="text-2xl font-bold text-black dark:text-white">Menü Yönetimi</h1>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Menü ürünlerinizi düzenleyin</p>
-        </div>
-        <button onclick="showCreateCategoryModal()" class="px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80">
-            + Yeni Kategori
-        </button>
-    </div>
+<div class="p-6 animate-fadeIn">
+    {{-- Page Header --}}
+    <x-layout.page-header
+        title="Menü Yönetimi"
+        subtitle="Menü ürünlerinizi düzenleyin"
+    >
+        <x-slot name="icon">
+            <x-ui.icon name="menu" class="w-7 h-7 text-black dark:text-white" />
+        </x-slot>
 
-    <!-- Success/Error Messages -->
+        <x-slot name="actions">
+            <x-ui.button icon="plus" onclick="showCreateCategoryModal()">
+                Yeni Kategori
+            </x-ui.button>
+        </x-slot>
+    </x-layout.page-header>
+
+    {{-- Mesajlar --}}
     @if(session('success'))
-        <div class="mb-6 p-4 bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded-lg">
-            <p class="text-green-800 dark:text-green-200">{{ session('success') }}</p>
-        </div>
+        <x-feedback.alert type="success" class="mb-6">{{ session('success') }}</x-feedback.alert>
     @endif
     @if(session('error'))
-        <div class="mb-6 p-4 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg">
-            <p class="text-red-800 dark:text-red-200">{{ session('error') }}</p>
-        </div>
+        <x-feedback.alert type="danger" class="mb-6">{{ session('error') }}</x-feedback.alert>
     @endif
 
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <!-- Kategoriler -->
-        <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-4">
+        {{-- Kategoriler --}}
+        <x-ui.card>
             <h3 class="text-sm font-semibold text-black dark:text-white mb-3">Kategoriler</h3>
             <div class="space-y-2">
                 @forelse($categories as $category)
                 <div class="flex items-center gap-2">
-                    <a href="{{ route('isletmem.menu', ['category_id' => $category->id]) }}" 
+                    <a href="{{ route('isletmem.menu', ['category_id' => $category->id]) }}"
                        class="flex-1 p-3 rounded-lg cursor-pointer transition-colors
                               @if($selectedCategory && $selectedCategory->id === $category->id)
                                   bg-black dark:bg-white text-white dark:text-black
@@ -40,27 +42,26 @@
                               @endif">
                         {{ $category->name }}
                     </a>
-                    <button onclick="showEditCategoryModal({{ $category->id }}, '{{ $category->name }}', '{{ $category->description }}', {{ $category->order }}, {{ $category->is_active ? 'true' : 'false' }})"
-                        class="p-2 text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white">
-                        ✏️
-                    </button>
+                    <x-ui.button variant="ghost" size="sm"
+                        onclick="showEditCategoryModal({{ $category->id }}, '{{ $category->name }}', '{{ $category->description }}', {{ $category->order }}, {{ $category->is_active ? 'true' : 'false' }})">
+                        <x-ui.icon name="edit" class="w-4 h-4" />
+                    </x-ui.button>
                 </div>
                 @empty
                 <p class="text-sm text-gray-600 dark:text-gray-400">Kategori bulunamadı</p>
                 @endforelse
             </div>
-        </div>
+        </x-ui.card>
 
-        <!-- Ürünler -->
+        {{-- Ürünler --}}
         <div class="lg:col-span-3">
-            <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
+            <x-ui.card>
                 @if($selectedCategory)
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-black dark:text-white">{{ $selectedCategory->name }}</h3>
-                    <button onclick="showCreateProductModal({{ $selectedCategory->id }})" 
-                        class="px-3 py-1 text-sm bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80">
-                        + Ürün Ekle
-                    </button>
+                    <x-ui.button size="sm" onclick="showCreateProductModal({{ $selectedCategory->id }})">
+                        Ürün Ekle
+                    </x-ui.button>
                 </div>
                 <div class="space-y-3">
                     @forelse($selectedCategory->products as $product)
@@ -69,257 +70,125 @@
                             <div class="flex items-center gap-2">
                                 <p class="font-medium text-black dark:text-white">{{ $product->name }}</p>
                                 @if(!$product->is_active)
-                                <span class="px-2 py-0.5 text-xs bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded">Pasif</span>
+                                    <x-ui.badge type="danger" size="sm">Pasif</x-ui.badge>
                                 @endif
                                 @if(!$product->in_stock)
-                                <span class="px-2 py-0.5 text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded">Stokta Yok</span>
+                                    <x-ui.badge type="warning" size="sm">Stokta Yok</x-ui.badge>
                                 @endif
                             </div>
                             <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ $product->description }}</p>
                         </div>
-                        <div class="flex items-center space-x-4">
-                            <span class="text-lg font-semibold text-black dark:text-white">₺{{ number_format($product->price, 2) }}</span>
-                            <button onclick="showEditProductModal({{ $product->id }}, {{ $product->category_id }}, '{{ $product->name }}', '{{ $product->description }}', {{ $product->price }}, {{ $product->is_active ? 'true' : 'false' }}, {{ $product->in_stock ? 'true' : 'false' }})" 
-                                class="text-black dark:text-white hover:opacity-60">Düzenle</button>
-                            <form action="{{ route('products.destroy', $product) }}" method="POST" class="inline" 
+                        <div class="flex items-center gap-4">
+                            <x-data.money :amount="$product->price" class="text-lg font-semibold" />
+                            <x-ui.button variant="ghost" size="sm"
+                                onclick="showEditProductModal({{ $product->id }}, {{ $product->category_id }}, '{{ $product->name }}', '{{ $product->description }}', {{ $product->price }}, {{ $product->is_active ? 'true' : 'false' }}, {{ $product->in_stock ? 'true' : 'false' }})">
+                                Düzenle
+                            </x-ui.button>
+                            <form action="{{ route('products.destroy', $product) }}" method="POST" class="inline"
                                 onsubmit="return confirm('Bu ürünü silmek istediğinize emin misiniz?')">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="text-red-600 dark:text-red-400 hover:opacity-60">Sil</button>
+                                <x-ui.button type="submit" variant="ghost" size="sm">Sil</x-ui.button>
                             </form>
                         </div>
                     </div>
                     @empty
-                    <div class="text-center py-8 text-gray-600 dark:text-gray-400">
-                        Bu kategoride henüz ürün yok
-                    </div>
+                    <x-ui.empty-state title="Ürün bulunamadı" description="Bu kategoride henüz ürün yok" icon="menu" />
                     @endforelse
                 </div>
                 @else
-                <div class="text-center py-8 text-gray-600 dark:text-gray-400">
-                    Bir kategori seçin veya yeni kategori oluşturun
-                </div>
+                <x-ui.empty-state title="Kategori seçin" description="Bir kategori seçin veya yeni kategori oluşturun" icon="menu" />
                 @endif
-            </div>
+            </x-ui.card>
         </div>
     </div>
 </div>
 
-<!-- Create Category Modal -->
-<div id="createCategoryModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-    <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-        <h3 class="text-lg font-semibold text-black dark:text-white mb-4">Yeni Kategori</h3>
-        <form action="{{ route('categories.store') }}" method="POST">
-            @csrf
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Kategori Adı *</label>
-                    <input type="text" name="name" required 
-                        class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Açıklama</label>
-                    <textarea name="description" rows="3" 
-                        class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white"></textarea>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Sıralama</label>
-                    <input type="number" name="order" value="0" min="0" 
-                        class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white">
-                </div>
-                <div>
-                    <label class="flex items-center">
-                        <input type="checkbox" name="is_active" value="1" checked 
-                            class="mr-2 rounded border-gray-300 dark:border-gray-700">
-                        <span class="text-sm text-black dark:text-white">Aktif</span>
-                    </label>
-                </div>
-            </div>
-            <div class="mt-6 flex gap-3">
-                <button type="submit" 
-                    class="flex-1 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80">
-                    Oluştur
-                </button>
-                <button type="button" onclick="closeCategoryModal()" 
-                    class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white hover:bg-gray-50 dark:hover:bg-gray-900">
-                    İptal
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
+{{-- Kategori Oluştur Modal --}}
+<x-ui.modal name="createCategoryModal" title="Yeni Kategori" size="md">
+    <form action="{{ route('categories.store') }}" method="POST" class="space-y-4">
+        @csrf
+        <x-form.input name="name" label="Kategori Adı" required />
+        <x-form.textarea name="description" label="Açıklama" :rows="3" />
+        <x-form.input type="number" name="order" label="Sıralama" value="0" min="0" />
+        <x-form.checkbox name="is_active" value="1" label="Aktif" checked />
 
-<!-- Edit Category Modal -->
-<div id="editCategoryModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-    <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-        <h3 class="text-lg font-semibold text-black dark:text-white mb-4">Kategori Düzenle</h3>
-        <form id="editCategoryForm" method="POST">
-            @csrf
-            @method('PUT')
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Kategori Adı *</label>
-                    <input type="text" name="name" id="edit_cat_name" required 
-                        class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Açıklama</label>
-                    <textarea name="description" id="edit_cat_desc" rows="3" 
-                        class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white"></textarea>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Sıralama</label>
-                    <input type="number" name="order" id="edit_cat_order" min="0" 
-                        class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white">
-                </div>
-                <div>
-                    <label class="flex items-center">
-                        <input type="checkbox" name="is_active" id="edit_cat_active" value="1" 
-                            class="mr-2 rounded border-gray-300 dark:border-gray-700">
-                        <span class="text-sm text-black dark:text-white">Aktif</span>
-                    </label>
-                </div>
-            </div>
-            <div class="mt-6 flex gap-3">
-                <button type="submit" 
-                    class="flex-1 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80">
-                    Güncelle
-                </button>
-                <button type="button" onclick="closeEditCategoryModal()" 
-                    class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white hover:bg-gray-50 dark:hover:bg-gray-900">
-                    İptal
-                </button>
-            </div>
-        </form>
-        <form id="deleteCategoryForm" method="POST" class="mt-4" onsubmit="return confirm('Bu kategoriyi silmek istediğinize emin misiniz?')">
-            @csrf
-            @method('DELETE')
-            <button type="submit" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-                Kategoriyi Sil
-            </button>
-        </form>
-    </div>
-</div>
+        <div class="flex gap-3 pt-4">
+            <x-ui.button type="button" variant="secondary" @click="$dispatch('close-modal', 'createCategoryModal')" class="flex-1">İptal</x-ui.button>
+            <x-ui.button type="submit" class="flex-1">Oluştur</x-ui.button>
+        </div>
+    </form>
+</x-ui.modal>
 
-<!-- Create Product Modal -->
-<div id="createProductModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-    <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-        <h3 class="text-lg font-semibold text-black dark:text-white mb-4">Yeni Ürün</h3>
-        <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data">
-            @csrf
-            <div class="space-y-4">
-                <input type="hidden" name="category_id" id="create_product_category_id">
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Ürün Adı *</label>
-                    <input type="text" name="name" required 
-                        class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Açıklama</label>
-                    <textarea name="description" rows="3" 
-                        class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white"></textarea>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Fiyat (₺) *</label>
-                    <input type="number" name="price" step="0.01" min="0" required 
-                        class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Resim</label>
-                    <input type="file" name="image" accept="image/*" 
-                        class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white">
-                </div>
-                <div class="flex gap-4">
-                    <label class="flex items-center">
-                        <input type="checkbox" name="is_active" value="1" checked 
-                            class="mr-2 rounded border-gray-300 dark:border-gray-700">
-                        <span class="text-sm text-black dark:text-white">Aktif</span>
-                    </label>
-                    <label class="flex items-center">
-                        <input type="checkbox" name="in_stock" value="1" checked 
-                            class="mr-2 rounded border-gray-300 dark:border-gray-700">
-                        <span class="text-sm text-black dark:text-white">Stokta Var</span>
-                    </label>
-                </div>
-            </div>
-            <div class="mt-6 flex gap-3">
-                <button type="submit" 
-                    class="flex-1 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80">
-                    Oluştur
-                </button>
-                <button type="button" onclick="closeProductModal()" 
-                    class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white hover:bg-gray-50 dark:hover:bg-gray-900">
-                    İptal
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
+{{-- Kategori Düzenle Modal --}}
+<x-ui.modal name="editCategoryModal" title="Kategori Düzenle" size="md">
+    <form id="editCategoryForm" method="POST" class="space-y-4">
+        @csrf
+        @method('PUT')
+        <x-form.input name="name" id="edit_cat_name" label="Kategori Adı" required />
+        <x-form.textarea name="description" id="edit_cat_desc" label="Açıklama" :rows="3" />
+        <x-form.input type="number" name="order" id="edit_cat_order" label="Sıralama" min="0" />
+        <x-form.checkbox name="is_active" id="edit_cat_active" value="1" label="Aktif" />
 
-<!-- Edit Product Modal -->
-<div id="editProductModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-    <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-        <h3 class="text-lg font-semibold text-black dark:text-white mb-4">Ürün Düzenle</h3>
-        <form id="editProductForm" method="POST" enctype="multipart/form-data">
-            @csrf
-            @method('PUT')
-            <div class="space-y-4">
-                <input type="hidden" name="category_id" id="edit_product_category_id">
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Ürün Adı *</label>
-                    <input type="text" name="name" id="edit_prod_name" required 
-                        class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Açıklama</label>
-                    <textarea name="description" id="edit_prod_desc" rows="3" 
-                        class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white"></textarea>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Fiyat (₺) *</label>
-                    <input type="number" name="price" id="edit_prod_price" step="0.01" min="0" required 
-                        class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Resim (değiştirmek için seçin)</label>
-                    <input type="file" name="image" accept="image/*" 
-                        class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white">
-                </div>
-                <div class="flex gap-4">
-                    <label class="flex items-center">
-                        <input type="checkbox" name="is_active" id="edit_prod_active" value="1" 
-                            class="mr-2 rounded border-gray-300 dark:border-gray-700">
-                        <span class="text-sm text-black dark:text-white">Aktif</span>
-                    </label>
-                    <label class="flex items-center">
-                        <input type="checkbox" name="in_stock" id="edit_prod_stock" value="1" 
-                            class="mr-2 rounded border-gray-300 dark:border-gray-700">
-                        <span class="text-sm text-black dark:text-white">Stokta Var</span>
-                    </label>
-                </div>
-            </div>
-            <div class="mt-6 flex gap-3">
-                <button type="submit" 
-                    class="flex-1 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80">
-                    Güncelle
-                </button>
-                <button type="button" onclick="closeEditProductModal()" 
-                    class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white hover:bg-gray-50 dark:hover:bg-gray-900">
-                    İptal
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
+        <div class="flex gap-3 pt-4">
+            <x-ui.button type="button" variant="secondary" @click="$dispatch('close-modal', 'editCategoryModal')" class="flex-1">İptal</x-ui.button>
+            <x-ui.button type="submit" class="flex-1">Güncelle</x-ui.button>
+        </div>
+    </form>
+    <form id="deleteCategoryForm" method="POST" class="mt-4" onsubmit="return confirm('Bu kategoriyi silmek istediğinize emin misiniz?')">
+        @csrf
+        @method('DELETE')
+        <x-ui.button type="submit" variant="danger" class="w-full">Kategoriyi Sil</x-ui.button>
+    </form>
+</x-ui.modal>
 
+{{-- Ürün Oluştur Modal --}}
+<x-ui.modal name="createProductModal" title="Yeni Ürün" size="md">
+    <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+        @csrf
+        <input type="hidden" name="category_id" id="create_product_category_id">
+        <x-form.input name="name" label="Ürün Adı" required />
+        <x-form.textarea name="description" label="Açıklama" :rows="3" />
+        <x-form.input type="number" name="price" label="Fiyat (TL)" step="0.01" min="0" required />
+        <x-form.input type="file" name="image" label="Resim" accept="image/*" />
+        <div class="flex gap-4">
+            <x-form.checkbox name="is_active" value="1" label="Aktif" checked />
+            <x-form.checkbox name="in_stock" value="1" label="Stokta Var" checked />
+        </div>
+
+        <div class="flex gap-3 pt-4">
+            <x-ui.button type="button" variant="secondary" @click="$dispatch('close-modal', 'createProductModal')" class="flex-1">İptal</x-ui.button>
+            <x-ui.button type="submit" class="flex-1">Oluştur</x-ui.button>
+        </div>
+    </form>
+</x-ui.modal>
+
+{{-- Ürün Düzenle Modal --}}
+<x-ui.modal name="editProductModal" title="Ürün Düzenle" size="md">
+    <form id="editProductForm" method="POST" enctype="multipart/form-data" class="space-y-4">
+        @csrf
+        @method('PUT')
+        <input type="hidden" name="category_id" id="edit_product_category_id">
+        <x-form.input name="name" id="edit_prod_name" label="Ürün Adı" required />
+        <x-form.textarea name="description" id="edit_prod_desc" label="Açıklama" :rows="3" />
+        <x-form.input type="number" name="price" id="edit_prod_price" label="Fiyat (TL)" step="0.01" min="0" required />
+        <x-form.input type="file" name="image" label="Resim (değiştirmek için seçin)" accept="image/*" />
+        <div class="flex gap-4">
+            <x-form.checkbox name="is_active" id="edit_prod_active" value="1" label="Aktif" />
+            <x-form.checkbox name="in_stock" id="edit_prod_stock" value="1" label="Stokta Var" />
+        </div>
+
+        <div class="flex gap-3 pt-4">
+            <x-ui.button type="button" variant="secondary" @click="$dispatch('close-modal', 'editProductModal')" class="flex-1">İptal</x-ui.button>
+            <x-ui.button type="submit" class="flex-1">Güncelle</x-ui.button>
+        </div>
+    </form>
+</x-ui.modal>
+
+@push('scripts')
 <script>
-// Category Modals
 function showCreateCategoryModal() {
-    document.getElementById('createCategoryModal').classList.remove('hidden');
-}
-
-function closeCategoryModal() {
-    document.getElementById('createCategoryModal').classList.add('hidden');
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'createCategoryModal' }));
 }
 
 function showEditCategoryModal(id, name, description, order, isActive) {
@@ -329,21 +198,12 @@ function showEditCategoryModal(id, name, description, order, isActive) {
     document.getElementById('edit_cat_desc').value = description || '';
     document.getElementById('edit_cat_order').value = order;
     document.getElementById('edit_cat_active').checked = isActive;
-    document.getElementById('editCategoryModal').classList.remove('hidden');
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'editCategoryModal' }));
 }
 
-function closeEditCategoryModal() {
-    document.getElementById('editCategoryModal').classList.add('hidden');
-}
-
-// Product Modals
 function showCreateProductModal(categoryId) {
     document.getElementById('create_product_category_id').value = categoryId;
-    document.getElementById('createProductModal').classList.remove('hidden');
-}
-
-function closeProductModal() {
-    document.getElementById('createProductModal').classList.add('hidden');
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'createProductModal' }));
 }
 
 function showEditProductModal(id, categoryId, name, description, price, isActive, inStock) {
@@ -354,11 +214,8 @@ function showEditProductModal(id, categoryId, name, description, price, isActive
     document.getElementById('edit_prod_price').value = price;
     document.getElementById('edit_prod_active').checked = isActive;
     document.getElementById('edit_prod_stock').checked = inStock;
-    document.getElementById('editProductModal').classList.remove('hidden');
-}
-
-function closeEditProductModal() {
-    document.getElementById('editProductModal').classList.add('hidden');
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'editProductModal' }));
 }
 </script>
+@endpush
 @endsection

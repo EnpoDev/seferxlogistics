@@ -1,102 +1,116 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="p-6">
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-black dark:text-white">Sipariş Geçmişi</h1>
-        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Tamamlanan tüm siparişler</p>
-    </div>
+<div class="p-6 animate-fadeIn">
+    {{-- Page Header --}}
+    <x-layout.page-header
+        title="Sipariş Geçmişi"
+        subtitle="Tamamlanan tüm siparişler"
+    >
+        <x-slot name="icon">
+            <x-ui.icon name="history" class="w-7 h-7 text-black dark:text-white" />
+        </x-slot>
+    </x-layout.page-header>
 
-    <!-- Filtreler -->
-    <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-4 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-black dark:text-white mb-2">Başlangıç Tarihi</label>
-                <input type="date" class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-black dark:text-white mb-2">Bitiş Tarihi</label>
-                <input type="date" class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-black dark:text-white mb-2">Arama</label>
-                <input type="text" placeholder="Sipariş No, Müşteri..." class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white placeholder-gray-500">
-            </div>
-            <div class="flex items-end">
-                <button class="w-full px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-80">
-                    Filtrele
-                </button>
-            </div>
-        </div>
-    </div>
+    {{-- Filtreler --}}
+    <x-ui.card class="mb-6">
+        <form method="GET" action="{{ route('siparis.gecmis') }}">
+            <x-layout.grid cols="1" mdCols="4" gap="4">
+                <x-form.input type="date" name="start_date" label="Başlangıç Tarihi" :value="request('start_date')" />
+                <x-form.input type="date" name="end_date" label="Bitiş Tarihi" :value="request('end_date')" />
+                <x-form.input name="search" label="Arama" :value="request('search')" placeholder="Sipariş No, Müşteri..." />
+                <div class="flex items-end">
+                    <x-ui.button type="submit" icon="filter" class="w-full">
+                        Filtrele
+                    </x-ui.button>
+                </div>
+            </x-layout.grid>
+        </form>
+    </x-ui.card>
 
-    <!-- İstatistik Kartları -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Toplam Sipariş</p>
-            <p class="text-3xl font-bold text-black dark:text-white">{{ $orders->total() }}</p>
-        </div>
-        <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Toplam Gelir</p>
-            <p class="text-3xl font-bold text-black dark:text-white">₺{{ number_format($orders->sum('total'), 2) }}</p>
-        </div>
-        <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Ortalama Sepet</p>
-            <p class="text-3xl font-bold text-black dark:text-white">₺{{ $orders->count() > 0 ? number_format($orders->avg('total'), 2) : '0.00' }}</p>
-        </div>
-        <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Bu Sayfa</p>
-            <p class="text-3xl font-bold text-black dark:text-white">{{ $orders->count() }}</p>
-        </div>
-    </div>
+    {{-- İstatistik Kartları --}}
+    <x-layout.grid cols="1" mdCols="4" gap="6" class="mb-6">
+        <x-ui.stat-card
+            title="Toplam Sipariş"
+            :value="$orders->total()"
+            icon="order"
+            color="blue"
+        />
+        <x-ui.stat-card
+            title="Toplam Gelir"
+            :value="'₺' . number_format($orders->sum('total'), 2)"
+            icon="money"
+            color="green"
+        />
+        <x-ui.stat-card
+            title="Ortalama Sepet"
+            :value="'₺' . ($orders->count() > 0 ? number_format($orders->avg('total'), 2) : '0.00')"
+            icon="chart"
+            color="purple"
+        />
+        <x-ui.stat-card
+            title="Bu Sayfa"
+            :value="$orders->count()"
+            icon="list"
+            color="orange"
+        />
+    </x-layout.grid>
 
-    <!-- Sipariş Listesi -->
-    <div class="bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead class="border-b border-gray-200 dark:border-gray-800">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">SİPARİŞ NO</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">MÜŞTERİ</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">TUTAR</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">KURYE</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">TARİH</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-400">SÜRE</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-                    @forelse($orders as $order)
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-900">
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">{{ $order->order_number }}</td>
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">{{ $order->customer_name }}</td>
-                        <td class="px-6 py-4 text-sm text-black dark:text-white">₺{{ number_format($order->total, 2) }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{{ $order->courier ? $order->courier->name : '-' }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{{ $order->created_at->format('d M Y, H:i') }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                            @if($order->delivered_at && $order->accepted_at)
-                                {{ $order->accepted_at->diffInMinutes($order->delivered_at) }} dk
-                            @else
-                                -
-                            @endif
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="6" class="px-6 py-8 text-center text-sm text-gray-600 dark:text-gray-400">
-                            Geçmiş sipariş bulunamadı
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+    {{-- Sipariş Listesi --}}
+    <x-ui.card>
+        <x-table.table hoverable>
+            <x-table.thead>
+                <x-table.tr :hoverable="false">
+                    <x-table.th>Sipariş No</x-table.th>
+                    <x-table.th>Müşteri</x-table.th>
+                    <x-table.th>Tutar</x-table.th>
+                    <x-table.th>Kurye</x-table.th>
+                    <x-table.th>Tarih</x-table.th>
+                    <x-table.th>Süre</x-table.th>
+                </x-table.tr>
+            </x-table.thead>
 
-        <!-- Pagination -->
+            <x-table.tbody>
+                @forelse($orders as $order)
+                <x-table.tr>
+                    <x-table.td>
+                        <span class="font-mono font-semibold text-black dark:text-white">{{ $order->order_number }}</span>
+                    </x-table.td>
+                    <x-table.td>
+                        <span class="text-black dark:text-white">{{ $order->customer_name }}</span>
+                    </x-table.td>
+                    <x-table.td>
+                        <x-data.money :amount="$order->total" />
+                    </x-table.td>
+                    <x-table.td>
+                        @if($order->courier)
+                            <span class="text-gray-600 dark:text-gray-400">{{ $order->courier->name }}</span>
+                        @else
+                            <span class="text-gray-400">-</span>
+                        @endif
+                    </x-table.td>
+                    <x-table.td>
+                        <x-data.date-time :date="$order->created_at" />
+                    </x-table.td>
+                    <x-table.td>
+                        @if($order->delivered_at && $order->accepted_at)
+                            <span class="text-gray-600 dark:text-gray-400">{{ $order->accepted_at->diffInMinutes($order->delivered_at) }} dk</span>
+                        @else
+                            <span class="text-gray-400">-</span>
+                        @endif
+                    </x-table.td>
+                </x-table.tr>
+                @empty
+                <x-table.empty colspan="6" icon="history" message="Geçmiş sipariş bulunamadı" />
+                @endforelse
+            </x-table.tbody>
+        </x-table.table>
+
         @if($orders->hasPages())
-        <div class="border-t border-gray-200 dark:border-gray-800 px-6 py-4">
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-800">
             {{ $orders->links() }}
         </div>
         @endif
-    </div>
+    </x-ui.card>
 </div>
 @endsection

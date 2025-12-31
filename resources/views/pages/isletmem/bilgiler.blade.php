@@ -1,54 +1,64 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="space-y-6">
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-3xl font-bold text-black dark:text-white">İşletme Bilgileri</h1>
-            <p class="text-gray-600 dark:text-gray-400 mt-1">İşletmenizin temel bilgileri</p>
-        </div>
-    </div>
+<div class="p-6 animate-fadeIn">
+    {{-- Page Header --}}
+    <x-layout.page-header
+        title="İşletme Bilgileri"
+        subtitle="İşletmenizin temel bilgileri"
+    >
+        <x-slot name="icon">
+            <x-ui.icon name="business" class="w-7 h-7 text-black dark:text-white" />
+        </x-slot>
+    </x-layout.page-header>
 
-    <div class="bg-white dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-        <form class="space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">İşletme Adı</label>
-                    <input type="text" value="IF Irmak Fırın & Cafe"
-                           class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white">
-                </div>
+    {{-- Form --}}
+    <x-ui.card>
+        <form action="{{ route('isletmem.bilgiler.update') }}" method="POST" class="space-y-6">
+            @csrf
+            @method('PUT')
 
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Telefon</label>
-                    <input type="tel" value="+90 (555) 123-4567"
-                           class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white">
-                </div>
+            <x-layout.grid cols="1" mdCols="2" gap="6">
+                <x-form.input
+                    name="name"
+                    label="İşletme Adı"
+                    :value="old('name', $business->name ?? '')"
+                    required
+                />
 
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">E-posta</label>
-                    <input type="email" value="info@irmakfirin.com"
-                           class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white">
-                </div>
+                <x-form.input
+                    name="phone"
+                    label="Telefon"
+                    :value="old('phone', $business->phone ?? '')"
+                />
 
-                <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Vergi No</label>
-                    <input type="text" value="1234567890"
-                           class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white">
-                </div>
-            </div>
+                <x-form.input
+                    type="email"
+                    name="email"
+                    label="E-posta"
+                    :value="old('email', $business->email ?? '')"
+                />
 
-            <div>
-                <label class="block text-sm font-medium text-black dark:text-white mb-2">Adres</label>
-                <textarea rows="3"
-                          class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white">Kadıköy, İstanbul</textarea>
-            </div>
+                <x-form.input
+                    name="tax_number"
+                    label="Vergi No"
+                    :value="old('tax_number', $business->tax_number ?? '')"
+                />
+            </x-layout.grid>
 
-            <div class="flex justify-end">
-                <button type="submit" class="px-6 py-2 bg-black dark:bg-white text-white dark:text-black font-medium rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors">
+            <x-form.textarea
+                name="address"
+                label="Adres"
+                :value="old('address', $business->address ?? '')"
+                :rows="3"
+            />
+
+            <div class="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-800">
+                <x-ui.button type="submit">
                     Kaydet
-                </button>
+                </x-ui.button>
             </div>
         </form>
-    </div>
+    </x-ui.card>
 </div>
 @endsection

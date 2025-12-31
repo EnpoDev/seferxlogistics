@@ -22,6 +22,11 @@ class PanelMiddleware
             return $next($request);
         }
 
+        // Skip for courier routes (they use separate authentication)
+        if ($request->routeIs('kurye.*')) {
+            return $next($request);
+        }
+
         // Skip for panel selection and logout routes
         if ($request->routeIs('panel.*') || $request->routeIs('logout')) {
             return $next($request);
