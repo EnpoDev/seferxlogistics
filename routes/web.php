@@ -271,12 +271,18 @@ Route::middleware('auth')->group(function () {
         Route::get('/odemeler/isletme/rapor', [BayiController::class, 'isletmeOdemeRapor'])->name('isletme-odemeler.rapor');
         Route::get('/siparisler/gecmis', [BayiController::class, 'gecmisSiparisler'])->name('siparisler.gecmis');
         Route::get('/siparisler/bedelsiz', [BayiController::class, 'bedelsizIstekler'])->name('siparisler.bedelsiz');
+        Route::post('/siparisler/bedelsiz/{order}/approve', [BayiController::class, 'bedelsizApprove'])->name('siparisler.bedelsiz.approve');
+        Route::post('/siparisler/bedelsiz/{order}/reject', [BayiController::class, 'bedelsizReject'])->name('siparisler.bedelsiz.reject');
         Route::get('/ayarlar/genel', [BayiController::class, 'ayarlarGenel'])->name('ayarlar.genel');
+        Route::post('/ayarlar/genel', [BayiController::class, 'updateGenel'])->name('ayarlar.genel.update');
         Route::get('/ayarlar/kurye', [BayiController::class, 'ayarlarKurye'])->name('ayarlar.kurye');
+        Route::post('/ayarlar/kurye', [BayiController::class, 'updateKurye'])->name('ayarlar.kurye.update');
         Route::get('/ayarlar/uygulama', [BayiController::class, 'ayarlarUygulama'])->name('ayarlar.uygulama');
+        Route::post('/ayarlar/uygulama', [BayiController::class, 'updateUygulama'])->name('ayarlar.uygulama.update');
         Route::get('/ayarlar/havuz', [BayiController::class, 'ayarlarHavuz'])->name('ayarlar.havuz');
         Route::post('/ayarlar/havuz', [BayiController::class, 'updateHavuz'])->name('ayarlar.havuz.update');
         Route::get('/ayarlar/bildirim', [BayiController::class, 'ayarlarBildirim'])->name('ayarlar.bildirim');
+        Route::post('/ayarlar/bildirim', [BayiController::class, 'updateBildirim'])->name('ayarlar.bildirim.update');
         Route::get('/tema', [BayiController::class, 'tema'])->name('tema');
         Route::post('/tema', [BayiController::class, 'updateTheme'])->name('tema.update');
         Route::get('/yardim', [BayiController::class, 'yardim'])->name('yardim');

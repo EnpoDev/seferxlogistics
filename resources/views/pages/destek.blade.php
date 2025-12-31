@@ -42,12 +42,12 @@
             </x-ui.card>
 
             <x-ui.card>
-                <h3 class="text-lg font-semibold text-black dark:text-white mb-4">Hızlı Linkler</h3>
+                <h3 class="text-lg font-semibold text-black dark:text-white mb-4">Hizli Linkler</h3>
                 <div class="space-y-2">
-                    <a href="#" class="block text-sm text-black dark:text-white hover:opacity-60">Kullanım Kılavuzu</a>
-                    <a href="#" class="block text-sm text-black dark:text-white hover:opacity-60">Sıkça Sorulan Sorular</a>
-                    <a href="#" class="block text-sm text-black dark:text-white hover:opacity-60">Video Eğitimler</a>
-                    <a href="#" class="block text-sm text-black dark:text-white hover:opacity-60">Yenilikler</a>
+                    <a href="https://docs.seferx.com" target="_blank" class="block text-sm text-black dark:text-white hover:opacity-60">Kullanim Kilavuzu</a>
+                    <a href="https://docs.seferx.com/faq" target="_blank" class="block text-sm text-black dark:text-white hover:opacity-60">Sikca Sorulan Sorular</a>
+                    <a href="https://www.youtube.com/@seferxlojistik" target="_blank" class="block text-sm text-black dark:text-white hover:opacity-60">Video Egitimler</a>
+                    <a href="https://docs.seferx.com/changelog" target="_blank" class="block text-sm text-black dark:text-white hover:opacity-60">Yenilikler</a>
                 </div>
             </x-ui.card>
         </div>

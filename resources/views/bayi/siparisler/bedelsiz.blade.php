@@ -1,27 +1,66 @@
 <x-bayi-layout>
-    <x-slot name="title">Bedelsiz İstekleri - Bayi Paneli</x-slot>
+    <x-slot name="title">Bedelsiz Istekleri - Bayi Paneli</x-slot>
 
-    <div class="space-y-6">
+    <div class="space-y-6" x-data="{
+        async handleAction(orderId, action) {
+            if (!confirm(action === 'approve' ? 'Bu istegi onaylamak istediginize emin misiniz?' : 'Bu istegi reddetmek istediginize emin misiniz?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`{{ url('bayi/siparisler/bedelsiz') }}/${orderId}/${action}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert(data.message || 'Bir hata olustu');
+                }
+            } catch (error) {
+                alert('Bir hata olustu');
+            }
+        }
+    }">
         <!-- Page Header -->
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-3xl font-bold text-black dark:text-white">Bedelsiz İstekleri</h1>
-                <p class="text-gray-600 dark:text-gray-400 mt-1">Ücretsiz teslimat talepleri</p>
+                <h1 class="text-3xl font-bold text-black dark:text-white">Bedelsiz Istekleri</h1>
+                <p class="text-gray-600 dark:text-gray-400 mt-1">Ucretsiz teslimat talepleri</p>
             </div>
         </div>
 
-        <!-- İstek Listesi -->
+        @if(session('success'))
+            <div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <p class="text-green-700 dark:text-green-400">{{ session('success') }}</p>
+            </div>
+        @endif
+
+        @if(session('error'))
+            <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p class="text-red-700 dark:text-red-400">{{ session('error') }}</p>
+            </div>
+        @endif
+
+        <!-- Istek Listesi -->
         <div class="bg-white dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800">
                         <tr>
-                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">İstek No</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Şube</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Açıklama</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Istek No</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Sube</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Aciklama</th>
                             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Tarih</th>
                             <th class="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Durum</th>
-                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">İşlemler</th>
+                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Islemler</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
@@ -34,7 +73,7 @@
                                 <span class="text-sm text-gray-600 dark:text-gray-300">{{ $order->branch->name ?? '-' }}</span>
                             </td>
                             <td class="px-6 py-4">
-                                <span class="text-sm text-gray-600 dark:text-gray-300">{{ $order->note ?? 'Açıklama yok' }}</span>
+                                <span class="text-sm text-gray-600 dark:text-gray-300">{{ $order->note ?? 'Aciklama yok' }}</span>
                             </td>
                             <td class="px-6 py-4">
                                 <span class="text-sm text-gray-600 dark:text-gray-300">{{ $order->created_at->format('d.m.Y H:i') }}</span>
@@ -46,12 +85,12 @@
                             </td>
                             <td class="px-6 py-4 text-right">
                                 <div class="flex items-center justify-end gap-2">
-                                    <button class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300" title="Onayla">
+                                    <button @click="handleAction({{ $order->id }}, 'approve')" class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300" title="Onayla">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                         </svg>
                                     </button>
-                                    <button class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300" title="Reddet">
+                                    <button @click="handleAction({{ $order->id }}, 'reject')" class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300" title="Reddet">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                         </svg>
@@ -66,7 +105,7 @@
                                     <svg class="w-16 h-16 text-gray-300 dark:text-gray-700 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                     </svg>
-                                    <p class="text-lg font-medium text-gray-600 dark:text-gray-400">Bedelsiz istek bulunamadı</p>
+                                    <p class="text-lg font-medium text-gray-600 dark:text-gray-400">Bedelsiz istek bulunamadi</p>
                                 </div>
                             </td>
                         </tr>
@@ -82,4 +121,3 @@
         </div>
     </div>
 </x-bayi-layout>
-

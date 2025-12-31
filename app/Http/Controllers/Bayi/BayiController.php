@@ -834,20 +834,100 @@ class BayiController extends Controller
         return view('bayi.siparisler.bedelsiz', compact('orders'));
     }
 
+    public function bedelsizApprove(Order $order)
+    {
+        $order->update(['status' => 'approved']);
+
+        if (request()->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Istek onaylandi.']);
+        }
+
+        return back()->with('success', 'Istek onaylandi.');
+    }
+
+    public function bedelsizReject(Order $order)
+    {
+        $order->update(['status' => 'cancelled']);
+
+        if (request()->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Istek reddedildi.']);
+        }
+
+        return back()->with('success', 'Istek reddedildi.');
+    }
+
     public function ayarlarGenel()
     {
         $user = auth()->user();
         return view('bayi.ayarlar.genel', compact('user'));
     }
 
+    public function updateGenel(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'phone' => 'nullable|string|max:20',
+        ]);
+
+        $user = auth()->user();
+        $user->update($validated);
+
+        return back()->with('success', 'Genel ayarlar basariyla guncellendi.');
+    }
+
     public function ayarlarKurye()
     {
-        return view('bayi.ayarlar.kurye');
+        $branch = \App\Models\Branch::whereNull('parent_id')->first();
+        $settings = $branch ? \App\Models\BranchSetting::getOrCreateForBranch($branch->id) : null;
+        return view('bayi.ayarlar.kurye', compact('settings'));
+    }
+
+    public function updateKurye(Request $request)
+    {
+        $validated = $request->validate([
+            'auto_assign_courier' => 'nullable|boolean',
+            'check_courier_shift' => 'nullable|boolean',
+            'max_delivery_time' => 'required|integer|min:10|max:180',
+        ]);
+
+        $branch = \App\Models\Branch::whereNull('parent_id')->first();
+        if (!$branch) {
+            return back()->with('error', 'Sube bulunamadi.');
+        }
+
+        $settings = \App\Models\BranchSetting::getOrCreateForBranch($branch->id);
+        $settings->update([
+            'auto_assign_courier' => $request->boolean('auto_assign_courier'),
+            'check_courier_shift' => $request->boolean('check_courier_shift'),
+            'max_delivery_time' => $validated['max_delivery_time'],
+        ]);
+
+        return back()->with('success', 'Kurye ayarlari basariyla guncellendi.');
     }
 
     public function ayarlarUygulama()
     {
-        return view('bayi.ayarlar.uygulama');
+        $settings = \App\Models\ApplicationSetting::getOrCreateForUser(auth()->id());
+        return view('bayi.ayarlar.uygulama', compact('settings'));
+    }
+
+    public function updateUygulama(Request $request)
+    {
+        $validated = $request->validate([
+            'language' => 'required|in:tr,en',
+            'timezone' => 'required|string',
+            'sound_notifications' => 'nullable|boolean',
+        ]);
+
+        $settings = \App\Models\ApplicationSetting::getOrCreateForUser(auth()->id());
+        $settings->update([
+            'language' => $validated['language'],
+            'timezone' => $validated['timezone'],
+            'sound_notifications' => $request->boolean('sound_notifications'),
+        ]);
+
+        return back()->with('success', 'Uygulama ayarlari basariyla guncellendi.');
     }
 
     public function ayarlarHavuz()
@@ -891,7 +971,21 @@ class BayiController extends Controller
 
     public function ayarlarBildirim()
     {
-        return view('bayi.ayarlar.bildirim');
+        $settings = \App\Models\NotificationSetting::getOrCreateForUser(auth()->id());
+        return view('bayi.ayarlar.bildirim', compact('settings'));
+    }
+
+    public function updateBildirim(Request $request)
+    {
+        $settings = \App\Models\NotificationSetting::getOrCreateForUser(auth()->id());
+        $settings->update([
+            'new_order_notification' => $request->boolean('new_order_notification'),
+            'order_status_notification' => $request->boolean('order_status_notification'),
+            'email_new_order' => $request->boolean('email_new_order'),
+            'sms_enabled' => $request->boolean('sms_enabled'),
+        ]);
+
+        return back()->with('success', 'Bildirim ayarlari basariyla guncellendi.');
     }
 
     public function tema()

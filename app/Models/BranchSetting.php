@@ -22,6 +22,10 @@ class BranchSetting extends Model
         'pool_max_orders',
         'pool_priority_by_distance',
         'pool_notify_couriers',
+        // Courier settings
+        'auto_assign_courier',
+        'check_courier_shift',
+        'max_delivery_time',
     ];
 
     protected $casts = [
@@ -38,6 +42,10 @@ class BranchSetting extends Model
         'pool_max_orders' => 'integer',
         'pool_priority_by_distance' => 'boolean',
         'pool_notify_couriers' => 'boolean',
+        // Courier settings
+        'auto_assign_courier' => 'boolean',
+        'check_courier_shift' => 'boolean',
+        'max_delivery_time' => 'integer',
     ];
 
     public function branch()

@@ -20,10 +20,12 @@
                 <x-ui.icon name="support" class="w-8 h-8 text-white dark:text-black" />
             </div>
             <h3 class="text-xl font-semibold text-black dark:text-white mb-2">Teknik Destek</h3>
-            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">7/24 teknik destek hattımız</p>
-            <x-ui.button variant="secondary" class="w-full">
-                İletişime Geç
-            </x-ui.button>
+            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">7/24 teknik destek hattimiz</p>
+            <a href="{{ route('destek') }}" class="block">
+                <x-ui.button variant="secondary" class="w-full">
+                    Iletisime Gec
+                </x-ui.button>
+            </a>
         </x-ui.card>
 
         {{-- Dokumantasyon --}}
@@ -31,11 +33,13 @@
             <div class="p-4 bg-black dark:bg-white rounded-xl w-fit mb-4">
                 <x-ui.icon name="document" class="w-8 h-8 text-white dark:text-black" />
             </div>
-            <h3 class="text-xl font-semibold text-black dark:text-white mb-2">Dokümantasyon</h3>
-            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">Kullanım kılavuzu ve rehberler</p>
-            <x-ui.button variant="secondary" class="w-full">
-                Görüntüle
-            </x-ui.button>
+            <h3 class="text-xl font-semibold text-black dark:text-white mb-2">Dokumantasyon</h3>
+            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">Kullanim kilavuzu ve rehberler</p>
+            <a href="https://docs.seferx.com" target="_blank" class="block">
+                <x-ui.button variant="secondary" class="w-full">
+                    Goruntule
+                </x-ui.button>
+            </a>
         </x-ui.card>
 
         {{-- Video Egitimler --}}
@@ -43,11 +47,13 @@
             <div class="p-4 bg-black dark:bg-white rounded-xl w-fit mb-4">
                 <x-ui.icon name="play" class="w-8 h-8 text-white dark:text-black" />
             </div>
-            <h3 class="text-xl font-semibold text-black dark:text-white mb-2">Video Eğitimler</h3>
-            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">Adım adım video kılavuzlar</p>
-            <x-ui.button variant="secondary" class="w-full">
-                İzle
-            </x-ui.button>
+            <h3 class="text-xl font-semibold text-black dark:text-white mb-2">Video Egitimler</h3>
+            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">Adim adim video kilavuzlar</p>
+            <a href="https://www.youtube.com/@seferxlojistik" target="_blank" class="block">
+                <x-ui.button variant="secondary" class="w-full">
+                    Izle
+                </x-ui.button>
+            </a>
         </x-ui.card>
     </x-layout.grid>
 
