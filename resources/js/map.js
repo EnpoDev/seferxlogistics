@@ -1,5 +1,6 @@
 import L from 'leaflet';
 import 'leaflet-draw';
+import './translations';
 
 // Make Leaflet available globally for plugins like Leaflet.Draw
 window.L = L;
@@ -21,6 +22,7 @@ class CourierMapManager {
         this.map = null;
         this.courierMarkers = new Map();
         this.orderMarkers = new Map();
+        this.poolOrderMarkers = new Map();
         this.routeLines = new Map();
         this.zones = new Map();
         
@@ -132,6 +134,28 @@ class CourierMapManager {
         iconSize: [32, 32],
                     iconAnchor: [16, 32],
                     popupAnchor: [0, -32],
+                }),
+                pool: L.divIcon({
+                    className: 'custom-marker pool-marker',
+                    html: `<div class="w-10 h-10 bg-red-500 border-2 border-white rounded-lg shadow-lg flex items-center justify-center animate-bounce">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z"/>
+                            </svg>
+                          </div>`,
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 40],
+                    popupAnchor: [0, -40],
+                }),
+                pool_timeout: L.divIcon({
+                    className: 'custom-marker pool-timeout-marker',
+                    html: `<div class="w-10 h-10 bg-orange-500 border-2 border-white rounded-lg shadow-lg flex items-center justify-center animate-pulse">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                            </svg>
+                          </div>`,
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 40],
+                    popupAnchor: [0, -40],
                 }),
             },
             restaurant: L.divIcon({
@@ -275,16 +299,20 @@ class CourierMapManager {
      * Sipariş popup içeriği
      */
     createOrderPopup(order) {
-        const statusLabels = {
-            pending: { text: 'Beklemede', color: 'text-yellow-600', bg: 'bg-yellow-100' },
-            preparing: { text: 'Hazırlanıyor', color: 'text-blue-600', bg: 'bg-blue-100' },
-            ready: { text: 'Hazır', color: 'text-purple-600', bg: 'bg-purple-100' },
-            on_delivery: { text: 'Yolda', color: 'text-indigo-600', bg: 'bg-indigo-100' },
-            delivered: { text: 'Teslim Edildi', color: 'text-green-600', bg: 'bg-green-100' },
-            cancelled: { text: 'İptal', color: 'text-red-600', bg: 'bg-red-100' },
+        const statusColors = {
+            pending: { color: 'text-yellow-600', bg: 'bg-yellow-100' },
+            preparing: { color: 'text-blue-600', bg: 'bg-blue-100' },
+            ready: { color: 'text-purple-600', bg: 'bg-purple-100' },
+            on_delivery: { color: 'text-indigo-600', bg: 'bg-indigo-100' },
+            delivered: { color: 'text-green-600', bg: 'bg-green-100' },
+            cancelled: { color: 'text-red-600', bg: 'bg-red-100' },
         };
-        
-        const status = statusLabels[order.status] || statusLabels.pending;
+
+        const colors = statusColors[order.status] || statusColors.pending;
+        const status = {
+            text: window.getStatusLabel('order', order.status),
+            ...colors
+        };
         
         return `
             <div class="p-3 min-w-[220px]">
@@ -331,10 +359,104 @@ class CourierMapManager {
     setOrders(orders) {
         this.orderMarkers.forEach(marker => marker.remove());
         this.orderMarkers.clear();
-        
+
         orders.forEach(order => this.updateOrder(order));
     }
-    
+
+    /**
+     * Pool sipariş marker'ı ekle veya güncelle
+     */
+    updatePoolOrder(order) {
+        if (!this.map || !order.lat || !order.lng) return;
+
+        // Timeout durumuna göre ikon seç
+        const icon = order.is_timeout
+            ? this.icons.order.pool_timeout
+            : this.icons.order.pool;
+
+        if (this.poolOrderMarkers.has(order.id)) {
+            const marker = this.poolOrderMarkers.get(order.id);
+            marker.setLatLng([order.lat, order.lng]);
+            marker.setIcon(icon);
+            marker.getPopup()?.setContent(this.createPoolOrderPopup(order));
+        } else {
+            const marker = L.marker([order.lat, order.lng], { icon })
+                .addTo(this.map)
+                .bindPopup(this.createPoolOrderPopup(order));
+
+            this.poolOrderMarkers.set(order.id, marker);
+        }
+    }
+
+    /**
+     * Pool sipariş popup içeriği
+     */
+    createPoolOrderPopup(order) {
+        const waitingMinutes = order.waiting_minutes || 0;
+        const isTimeout = order.is_timeout || false;
+
+        return `
+            <div class="p-3 min-w-[250px] border-l-4 ${isTimeout ? 'border-orange-500' : 'border-red-500'}">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="font-mono font-bold text-sm text-gray-900">${order.order_number || '#' + order.id}</span>
+                    <span class="px-2 py-1 text-xs font-medium rounded-full ${isTimeout ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}">
+                        HAVUZ
+                    </span>
+                </div>
+                <div class="space-y-1 text-xs text-gray-600">
+                    <p><strong>Müşteri:</strong> ${order.customer_name || '-'}</p>
+                    <p><strong>Adres:</strong> ${order.customer_address || '-'}</p>
+                    <p class="font-semibold text-gray-900 mt-2">₺${parseFloat(order.total || 0).toFixed(2)}</p>
+                    <div class="flex items-center gap-1 mt-2 ${isTimeout ? 'text-orange-600' : 'text-gray-500'}">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                        </svg>
+                        <span>${waitingMinutes} dk bekliyor</span>
+                    </div>
+                </div>
+                <button onclick="window.dispatchEvent(new CustomEvent('assign-pool-order', {detail: {orderId: ${order.id}}}))"
+                    class="mt-3 w-full px-3 py-2 bg-red-600 text-white text-xs font-medium rounded hover:bg-red-700 transition-colors">
+                    Kurye Ata
+                </button>
+            </div>
+        `;
+    }
+
+    /**
+     * Birden fazla pool sipariş ekle
+     */
+    setPoolOrders(orders) {
+        this.poolOrderMarkers.forEach(marker => marker.remove());
+        this.poolOrderMarkers.clear();
+
+        orders.forEach(order => this.updatePoolOrder(order));
+    }
+
+    /**
+     * Pool marker'ını kaldır
+     */
+    removePoolOrder(orderId) {
+        if (this.poolOrderMarkers.has(orderId)) {
+            this.poolOrderMarkers.get(orderId).remove();
+            this.poolOrderMarkers.delete(orderId);
+        }
+    }
+
+    /**
+     * Tüm pool marker'larını temizle
+     */
+    clearPoolOrders() {
+        this.poolOrderMarkers.forEach(marker => marker.remove());
+        this.poolOrderMarkers.clear();
+    }
+
+    /**
+     * Pool sipariş sayısını al
+     */
+    getPoolOrderCount() {
+        return this.poolOrderMarkers.size;
+    }
+
     /**
      * Rota çiz (kurye -> restoran -> müşteri)
      */
@@ -497,11 +619,13 @@ class CourierMapManager {
     destroy() {
         this.courierMarkers.forEach(m => m.remove());
         this.orderMarkers.forEach(m => m.remove());
+        this.poolOrderMarkers.forEach(m => m.remove());
         this.routeLines.forEach(l => l.remove());
         this.zones.forEach(z => z.remove());
-        
+
         this.courierMarkers.clear();
         this.orderMarkers.clear();
+        this.poolOrderMarkers.clear();
         this.routeLines.clear();
         this.zones.clear();
         

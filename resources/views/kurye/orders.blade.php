@@ -42,9 +42,9 @@
                         <!-- Status & Payment -->
                         <div class="flex items-center space-x-2 mb-4">
                             <span class="px-2.5 py-1 text-xs font-medium rounded-lg
-                                {{ $order->status === 'assigned' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' : '' }}
-                                {{ $order->status === 'picked_up' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' : '' }}
-                                {{ $order->status === 'on_way' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300' : '' }}">
+                                {{ $order->display_status === 'assigned' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' : '' }}
+                                {{ $order->display_status === 'picked_up' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' : '' }}
+                                {{ $order->display_status === 'on_way' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300' : '' }}">
                                 {{ $order->getStatusLabel() }}
                             </span>
                             <span class="px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
@@ -82,15 +82,15 @@
 
                     <!-- Quick Actions Footer -->
                     <div class="grid grid-cols-2 gap-3 pt-3 border-t border-gray-100 dark:border-gray-800">
-                        @if($order->status === 'assigned')
+                        @if($order->display_status === 'assigned')
                             <button @click="updateStatus({{ $order->id }}, 'picked_up')" class="col-span-2 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-xl font-medium text-sm">
                                 📦 Teslim Aldım
                             </button>
-                        @elseif($order->status === 'picked_up')
+                        @elseif($order->display_status === 'picked_up')
                             <button @click="updateStatus({{ $order->id }}, 'on_way')" class="col-span-2 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-xl font-medium text-sm">
                                 🚗 Yola Çıktım
                             </button>
-                        @elseif($order->status === 'on_way')
+                        @elseif($order->display_status === 'on_way')
                             <div class="col-span-2 flex space-x-2">
                                 <a href="tel:{{ $order->customer_phone }}" class="flex-1 flex items-center justify-center space-x-2 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-black dark:text-white">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

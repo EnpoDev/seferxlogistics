@@ -176,15 +176,7 @@ class Transaction extends Model
 
     public function getStatusLabel(): string
     {
-        return match ($this->status) {
-            self::STATUS_PENDING => 'Beklemede',
-            self::STATUS_COMPLETED => 'Tamamlandı',
-            self::STATUS_FAILED => 'Başarısız',
-            self::STATUS_REFUNDED => 'İade Edildi',
-            self::STATUS_PARTIALLY_REFUNDED => 'Kısmi İade',
-            self::STATUS_CANCELLED => 'İptal Edildi',
-            default => $this->status,
-        };
+        return __('statuses.transaction.' . $this->status, [], 'tr') ?? $this->status;
     }
 
     public function getStatusColor(): string

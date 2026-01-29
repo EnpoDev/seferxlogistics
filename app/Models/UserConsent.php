@@ -89,7 +89,7 @@ class UserConsent extends Model
     /**
      * Rizayi geri cek
      */
-    public function withdraw(string $reason = null): bool
+    public function withdraw(?string $reason = null): bool
     {
         return $this->update([
             'is_granted' => false,
@@ -114,7 +114,7 @@ class UserConsent extends Model
     public static function grantForUser(
         int $userId,
         string $consentType,
-        string $consentText = null,
+        ?string $consentText = null,
         string $version = '1.0'
     ): self {
         return self::updateOrCreate(
@@ -140,7 +140,7 @@ class UserConsent extends Model
     public static function grantForCourier(
         int $courierId,
         string $consentType,
-        string $consentText = null,
+        ?string $consentText = null,
         string $version = '1.0'
     ): self {
         return self::updateOrCreate(

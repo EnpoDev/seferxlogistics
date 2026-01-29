@@ -8,11 +8,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Passport\HasApiTokens;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasApiTokens;
 
     /**
      * The attributes that are mass assignable.
@@ -156,5 +157,162 @@ class User extends Authenticatable
     public function getDefaultCard(): ?PaymentCard
     {
         return $this->paymentCards()->where('is_default', true)->first();
+    }
+
+    /**
+     * Check if user is an admin
+     */
+    public function isAdmin(): bool
+    {
+        return $this->hasRole('admin') || $this->hasRole('super_admin');
+    }
+
+    /**
+     * Check if user is a courier
+     */
+    public function isCourier(): bool
+    {
+        return $this->hasRole('kurye');
+    }
+
+    /**
+     * Check if user has access to a specific branch
+     */
+    public function hasAccessToBranch(int $branchId): bool
+    {
+        // Admins have access to all branches
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        // Check if user's branch_id matches
+        if ($this->branch_id === $branchId) {
+            return true;
+        }
+
+        // Check if user has bayi role (branch owners)
+        if ($this->hasBayi()) {
+            // Check if user owns this branch
+            return Branch::where('id', $branchId)
+                ->where('user_id', $this->id)
+                ->exists();
+        }
+
+        return false;
+    }
+
+    /**
+     * Get the branch relationship (for işletme users)
+     */
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    /**
+     * Get branches owned by this user (for bayi users)
+     */
+    public function ownedBranches(): HasMany
+    {
+        return $this->hasMany(Branch::class, 'user_id');
+    }
+
+    /**
+     * Get the main/parent branch owned by this user
+     */
+    public function getMainBranch(): ?Branch
+    {
+        return $this->ownedBranches()
+            ->whereNull('parent_id')
+            ->first();
+    }
+
+    /**
+     * Get all child branches (işletmeler) under this user's main branch
+     */
+    public function getChildBranches()
+    {
+        $mainBranch = $this->getMainBranch();
+        if (!$mainBranch) {
+            return collect();
+        }
+
+        return Branch::where('parent_id', $mainBranch->id)->get();
+    }
+
+    /**
+     * Get the effective subscription for this user
+     * For bayi users: returns their own subscription
+     * For işletme users: returns the parent bayi's subscription
+     */
+    public function getEffectiveSubscription(): ?Subscription
+    {
+        // If user is a bayi, return their own subscription
+        if ($this->hasBayi()) {
+            return $this->subscriptions()
+                ->with('plan')
+                ->valid()
+                ->first();
+        }
+
+        // If user is an işletme, get the parent bayi's subscription
+        if ($this->hasIsletme() && $this->branch_id) {
+            $branch = Branch::find($this->branch_id);
+            if ($branch) {
+                return $branch->getOwnerSubscription();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the effective plan for this user (considering parent bayi for işletmeler)
+     */
+    public function getEffectivePlan(): ?Plan
+    {
+        $subscription = $this->getEffectiveSubscription();
+        return $subscription?->plan;
+    }
+
+    /**
+     * Check if user can use a specific feature (considering parent bayi for işletmeler)
+     */
+    public function canUseFeature(string $feature): bool
+    {
+        $plan = $this->getEffectivePlan();
+        return $plan ? $plan->hasFeature($feature) : false;
+    }
+
+    /**
+     * Check if user has an effective active subscription (considering parent bayi for işletmeler)
+     */
+    public function hasEffectiveSubscription(): bool
+    {
+        return $this->getEffectiveSubscription() !== null;
+    }
+
+    /**
+     * Get the courier relationship
+     */
+    public function courier()
+    {
+        return $this->hasOne(Courier::class);
+    }
+
+    /**
+     * Get the restaurant connections (external platforms like seferxyemek)
+     */
+    public function restaurantConnections(): HasMany
+    {
+        return $this->hasMany(RestaurantConnection::class);
+    }
+
+    /**
+     * Get active restaurant connections
+     */
+    public function activeRestaurantConnections(): HasMany
+    {
+        return $this->hasMany(RestaurantConnection::class)->where('is_active', true);
     }
 }

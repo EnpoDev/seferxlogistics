@@ -13,12 +13,15 @@ class OrderItem extends Model
         'price',
         'quantity',
         'total',
+        'notes',
+        'variations',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
         'quantity' => 'integer',
         'total' => 'decimal:2',
+        'variations' => 'array',
     ];
 
     // Relationships

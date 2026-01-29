@@ -125,7 +125,7 @@
                         </div>
                         <div class="flex items-center justify-between">
                             <p class="text-xs text-gray-600 dark:text-gray-400">
-                                {{ $ticket->created_at->format('d M Y') }} - {{ $ticket->ticket_number }}
+                                {{ $ticket->created_at->locale('tr')->isoFormat('D MMMM YYYY') }} - {{ $ticket->ticket_number }}
                             </p>
                             @php
                                 $priorityTypes = [

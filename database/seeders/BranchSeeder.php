@@ -3,15 +3,23 @@
 namespace Database\Seeders;
 
 use App\Models\Branch;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class BranchSeeder extends Seeder
 {
     public function run(): void
     {
+        // İlk bayi kullanıcısını al veya yoksa ilk kullanıcıyı kullan
+        $owner = User::whereJsonContains('roles', 'bayi')->first()
+            ?? User::first();
+
+        $ownerId = $owner?->id ?? 1;
+
         Branch::firstOrCreate(
             ['email' => 'kadikoy@example.com'],
             [
+                'user_id' => $ownerId,
                 'name' => 'Kadıköy Şubesi',
                 'address' => 'Kadıköy, İstanbul',
                 'phone' => '+90 (555) 123-4567',
@@ -25,6 +33,7 @@ class BranchSeeder extends Seeder
         Branch::firstOrCreate(
             ['email' => 'besiktas@example.com'],
             [
+                'user_id' => $ownerId,
                 'name' => 'Beşiktaş Şubesi',
                 'address' => 'Beşiktaş, İstanbul',
                 'phone' => '+90 (555) 765-4321',

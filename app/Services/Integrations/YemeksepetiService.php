@@ -12,12 +12,12 @@ class YemeksepetiService extends BaseIntegrationService
         return 'yemeksepeti';
     }
 
-    protected function getPlatformName(): string
+    public function getPlatformName(): string
     {
         return 'Yemeksepeti';
     }
 
-    protected function getPlatformDescription(): string
+    public function getPlatformDescription(): string
     {
         return 'Yemeksepeti siparişlerini otomatik olarak alın ve yönetin.';
     }

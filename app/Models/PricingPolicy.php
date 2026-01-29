@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PricingPolicy extends Model
 {
@@ -26,17 +28,17 @@ class PricingPolicy extends Model
     public const DEFAULT_KM_RATE_COURIER = 1.2; // 1.2 TL/km
     public const DEFAULT_BASE_FEE = 10.0; // 10 TL base
 
-    public function branch()
+    public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
-    public function rules()
+    public function rules(): HasMany
     {
         return $this->hasMany(PricingPolicyRule::class);
     }
 
-    public function couriers()
+    public function couriers(): HasMany
     {
         return $this->hasMany(Courier::class);
     }

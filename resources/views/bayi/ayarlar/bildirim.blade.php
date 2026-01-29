@@ -1,12 +1,12 @@
 <x-bayi-layout>
-    <x-slot name="title">Bildirim Ayarlari - Bayi Paneli</x-slot>
+    <x-slot name="title">Bildirim Ayarları - Bayi Paneli</x-slot>
 
     <div class="space-y-6">
         <!-- Page Header -->
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-3xl font-bold text-black dark:text-white">Bildirim Ayarlari</h1>
-                <p class="text-gray-600 dark:text-gray-400 mt-1">Bildirim tercihlerinizi yonetin</p>
+                <h1 class="text-3xl font-bold text-black dark:text-white">Bildirim Ayarları</h1>
+                <p class="text-gray-600 dark:text-gray-400 mt-1">Bildirim tercihlerinizi yönetin</p>
             </div>
         </div>
 
@@ -22,48 +22,40 @@
 
             <div class="bg-white dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-gray-800">
                 <div class="p-6 space-y-6">
-                    <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                        <div>
-                            <h3 class="font-medium text-black dark:text-white">Yeni Siparis Bildirimleri</h3>
-                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Yeni siparis geldiginde bildirim al</p>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" name="new_order_notification" value="1" class="sr-only peer" {{ $settings->new_order_notification ?? true ? 'checked' : '' }}>
-                            <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-black dark:peer-checked:bg-white"></div>
-                        </label>
+                    <div class="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                        <x-form.toggle
+                            name="new_order_notification"
+                            label="Yeni Sipariş Bildirimleri"
+                            description="Yeni sipariş geldiğinde bildirim al"
+                            :checked="$settings->new_order_notification ?? true"
+                        />
                     </div>
 
-                    <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                        <div>
-                            <h3 class="font-medium text-black dark:text-white">Kurye Durum Degisikligi</h3>
-                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Kurye durumu degistiginde bildirim al</p>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" name="order_status_notification" value="1" class="sr-only peer" {{ $settings->order_status_notification ?? true ? 'checked' : '' }}>
-                            <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-black dark:peer-checked:bg-white"></div>
-                        </label>
+                    <div class="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                        <x-form.toggle
+                            name="order_status_notification"
+                            label="Kurye Durum Değişikliği"
+                            description="Kurye durumu değiştiğinde bildirim al"
+                            :checked="$settings->order_status_notification ?? true"
+                        />
                     </div>
 
-                    <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                        <div>
-                            <h3 class="font-medium text-black dark:text-white">E-posta Bildirimleri</h3>
-                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Yeni siparisler icin e-posta al</p>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" name="email_new_order" value="1" class="sr-only peer" {{ $settings->email_new_order ?? false ? 'checked' : '' }}>
-                            <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-black dark:peer-checked:bg-white"></div>
-                        </label>
+                    <div class="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                        <x-form.toggle
+                            name="email_new_order"
+                            label="E-posta Bildirimleri"
+                            description="Yeni siparişler için e-posta al"
+                            :checked="$settings->email_new_order ?? false"
+                        />
                     </div>
 
-                    <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                        <div>
-                            <h3 class="font-medium text-black dark:text-white">SMS Bildirimleri</h3>
-                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Onemli durumlarda SMS al</p>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" name="sms_enabled" value="1" class="sr-only peer" {{ $settings->sms_enabled ?? false ? 'checked' : '' }}>
-                            <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-black dark:peer-checked:bg-white"></div>
-                        </label>
+                    <div class="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                        <x-form.toggle
+                            name="sms_enabled"
+                            label="SMS Bildirimleri"
+                            description="Önemli durumlarda SMS al"
+                            :checked="$settings->sms_enabled ?? false"
+                        />
                     </div>
                 </div>
 

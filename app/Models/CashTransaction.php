@@ -58,12 +58,7 @@ class CashTransaction extends Model
 
     public function getStatusLabel(): string
     {
-        return match ($this->status) {
-            self::STATUS_PENDING => 'Beklemede',
-            self::STATUS_COMPLETED => 'Tamamlandı',
-            self::STATUS_CANCELLED => 'İptal',
-            default => $this->status,
-        };
+        return __('statuses.cash_transaction.' . $this->status, [], 'tr') ?? $this->status;
     }
 
     public function getStatusColor(): string
@@ -87,6 +82,10 @@ class CashTransaction extends Model
 
         $courier = $this->courier;
 
+        if (!$courier) {
+            return;
+        }
+
         if ($this->type === self::TYPE_PAYMENT_RECEIVED) {
             // Ödeme alındı - bakiyeyi azalt
             $courier->decrement('cash_balance', $this->amount);
@@ -102,6 +101,10 @@ class CashTransaction extends Model
     public function reverseFromBalance(): void
     {
         $courier = $this->courier;
+
+        if (!$courier) {
+            return;
+        }
 
         if ($this->type === self::TYPE_PAYMENT_RECEIVED) {
             // Ödeme alımını geri al - bakiyeyi artır

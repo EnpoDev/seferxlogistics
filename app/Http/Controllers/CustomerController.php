@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\CustomerAddress;
+use App\Http\Requests\Customer\StoreCustomerRequest;
+use App\Http\Requests\Customer\UpdateCustomerRequest;
+use App\Http\Requests\Customer\QuickStoreCustomerRequest;
+use App\Http\Requests\Customer\StoreAddressRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -53,17 +57,9 @@ class CustomerController extends Controller
         return view('pages.musteri.show', compact('customer', 'stats'));
     }
 
-    public function store(Request $request)
+    public function store(StoreCustomerRequest $request)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:20', 'unique:customers,phone'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'address' => ['nullable', 'string'],
-            'lat' => ['nullable', 'numeric'],
-            'lng' => ['nullable', 'numeric'],
-            'notes' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $customer = Customer::create($validated);
 
@@ -71,26 +67,18 @@ class CustomerController extends Controller
             return response()->json([
                 'success' => true,
                 'customer' => $customer,
-                'message' => 'Müşteri başarıyla oluşturuldu.',
+                'message' => __('messages.success.customer_created'),
             ]);
         }
 
         return redirect()
             ->route('musteri.show', $customer)
-            ->with('success', 'Müşteri başarıyla oluşturuldu.');
+            ->with('success', __('messages.success.customer_created'));
     }
 
-    public function update(Request $request, Customer $customer)
+    public function update(UpdateCustomerRequest $request, Customer $customer)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:20', 'unique:customers,phone,' . $customer->id],
-            'email' => ['nullable', 'email', 'max:255'],
-            'address' => ['nullable', 'string'],
-            'lat' => ['nullable', 'numeric'],
-            'lng' => ['nullable', 'numeric'],
-            'notes' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $customer->update($validated);
 
@@ -98,13 +86,13 @@ class CustomerController extends Controller
             return response()->json([
                 'success' => true,
                 'customer' => $customer->fresh(),
-                'message' => 'Müşteri başarıyla güncellendi.',
+                'message' => __('messages.success.customer_updated'),
             ]);
         }
 
         return redirect()
             ->route('musteri.show', $customer)
-            ->with('success', 'Müşteri başarıyla güncellendi.');
+            ->with('success', __('messages.success.customer_updated'));
     }
 
     public function destroy(Customer $customer)
@@ -113,7 +101,7 @@ class CustomerController extends Controller
 
         return redirect()
             ->route('musteri.index')
-            ->with('success', 'Müşteri başarıyla silindi.');
+            ->with('success', __('messages.success.customer_deleted'));
     }
 
     /**
@@ -171,18 +159,9 @@ class CustomerController extends Controller
     /**
      * Quick create customer (AJAX - from order form)
      */
-    public function quickStore(Request $request): JsonResponse
+    public function quickStore(QuickStoreCustomerRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:20'],
-            'address' => ['nullable', 'string'],
-            'lat' => ['nullable', 'numeric'],
-            'lng' => ['nullable', 'numeric'],
-        ]);
-
-        // Clean phone number
-        $validated['phone'] = preg_replace('/[^0-9]/', '', $validated['phone']);
+        $validated = $request->validated();
 
         // Check if customer exists
         $customer = Customer::where('phone', $validated['phone'])->first();
@@ -203,26 +182,16 @@ class CustomerController extends Controller
         return response()->json([
             'success' => true,
             'customer' => $customer,
-            'is_new' => !$customer->wasRecentlyCreated,
+            'is_new' => $customer->wasRecentlyCreated,
         ]);
     }
 
     /**
      * Add address to customer
      */
-    public function addAddress(Request $request, Customer $customer): JsonResponse
+    public function addAddress(StoreAddressRequest $request, Customer $customer): JsonResponse
     {
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:50'],
-            'address' => ['required', 'string'],
-            'lat' => ['nullable', 'numeric'],
-            'lng' => ['nullable', 'numeric'],
-            'building_no' => ['nullable', 'string', 'max:20'],
-            'floor' => ['nullable', 'string', 'max:10'],
-            'apartment_no' => ['nullable', 'string', 'max:20'],
-            'directions' => ['nullable', 'string'],
-            'is_default' => ['nullable', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $address = $customer->addresses()->create($validated);
 
@@ -233,7 +202,7 @@ class CustomerController extends Controller
         return response()->json([
             'success' => true,
             'address' => $address,
-            'message' => 'Adres başarıyla eklendi.',
+            'message' => __('messages.success.address_added'),
         ]);
     }
 
@@ -263,7 +232,7 @@ class CustomerController extends Controller
         return response()->json([
             'success' => true,
             'address' => $address->fresh(),
-            'message' => 'Adres başarıyla güncellendi.',
+            'message' => __('messages.success.address_updated'),
         ]);
     }
 
@@ -276,7 +245,7 @@ class CustomerController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Adres başarıyla silindi.',
+            'message' => __('messages.success.address_deleted'),
         ]);
     }
 

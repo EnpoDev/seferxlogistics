@@ -136,14 +136,7 @@ class SupportTicket extends Model
 
     public function getStatusLabel(): string
     {
-        return match ($this->status) {
-            self::STATUS_OPEN => 'Açık',
-            self::STATUS_IN_PROGRESS => 'İşlemde',
-            self::STATUS_WAITING_RESPONSE => 'Yanıt Bekleniyor',
-            self::STATUS_RESOLVED => 'Çözüldü',
-            self::STATUS_CLOSED => 'Kapatıldı',
-            default => $this->status,
-        };
+        return __('statuses.ticket.' . $this->status, [], 'tr') ?? $this->status;
     }
 
     public function getStatusColor(): string

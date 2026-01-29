@@ -13,6 +13,10 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
+    public function __construct(
+        private CourierAssignmentService $courierAssignmentService
+    ) {}
+
     public function index()
     {
         // Today's statistics
@@ -36,8 +40,7 @@ class DashboardController extends Controller
         ];
 
         // Courier statistics
-        $courierService = new CourierAssignmentService();
-        $courierStats = $courierService->getCourierWorkloadStats();
+        $courierStats = $this->courierAssignmentService->getCourierWorkloadStats();
 
         // Active orders
         $activeOrders = Order::with(['customer', 'courier', 'restaurant', 'items'])

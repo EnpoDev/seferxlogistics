@@ -6,7 +6,13 @@
     $sidebarAutoHide = $themeSettings?->sidebar_auto_hide ?? true;
     $sidebarWidth = $themeSettings?->sidebar_width ?? 'normal';
     $initialDarkMode = $themeMode === 'dark' ? 'true' : ($themeMode === 'light' ? 'false' : "window.matchMedia('(prefers-color-scheme: dark)').matches");
-    
+
+    // Server-side dark mode class determination for FOUC prevention
+    $serverDarkClass = '';
+    if ($themeMode === 'dark') {
+        $serverDarkClass = 'dark';
+    }
+
     // Sidebar width classes
     $sidebarWidthClass = match($sidebarWidth) {
         'narrow' => 'w-52',
@@ -15,39 +21,48 @@
     };
 @endphp
 <!DOCTYPE html>
-<html lang="tr" 
-      x-data="themeManagerBayi()" 
+<html lang="tr" class="{{ $serverDarkClass }} {{ $compactMode ? 'compact-mode' : '' }} {{ !$animationsEnabled ? 'no-animations' : '' }}"
+      x-data="themeManagerBayi()"
       x-init="init()"
       :class="{ 'dark': darkMode, 'compact-mode': compactMode, 'no-animations': !animationsEnabled }">
-<script>
-    function themeManagerBayi() {
-        return {
-            darkMode: {{ $initialDarkMode }},
-            sidebarOpen: {{ $sidebarAutoHide ? 'window.innerWidth >= 1024' : 'true' }},
-            openDropdown: null,
-            themeMode: '{{ $themeMode }}',
-            compactMode: {{ $compactMode ? 'true' : 'false' }},
-            animationsEnabled: {{ $animationsEnabled ? 'true' : 'false' }},
-            sidebarAutoHide: {{ $sidebarAutoHide ? 'true' : 'false' }},
-            init() {
-                // Watch for system theme changes if theme mode is 'system'
-                if (this.themeMode === 'system') {
-                    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-                        if (this.themeMode === 'system') this.darkMode = e.matches;
-                    });
+<head>
+    <!-- Prevent FOUC (Flash of Unstyled Content) for dark mode -->
+    <script>
+        (function() {
+            var themeMode = '{{ $themeMode }}';
+            var isDark = themeMode === 'dark' || (themeMode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+        })();
+    </script>
+    <script>
+        function themeManagerBayi() {
+            return {
+                darkMode: {!! $initialDarkMode !!},
+                sidebarOpen: {!! $sidebarAutoHide ? 'window.innerWidth >= 1024' : 'true' !!},
+                openDropdown: null,
+                themeMode: '{{ $themeMode }}',
+                compactMode: {!! $compactMode ? 'true' : 'false' !!},
+                animationsEnabled: {!! $animationsEnabled ? 'true' : 'false' !!},
+                sidebarAutoHide: {!! $sidebarAutoHide ? 'true' : 'false' !!},
+                init() {
+                    // Watch for system theme changes if theme mode is 'system'
+                    if (this.themeMode === 'system') {
+                        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+                            if (this.themeMode === 'system') this.darkMode = e.matches;
+                        });
+                    }
+                    // Handle sidebar auto-hide on resize
+                    if (this.sidebarAutoHide) {
+                        window.addEventListener('resize', () => {
+                            this.sidebarOpen = window.innerWidth >= 1024;
+                        });
+                    }
+                    this.$watch('darkMode', val => localStorage.setItem('darkMode', val));
                 }
-                // Handle sidebar auto-hide on resize
-                if (this.sidebarAutoHide) {
-                    window.addEventListener('resize', () => {
-                        this.sidebarOpen = window.innerWidth >= 1024;
-                    });
-                }
-                this.$watch('darkMode', val => localStorage.setItem('darkMode', val));
             }
         }
-    }
-</script>
-<head>
+    </script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -62,8 +77,8 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://npmcdn.com/flatpickr/dist/l10n/tr.js"></script>
 
-    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.14.3/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
     
     @stack('styles')
     
@@ -255,6 +270,15 @@
                     <span class="font-medium">Kuryelerim</span>
                 </a>
 
+                <!-- Kuryelere Bildirim -->
+                <a href="{{ route('bayi.kuryelere-bildirim') }}"
+                   class="flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors {{ request()->routeIs('bayi.kuryelere-bildirim*') ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-900' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                    </svg>
+                    <span class="font-medium">Kuryelere Bildirim</span>
+                </a>
+
                 <!-- İşletmelerim -->
                 <a href="{{ route('bayi.isletmelerim') }}"
                    class="flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors {{ request()->routeIs('bayi.isletmelerim') ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-900' }}">
@@ -413,13 +437,13 @@
                     <span class="font-medium">Tema yapılandırması</span>
                 </a>
 
-                <!-- Yardım -->
-                <a href="{{ route('bayi.yardim') }}"
-                   class="flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors {{ request()->routeIs('bayi.yardim') ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-900' }}">
+                <!-- Paketler -->
+                <a href="{{ route('bayi.paketler') }}"
+                   class="flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors {{ request()->routeIs('bayi.paketler') ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-900' }}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
                     </svg>
-                    <span class="font-medium">Yardım</span>
+                    <span class="font-medium">Paketler</span>
                 </a>
 
             </nav>

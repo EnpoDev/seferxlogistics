@@ -42,6 +42,18 @@ return [
             ],
         ],
 
+        'pusher-mobile' => [
+            'driver' => 'pusher',
+            'key' => env('PUSHER_MOBILE_APP_KEY', '7c2831be3c00510aff95'),
+            'secret' => env('PUSHER_MOBILE_APP_SECRET', 'a943657f57236bebe504'),
+            'app_id' => env('PUSHER_MOBILE_APP_ID', '2107379'),
+            'options' => [
+                'cluster' => env('PUSHER_MOBILE_APP_CLUSTER', 'eu'),
+                'useTLS' => true,
+                'encrypted' => true,
+            ],
+        ],
+
         'ably' => [
             'driver' => 'ably',
             'key' => env('ABLY_KEY'),

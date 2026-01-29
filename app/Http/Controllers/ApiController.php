@@ -210,10 +210,19 @@ class ApiController extends Controller
             ->get()
             ->map(fn($o) => $this->formatOrderForMap($o));
 
+        // Pool orders with waiting time info
+        $poolOrders = Order::inPool()
+            ->whereNotNull('lat')
+            ->whereNotNull('lng')
+            ->with('courier')
+            ->orderBy('pool_entered_at', 'asc')
+            ->get()
+            ->map(fn($o) => $this->formatPoolOrderForMap($o));
+
         $stats = [
             'pending' => Order::where('status', 'pending')->count(),
             'active' => Order::whereNotIn('status', ['delivered', 'cancelled'])->count(),
-            'pool' => Order::where('status', 'ready')->whereNull('courier_id')->count(),
+            'pool' => $poolOrders->count(),
             'cancelled' => Order::where('status', 'cancelled')->whereDate('created_at', today())->count(),
         ];
 
@@ -223,6 +232,7 @@ class ApiController extends Controller
         return response()->json([
             'couriers' => $couriers,
             'orders' => $orders,
+            'pool_orders' => $poolOrders,
             'stats' => $stats,
         ]);
     }
@@ -307,6 +317,27 @@ class ApiController extends Controller
             'total' => $order->total,
             'courier_id' => $order->courier_id,
             'courier_name' => $order->courier?->name,
+        ];
+    }
+
+    /**
+     * Pool sipariş verilerini harita için formatla
+     */
+    private function formatPoolOrderForMap(Order $order): array
+    {
+        return [
+            'id' => $order->id,
+            'order_number' => $order->order_number,
+            'customer_name' => PrivacyHelper::maskName($order->customer_name),
+            'customer_address' => PrivacyHelper::maskAddress($order->customer_address),
+            'lat' => (float) $order->lat,
+            'lng' => (float) $order->lng,
+            'status' => $order->status,
+            'total' => $order->total,
+            'pool_entered_at' => $order->pool_entered_at?->toIso8601String(),
+            'waiting_seconds' => $order->poolWaitingSeconds(),
+            'waiting_minutes' => $order->poolWaitingMinutes(),
+            'is_timeout' => $order->poolWaitingMinutes() >= 5, // Default 5 min timeout
         ];
     }
 

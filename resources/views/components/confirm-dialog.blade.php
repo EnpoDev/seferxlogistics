@@ -39,89 +39,105 @@
 </div>
 
 <script>
-let confirmCallback = null;
+(function() {
+    let confirmCallback = null;
 
-window.showConfirmDialog = function(options = {}) {
-    const dialog = document.getElementById('confirmDialog');
-    const content = document.getElementById('confirmDialogContent');
-    const title = document.getElementById('confirmTitle');
-    const message = document.getElementById('confirmMessage');
-    const button = document.getElementById('confirmButton');
-    const buttonText = document.getElementById('confirmButtonText');
-    
-    title.textContent = options.title || 'Emin misiniz?';
-    message.textContent = options.message || 'Bu işlem geri alınamaz.';
-    buttonText.textContent = options.confirmText || 'Sil';
-    
-    if (options.type === 'danger') {
-        button.className = 'flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2';
+    function initConfirmDialog() {
+        const dialog = document.getElementById('confirmDialog');
+        const confirmButton = document.getElementById('confirmButton');
+
+        if (!dialog || !confirmButton) return;
+
+        window.showConfirmDialog = function(options = {}) {
+            const content = document.getElementById('confirmDialogContent');
+            const title = document.getElementById('confirmTitle');
+            const message = document.getElementById('confirmMessage');
+            const button = document.getElementById('confirmButton');
+            const buttonText = document.getElementById('confirmButtonText');
+
+            title.textContent = options.title || 'Emin misiniz?';
+            message.textContent = options.message || 'Bu işlem geri alınamaz.';
+            buttonText.textContent = options.confirmText || 'Sil';
+
+            if (options.type === 'danger') {
+                button.className = 'flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2';
+            } else {
+                button.className = 'flex-1 px-4 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-lg transition-colors font-medium flex items-center justify-center gap-2';
+            }
+
+            confirmCallback = options.onConfirm;
+
+            dialog.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+
+            // ESC to close
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    window.closeConfirmDialog();
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+        };
+
+        window.closeConfirmDialog = function() {
+            const content = document.getElementById('confirmDialogContent');
+
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+
+            setTimeout(() => {
+                dialog.classList.add('hidden');
+                confirmCallback = null;
+            }, 200);
+        };
+
+        window.confirmAction = async function() {
+            if (!confirmCallback) return;
+
+            const button = document.getElementById('confirmButton');
+            const buttonText = document.getElementById('confirmButtonText');
+            const spinner = document.getElementById('confirmSpinner');
+
+            // Show loading
+            button.disabled = true;
+            buttonText.classList.add('opacity-0');
+            spinner.classList.remove('hidden');
+
+            try {
+                await confirmCallback();
+                window.closeConfirmDialog();
+            } catch (error) {
+                console.error(error);
+                if (window.showToast) showToast('Bir hata oluştu', 'error');
+            } finally {
+                button.disabled = false;
+                buttonText.classList.remove('opacity-0');
+                spinner.classList.add('hidden');
+            }
+        };
+
+        confirmButton.addEventListener('click', window.confirmAction);
+
+        // Click outside to close
+        dialog.addEventListener('click', function(e) {
+            if (e.target === this) {
+                window.closeConfirmDialog();
+            }
+        });
+    }
+
+    // Run after everything is loaded to ensure we override any other definitions
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(initConfirmDialog, 0);
+        });
     } else {
-        button.className = 'flex-1 px-4 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-lg transition-colors font-medium flex items-center justify-center gap-2';
+        setTimeout(initConfirmDialog, 0);
     }
-    
-    confirmCallback = options.onConfirm;
-    
-    dialog.classList.remove('hidden');
-    setTimeout(() => {
-        content.classList.remove('scale-95', 'opacity-0');
-        content.classList.add('scale-100', 'opacity-100');
-    }, 10);
-    
-    // ESC to close
-    const escHandler = (e) => {
-        if (e.key === 'Escape') {
-            window.closeConfirmDialog();
-            document.removeEventListener('keydown', escHandler);
-        }
-    };
-    document.addEventListener('keydown', escHandler);
-};
-
-window.closeConfirmDialog = function() {
-    const dialog = document.getElementById('confirmDialog');
-    const content = document.getElementById('confirmDialogContent');
-    
-    content.classList.remove('scale-100', 'opacity-100');
-    content.classList.add('scale-95', 'opacity-0');
-    
-    setTimeout(() => {
-        dialog.classList.add('hidden');
-        confirmCallback = null;
-    }, 200);
-};
-
-window.confirmAction = async function() {
-    if (!confirmCallback) return;
-    
-    const button = document.getElementById('confirmButton');
-    const buttonText = document.getElementById('confirmButtonText');
-    const spinner = document.getElementById('confirmSpinner');
-    
-    // Show loading
-    button.disabled = true;
-    buttonText.classList.add('opacity-0');
-    spinner.classList.remove('hidden');
-    
-    try {
-        await confirmCallback();
-        window.closeConfirmDialog();
-    } catch (error) {
-        console.error(error);
-        showToast('Bir hata oluştu', 'error');
-    } finally {
-        button.disabled = false;
-        buttonText.classList.remove('opacity-0');
-        spinner.classList.add('hidden');
-    }
-};
-
-document.getElementById('confirmButton')?.addEventListener('click', window.confirmAction);
-
-// Click outside to close
-document.getElementById('confirmDialog')?.addEventListener('click', function(e) {
-    if (e.target === this) {
-        window.closeConfirmDialog();
-    }
-});
+})();
 </script>
 

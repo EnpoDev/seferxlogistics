@@ -15,12 +15,12 @@ class GetirService extends BaseIntegrationService
         return 'getir';
     }
 
-    protected function getPlatformName(): string
+    public function getPlatformName(): string
     {
         return 'Getir Yemek';
     }
 
-    protected function getPlatformDescription(): string
+    public function getPlatformDescription(): string
     {
         return 'Getir Yemek siparişlerini otomatik olarak alın ve yönetin.';
     }

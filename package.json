@@ -4,9 +4,15 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "test:e2e": "playwright test",
+        "test:e2e:ui": "playwright test --ui",
+        "test:e2e:headed": "playwright test --headed",
+        "test:e2e:debug": "playwright test --debug",
+        "test:e2e:report": "playwright show-report"
     },
     "devDependencies": {
+        "@playwright/test": "^1.57.0",
         "@tailwindcss/vite": "^4.0.0",
         "axios": "^1.11.0",
         "concurrently": "^9.0.1",
@@ -15,9 +21,9 @@
         "vite": "^7.0.7"
     },
     "dependencies": {
+        "laravel-echo": "^1.16.0",
         "leaflet": "^1.9.4",
         "leaflet-draw": "^1.0.4",
-        "pusher-js": "^8.4.0",
-        "laravel-echo": "^1.16.0"
+        "pusher-js": "^8.4.0"
     }
 }

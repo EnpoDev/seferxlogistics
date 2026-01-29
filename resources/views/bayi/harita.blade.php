@@ -113,6 +113,78 @@
         </x-ui.card>
     </x-layout.grid>
 
+    {{-- Sipariş İstatistik Sekmeleri --}}
+    <div class="flex flex-wrap items-center gap-2 mb-6">
+        <button @click="activeTab = 'new'; filterOrdersByTab()"
+                :class="activeTab === 'new' ? 'bg-yellow-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'"
+                class="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all">
+            <span>Yeni</span>
+            <span class="px-2 py-0.5 text-xs rounded-full"
+                  :class="activeTab === 'new' ? 'bg-white/30' : 'bg-yellow-500 text-white'"
+                  x-text="stats.pending"></span>
+        </button>
+        <button @click="activeTab = 'active'; filterOrdersByTab()"
+                :class="activeTab === 'active' ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'"
+                class="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all">
+            <span>Aktif</span>
+            <span class="px-2 py-0.5 text-xs rounded-full"
+                  :class="activeTab === 'active' ? 'bg-white/30' : 'bg-blue-500 text-white'"
+                  x-text="stats.active"></span>
+        </button>
+        <button @click="activeTab = 'pool'; filterOrdersByTab()"
+                :class="activeTab === 'pool' ? 'bg-red-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'"
+                class="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+            </svg>
+            <span>Havuz</span>
+            <span class="px-2 py-0.5 text-xs rounded-full"
+                  :class="activeTab === 'pool' ? 'bg-white/30 animate-pulse' : 'bg-red-500 text-white'"
+                  x-text="stats.pool"></span>
+        </button>
+        <button @click="activeTab = 'cancelled'; filterOrdersByTab()"
+                :class="activeTab === 'cancelled' ? 'bg-gray-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'"
+                class="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all">
+            <span>İptal</span>
+            <span class="px-2 py-0.5 text-xs rounded-full"
+                  :class="activeTab === 'cancelled' ? 'bg-white/30' : 'bg-gray-500 text-white'"
+                  x-text="stats.cancelled"></span>
+        </button>
+
+        {{-- Pool Yönetimi Link --}}
+        <a href="{{ route('bayi.havuz') }}"
+           class="ml-auto flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition-all">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            Havuz Yönetimi
+        </a>
+    </div>
+
+    {{-- Pool Alert (Havuzda sipariş varsa) --}}
+    <div x-show="stats.pool > 0 && activeTab !== 'pool'"
+         x-transition
+         class="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center animate-pulse">
+                <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                </svg>
+            </div>
+            <div>
+                <p class="font-semibold text-red-700 dark:text-red-400">
+                    <span x-text="stats.pool"></span> sipariş havuzda bekliyor
+                </p>
+                <p class="text-sm text-red-600 dark:text-red-500">Kurye ataması yapılmayı bekleyen siparişler var</p>
+            </div>
+        </div>
+        <button @click="activeTab = 'pool'; filterOrdersByTab()"
+                class="px-4 py-2 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-all">
+            Havuzu Gör
+        </button>
+    </div>
+
     {{-- Harita --}}
     <x-ui.card class="mb-6">
         @php
@@ -266,8 +338,10 @@ function bayiMapController() {
         showCourierList: false,
         showFilters: false,
         allOrders: [],
+        poolOrders: [],
         selectedCourier: null,
         refreshInterval: null,
+        lastPoolCount: {{ $poolOrders }},
         stats: {
             pending: {{ $newOrders }},
             active: {{ $activeOrders }},
@@ -276,7 +350,8 @@ function bayiMapController() {
         },
 
         init() {
-            this.$nextTick(() => {
+            // CourierMapManager yüklenene kadar bekle
+            const initializeMap = () => {
                 const mapEl = document.getElementById('courier-map');
 
                 if (window.CourierMapManager && mapEl) {
@@ -297,7 +372,14 @@ function bayiMapController() {
                     }
 
                     this.loadOrders();
+                } else {
+                    // CourierMapManager henüz yüklenmedi, tekrar dene
+                    setTimeout(initializeMap, 100);
                 }
+            };
+
+            this.$nextTick(() => {
+                initializeMap();
             });
 
             this.$watch('activeTab', () => {
@@ -381,10 +463,26 @@ function bayiMapController() {
 
                 if (response.ok) {
                     const data = await response.json();
+                    this.allOrders = data.orders || [];
+                    this.poolOrders = data.pool_orders || [];
+
                     if (this.mapManager) {
                         this.mapManager.setCouriers(data.couriers || []);
-                        this.mapManager.setOrders(data.orders || []);
+
+                        // Pool siparişlerini özel marker ile göster
+                        if (this.mapManager.setPoolOrders) {
+                            this.mapManager.setPoolOrders(this.poolOrders);
+                        }
+
+                        this.filterOrdersByTab();
                     }
+
+                    // Yeni pool siparişi geldi mi kontrol et
+                    if (data.stats && data.stats.pool > this.lastPoolCount) {
+                        this.playPoolNotification();
+                    }
+                    this.lastPoolCount = data.stats?.pool || 0;
+
                     this.stats = data.stats || this.stats;
                 }
             } catch (error) {
@@ -392,6 +490,12 @@ function bayiMapController() {
             } finally {
                 this.isLoading = false;
             }
+        },
+
+        playPoolNotification() {
+            // Ses bildirimi
+            const audio = new Audio('/sounds/notification.mp3');
+            audio.play().catch(e => console.log('Audio play failed:', e));
         },
 
         async searchOrders() {
@@ -498,6 +602,10 @@ function bayiMapController() {
                 if (response.ok) {
                     const data = await response.json();
                     this.allOrders = data.orders || [];
+                    this.poolOrders = data.pool_orders || [];
+                    this.stats = data.stats || this.stats;
+                    console.log('Loaded orders:', this.allOrders.length, 'Pool:', this.poolOrders.length);
+                    console.log('Order statuses:', this.allOrders.map(o => o.status));
                     this.filterOrdersByTab();
                 }
             } catch (error) {
@@ -505,10 +613,27 @@ function bayiMapController() {
             }
         },
 
+        filterRetryCount: 0,
+
         filterOrdersByTab() {
-            if (!this.mapManager || !this.allOrders) return;
+            if (!this.mapManager) {
+                // mapManager henüz hazır değilse max 10 kez dene
+                if (this.filterRetryCount < 10) {
+                    this.filterRetryCount++;
+                    setTimeout(() => this.filterOrdersByTab(), 200);
+                }
+                return;
+            }
+            this.filterRetryCount = 0;
 
             let filteredOrders = [];
+
+            // Pool siparişlerini gizle/göster
+            if (this.mapManager.clearPoolOrders) {
+                this.mapManager.clearPoolOrders();
+            }
+
+            console.log('Filtering by tab:', this.activeTab, 'Total orders:', this.allOrders.length);
 
             switch(this.activeTab) {
                 case 'new':
@@ -516,14 +641,18 @@ function bayiMapController() {
                     break;
                 case 'active':
                     filteredOrders = this.allOrders.filter(o =>
-                        ['preparing', 'ready', 'on_delivery'].includes(o.status)
+                        ['preparing', 'ready', 'assigned', 'picked_up', 'on_delivery', 'delivering'].includes(o.status)
                     );
                     break;
                 case 'pool':
-                    filteredOrders = this.allOrders.filter(o =>
-                        o.status === 'ready' && !o.courier_name
-                    );
-                    break;
+                    // Pool sekmesinde sadece pool siparişlerini göster (kırmızı marker'lar)
+                    console.log('Pool orders to show:', this.poolOrders.length);
+                    if (this.mapManager.setPoolOrders && this.poolOrders) {
+                        this.mapManager.setPoolOrders(this.poolOrders);
+                    }
+                    // Normal siparişleri temizle
+                    this.mapManager.setOrders([]);
+                    return;
                 case 'cancelled':
                     this.loadCancelledOrders();
                     return;
@@ -531,6 +660,7 @@ function bayiMapController() {
                     filteredOrders = this.allOrders;
             }
 
+            console.log('Filtered orders to display:', filteredOrders.length);
             this.mapManager.setOrders(filteredOrders);
         },
 

@@ -34,10 +34,10 @@
                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ $order->created_at->format('d.m.Y H:i') }}</p>
                 </div>
                 <span class="px-3 py-1 text-sm font-medium rounded-full
-                    {{ $order->status === 'assigned' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' : '' }}
-                    {{ $order->status === 'picked_up' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' : '' }}
-                    {{ $order->status === 'on_way' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400' : '' }}
-                    {{ $order->status === 'delivered' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : '' }}">
+                    {{ $order->display_status === 'assigned' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' : '' }}
+                    {{ $order->display_status === 'picked_up' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' : '' }}
+                    {{ $order->display_status === 'on_way' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400' : '' }}
+                    {{ $order->display_status === 'delivered' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : '' }}">
                     {{ $order->getStatusLabel() }}
                 </span>
             </div>
@@ -45,16 +45,16 @@
             <!-- Status Progress -->
             <div class="flex items-center justify-between mb-4">
                 <div class="flex-1 flex items-center">
-                    <div class="w-8 h-8 rounded-full flex items-center justify-center {{ in_array($order->status, ['assigned', 'picked_up', 'on_way', 'delivered']) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700' }}">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center {{ in_array($order->display_status, ['assigned', 'picked_up', 'on_way', 'delivered']) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700' }}">
                         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                         </svg>
                     </div>
-                    <div class="flex-1 h-1 mx-2 {{ in_array($order->status, ['picked_up', 'on_way', 'delivered']) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700' }}"></div>
+                    <div class="flex-1 h-1 mx-2 {{ in_array($order->display_status, ['picked_up', 'on_way', 'delivered']) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700' }}"></div>
                 </div>
                 <div class="flex-1 flex items-center">
-                    <div class="w-8 h-8 rounded-full flex items-center justify-center {{ in_array($order->status, ['picked_up', 'on_way', 'delivered']) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700' }}">
-                        @if(in_array($order->status, ['picked_up', 'on_way', 'delivered']))
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center {{ in_array($order->display_status, ['picked_up', 'on_way', 'delivered']) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700' }}">
+                        @if(in_array($order->display_status, ['picked_up', 'on_way', 'delivered']))
                             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                             </svg>
@@ -62,11 +62,11 @@
                             <span class="text-xs font-bold text-gray-600 dark:text-gray-400">2</span>
                         @endif
                     </div>
-                    <div class="flex-1 h-1 mx-2 {{ in_array($order->status, ['on_way', 'delivered']) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700' }}"></div>
+                    <div class="flex-1 h-1 mx-2 {{ in_array($order->display_status, ['on_way', 'delivered']) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700' }}"></div>
                 </div>
                 <div class="flex-1 flex items-center">
-                    <div class="w-8 h-8 rounded-full flex items-center justify-center {{ in_array($order->status, ['on_way', 'delivered']) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700' }}">
-                        @if(in_array($order->status, ['on_way', 'delivered']))
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center {{ in_array($order->display_status, ['on_way', 'delivered']) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700' }}">
+                        @if(in_array($order->display_status, ['on_way', 'delivered']))
                             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                             </svg>
@@ -74,10 +74,10 @@
                             <span class="text-xs font-bold text-gray-600 dark:text-gray-400">3</span>
                         @endif
                     </div>
-                    <div class="flex-1 h-1 mx-2 {{ $order->status === 'delivered' ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700' }}"></div>
+                    <div class="flex-1 h-1 mx-2 {{ $order->display_status === 'delivered' ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700' }}"></div>
                 </div>
-                <div class="w-8 h-8 rounded-full flex items-center justify-center {{ $order->status === 'delivered' ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700' }}">
-                    @if($order->status === 'delivered')
+                <div class="w-8 h-8 rounded-full flex items-center justify-center {{ $order->display_status === 'delivered' ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700' }}">
+                    @if($order->display_status === 'delivered')
                         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                         </svg>
@@ -213,29 +213,27 @@
         @endif
 
         <!-- Action Buttons -->
-        @if(!in_array($order->status, ['delivered', 'cancelled']))
+        @if(!in_array($order->display_status, ['delivered', 'cancelled']))
         <div class="space-y-3 pb-4">
-            @if($order->status === 'assigned')
+            @if($order->display_status === 'assigned')
                 <button @click="updateStatus('picked_up')"
                         x-bind:disabled="loading"
                         class="w-full py-4 bg-purple-600 text-white rounded-xl font-semibold text-lg disabled:opacity-50 touch-active">
                     <span x-show="!loading">📦 Siparişi Aldım</span>
                     <span x-show="loading">İşleniyor...</span>
                 </button>
-            @elseif($order->status === 'picked_up')
+            @elseif($order->display_status === 'picked_up')
                 <button @click="updateStatus('on_way')"
                         x-bind:disabled="loading"
                         class="w-full py-4 bg-cyan-600 text-white rounded-xl font-semibold text-lg disabled:opacity-50 touch-active">
                     <span x-show="!loading">🚗 Yola Çıktım</span>
                     <span x-show="loading">İşleniyor...</span>
                 </button>
-            @elseif($order->status === 'on_way')
-                <button @click="updateStatus('delivered')"
-                        x-bind:disabled="loading"
-                        class="w-full py-4 bg-green-600 text-white rounded-xl font-semibold text-lg disabled:opacity-50 touch-active">
-                    <span x-show="!loading">✅ Teslim Ettim</span>
-                    <span x-show="loading">İşleniyor...</span>
-                </button>
+            @elseif($order->display_status === 'on_way')
+                <a href="{{ route('kurye.order.deliver', $order) }}"
+                   class="w-full py-4 bg-green-600 text-white rounded-xl font-semibold text-lg text-center block touch-active">
+                    📸 Teslimatı Tamamla
+                </a>
             @endif
             
             <button @click="showCancelConfirm = true" 

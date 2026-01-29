@@ -360,9 +360,13 @@
     }
 
     // Photo Modal
-    function showPhotoModal(src, name) {
+    function showPhotoModal(imgSrc, imgCaption) {
+        const modal = document.querySelector('[x-data*="src"]');
+        if (modal && modal._x_dataStack) {
+            modal._x_dataStack[0].src = imgSrc;
+            modal._x_dataStack[0].caption = imgCaption;
+        }
         window.dispatchEvent(new CustomEvent('open-modal', { detail: 'photoModal' }));
-        // TODO: Set src and caption
     }
 
     // Open Password Modal

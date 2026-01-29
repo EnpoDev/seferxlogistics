@@ -16,6 +16,10 @@
         .dark { background-color: #0a0a0a; }
     </style>
 </head>
+<script>
+    // Cikis yapildiginda veya login sayfasina gelindiginde userId'yi temizle
+    localStorage.removeItem('kuryeUserId');
+</script>
 <body class="bg-gray-50 dark:bg-[#0a0a0a] min-h-screen flex flex-col">
     <div class="flex-1 flex flex-col justify-center px-6 py-12">
         <!-- Logo -->

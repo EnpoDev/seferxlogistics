@@ -26,14 +26,25 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        // Normalize phone number
+        // Normalize phone number - sadece rakamları al
         $phone = preg_replace('/[^0-9]/', '', $request->phone);
-        
-        $courier = Courier::where('phone', $phone)
-            ->orWhere('phone', '0' . $phone)
-            ->orWhere('phone', '+90' . $phone)
-            ->orWhere('phone', 'like', '%' . substr($phone, -10))
-            ->first();
+
+        // Telefon numarasını standart formata çevir (10 haneli)
+        $normalizedPhone = $this->normalizePhoneNumber($phone);
+
+        if (!$normalizedPhone) {
+            return back()->withErrors([
+                'phone' => 'Geçersiz telefon numarası formatı.',
+            ])->withInput();
+        }
+
+        // Sadece tam eşleşme ile kurye ara - LIKE pattern KALDIRILDI (güvenlik açığı)
+        $courier = Courier::where(function ($query) use ($normalizedPhone) {
+            $query->where('phone', $normalizedPhone)
+                ->orWhere('phone', '0' . $normalizedPhone)
+                ->orWhere('phone', '+90' . $normalizedPhone)
+                ->orWhere('phone', '90' . $normalizedPhone);
+        })->first();
 
         if (!$courier) {
             return back()->withErrors([
@@ -72,7 +83,7 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         $courier = Auth::guard('courier')->user();
-        
+
         if ($courier) {
             $courier->update(['status' => Courier::STATUS_OFFLINE]);
         }
@@ -83,6 +94,40 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('kurye.login');
+    }
+
+    /**
+     * Telefon numarasını standart 10 haneli formata çevir
+     *
+     * @param string $phone
+     * @return string|null
+     */
+    private function normalizePhoneNumber(string $phone): ?string
+    {
+        // Sadece rakamları al
+        $digits = preg_replace('/[^0-9]/', '', $phone);
+
+        // Türkiye ülke kodu kaldır
+        if (str_starts_with($digits, '90') && strlen($digits) === 12) {
+            $digits = substr($digits, 2);
+        }
+
+        // Başındaki 0'ı kaldır
+        if (str_starts_with($digits, '0') && strlen($digits) === 11) {
+            $digits = substr($digits, 1);
+        }
+
+        // 10 haneli olmalı (5XX XXX XX XX)
+        if (strlen($digits) !== 10) {
+            return null;
+        }
+
+        // 5 ile başlamalı (mobil numara)
+        if (!str_starts_with($digits, '5')) {
+            return null;
+        }
+
+        return $digits;
     }
 }
 

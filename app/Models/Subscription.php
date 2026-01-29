@@ -131,15 +131,7 @@ class Subscription extends Model
 
     public function getStatusLabel(): string
     {
-        return match ($this->status) {
-            self::STATUS_ACTIVE => 'Aktif',
-            self::STATUS_CANCELLED => 'İptal Edildi',
-            self::STATUS_EXPIRED => 'Süresi Doldu',
-            self::STATUS_PENDING => 'Beklemede',
-            self::STATUS_TRIAL => 'Deneme',
-            self::STATUS_PAST_DUE => 'Ödeme Gecikmiş',
-            default => $this->status,
-        };
+        return __('statuses.subscription.' . $this->status, [], 'tr') ?? $this->status;
     }
 
     public function getStatusColor(): string

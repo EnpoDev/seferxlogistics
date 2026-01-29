@@ -58,13 +58,7 @@ class Integration extends Model
     // Methods
     public function getStatusLabel(): string
     {
-        return match ($this->status) {
-            self::STATUS_INACTIVE => 'Pasif',
-            self::STATUS_CONNECTING => 'Bağlanıyor',
-            self::STATUS_CONNECTED => 'Bağlı',
-            self::STATUS_ERROR => 'Hata',
-            default => $this->status,
-        };
+        return __('statuses.integration.' . $this->status, [], 'tr') ?? $this->status;
     }
 
     public function getStatusColor(): string

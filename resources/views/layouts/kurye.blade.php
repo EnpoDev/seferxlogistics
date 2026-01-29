@@ -1,17 +1,37 @@
 <!DOCTYPE html>
 <html lang="tr" x-data="{ darkMode: localStorage.getItem('kuryeDarkMode') === 'true' }" x-init="$watch('darkMode', val => localStorage.setItem('kuryeDarkMode', val))" :class="{ 'dark': darkMode }">
 <head>
+    <!-- Prevent FOUC (Flash of Unstyled Content) for dark mode -->
+    <script>
+        (function() {
+            if (localStorage.getItem('kuryeDarkMode') === 'true') {
+                document.documentElement.classList.add('dark');
+            }
+            @auth('courier')
+            // Kurye userId'sini localStorage'a yaz (degisirse guncelle)
+            localStorage.setItem('kuryeUserId', '{{ Auth::guard('courier')->id() }}');
+            @else
+            // Giris yapilmamissa temizle
+            localStorage.removeItem('kuryeUserId');
+            @endauth
+        })();
+    </script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="SeferX Kurye">
+    <meta name="apple-mobile-web-app-title" content="SeferX Kurye">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/images/icons/icon-192x192.png">
     <title>{{ $title ?? 'SeferX Kurye' }}</title>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
     
     <style>
         /* Mobile optimizations */
@@ -89,10 +109,13 @@
     @stack('styles')
 </head>
 <body class="bg-gray-50 dark:bg-[#0a0a0a] min-h-screen">
+    <!-- Top Safe Area Background -->
+    <div class="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-black" style="height: env(safe-area-inset-top);"></div>
+
     <div class="flex flex-col min-h-screen" x-data="kuryeApp()">
-        
+
         <!-- Header -->
-        <header class="sticky top-0 z-40 bg-white dark:bg-black border-b border-gray-200 dark:border-gray-800 safe-top">
+        <header class="sticky top-0 z-40 bg-white dark:bg-black border-b border-gray-200 dark:border-gray-800" style="padding-top: env(safe-area-inset-top);">
             <div class="flex items-center justify-between h-14 px-4">
                 <div class="flex items-center space-x-3">
                     <img src="{{ asset('logo-dark.png') }}" alt="SeferX" class="h-8 w-auto dark:hidden">
@@ -133,13 +156,13 @@
         </header>
 
         <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto pb-20">
+        <main class="flex-1 overflow-y-auto" style="padding-bottom: calc(5rem + env(safe-area-inset-bottom));">
             @yield('content')
         </main>
 
         <!-- Bottom Navigation -->
         @auth('courier')
-        <nav class="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-black border-t border-gray-200 dark:border-gray-800 bottom-nav safe-bottom">
+        <nav class="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-black border-t border-gray-200 dark:border-gray-800 bottom-nav" style="padding-bottom: env(safe-area-inset-bottom);">
             <div class="flex items-center justify-around h-16 px-2">
                 <a href="{{ route('kurye.dashboard') }}" class="flex flex-col items-center justify-center flex-1 py-2 touch-active {{ request()->routeIs('kurye.dashboard') ? 'text-black dark:text-white' : 'text-gray-400 dark:text-gray-500' }}">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -342,6 +365,99 @@
     </script>
 
     @stack('scripts')
+
+    <!-- Pusher Bildirim Dinleyici (Mobil Key) -->
+    @auth('courier')
+    <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
+    <script>
+        (function() {
+            var kuryeUserId = localStorage.getItem('kuryeUserId');
+            if (!kuryeUserId) return;
+
+            var kuryePusher = new Pusher('{{ config("broadcasting.connections.pusher-mobile.key") }}', {
+                cluster: '{{ config("broadcasting.connections.pusher-mobile.options.cluster") }}',
+                forceTLS: true
+            });
+
+            var channel = kuryePusher.subscribe('user-' + kuryeUserId);
+
+            channel.bind('notification', function(data) {
+                // Alpine.js kuryeApp toast'u kullan
+                var app = document.querySelector('[x-data]');
+                if (app && app.__x) {
+                    app.__x.$data.toast.message = data.message || data.title;
+                    app.__x.$data.toast.type = (data.type === 'order_cancelled') ? 'error' : 'info';
+                    app.__x.$data.toast.show = true;
+                    setTimeout(function() {
+                        app.__x.$data.toast.show = false;
+                    }, 4000);
+                }
+
+                // Browser notification (izin varsa)
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification(data.title || 'SeferX Kurye', {
+                        body: data.message,
+                        icon: '/images/icons/icon-192x192.png',
+                        tag: 'kurye-notification-' + (data.id || Date.now())
+                    });
+                }
+
+                // Custom event dispatch (diger componentler dinleyebilsin)
+                window.dispatchEvent(new CustomEvent('kurye:notification', { detail: data }));
+            });
+
+            // Baglanti durumu loglama
+            kuryePusher.connection.bind('connected', function() {
+                console.log('Kurye Pusher connected');
+            });
+
+            kuryePusher.connection.bind('error', function(err) {
+                console.error('Kurye Pusher error:', err);
+            });
+        })();
+    </script>
+    @endauth
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((registration) => {
+                        console.log('SW registered:', registration.scope);
+
+                        // Check for updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // New version available
+                                    if (confirm('Yeni bir sürüm mevcut. Yenilemek ister misiniz?')) {
+                                        window.location.reload();
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch((error) => {
+                        console.log('SW registration failed:', error);
+                    });
+            });
+        }
+
+        // Request push notification permission
+        async function requestPushPermission() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    console.log('Push notification permission granted');
+                }
+            }
+        }
+
+        // Request permission on first user interaction
+        document.addEventListener('click', requestPushPermission, { once: true });
+    </script>
 </body>
 </html>
 

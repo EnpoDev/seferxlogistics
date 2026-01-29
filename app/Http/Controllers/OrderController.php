@@ -11,13 +11,24 @@ use App\Models\Category;
 use App\Models\Restaurant;
 use App\Models\OrderItem;
 use App\Services\CourierAssignmentService;
+use App\Services\CustomerNotificationService;
+use App\Services\PoolService;
 use App\Events\OrderCreated;
 use App\Events\OrderStatusUpdated;
+use App\Http\Requests\Order\StoreOrderRequest;
+use App\Http\Requests\Order\UpdateOrderRequest;
+use App\Http\Requests\Order\UpdateOrderStatusRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
+    public function __construct(
+        private CourierAssignmentService $courierAssignmentService,
+        private PoolService $poolService,
+        private CustomerNotificationService $customerNotificationService
+    ) {}
+
     public function index(Request $request)
     {
         $query = Order::with(['courier', 'branch', 'items', 'customer', 'restaurant'])
@@ -60,12 +71,12 @@ class OrderController extends Controller
 
     public function cancelled()
     {
-        $orders = Order::with(['courier', 'branch', 'items'])
+        $cancelledOrders = Order::with(['courier', 'branch', 'items'])
             ->where('status', 'cancelled')
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        return view('pages.siparis.iptal', compact('orders'));
+        return view('pages.siparis.iptal', compact('cancelledOrders'));
     }
 
     public function statistics()
@@ -77,9 +88,15 @@ class OrderController extends Controller
             'on_delivery_orders' => Order::where('status', 'on_delivery')->count(),
             'delivered_orders' => Order::where('status', 'delivered')->count(),
             'cancelled_orders' => Order::where('status', 'cancelled')->count(),
-            'total_revenue' => Order::where('status', 'delivered')->sum('total'),
+            'returned_orders' => Order::where('status', 'returned')->count(),
+            'total_revenue' => Order::where('status', 'delivered')->sum('total') ?? 0,
             'today_orders' => Order::whereDate('created_at', today())->count(),
-            'today_revenue' => Order::whereDate('created_at', today())->where('status', 'delivered')->sum('total'),
+            'today_revenue' => Order::whereDate('created_at', today())->where('status', 'delivered')->sum('total') ?? 0,
+            'top_products' => [],
+            'daily_labels' => ['Pzt', 'Sal', 'Car', 'Per', 'Cum', 'Cmt', 'Paz'],
+            'daily_orders' => [0, 0, 0, 0, 0, 0, 0],
+            'hourly_labels' => ['12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23'],
+            'hourly_orders' => [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         ];
 
         return view('pages.siparis.istatistik', compact('stats'));
@@ -126,25 +143,9 @@ class OrderController extends Controller
         return view('pages.siparis.create', compact('categories', 'products', 'couriers', 'branches', 'restaurants', 'customer'));
     }
 
-    public function store(Request $request)
+    public function store(StoreOrderRequest $request)
     {
-        $validated = $request->validate([
-            'customer_name' => ['required', 'string', 'max:255'],
-            'customer_phone' => ['required', 'string', 'max:20'],
-            'customer_address' => ['required', 'string'],
-            'lat' => ['nullable', 'numeric'],
-            'lng' => ['nullable', 'numeric'],
-            'branch_id' => ['nullable', 'exists:branches,id'],
-            'restaurant_id' => ['nullable', 'exists:restaurants,id'],
-            'courier_id' => ['nullable', 'exists:couriers,id'],
-            'delivery_fee' => ['required', 'numeric', 'min:0'],
-            'payment_method' => ['nullable', 'in:cash,card,online'],
-            'notes' => ['nullable', 'string'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'exists:products,id'],
-            'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'auto_assign_courier' => ['nullable', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         // Create or update customer
         $phone = preg_replace('/[^0-9]/', '', $validated['customer_phone']);
@@ -194,8 +195,7 @@ class OrderController extends Controller
         // Auto-assign courier if requested
         $courierId = $validated['courier_id'] ?? null;
         if ($request->boolean('auto_assign_courier') && !$courierId) {
-            $courierService = new CourierAssignmentService();
-            $assignedCourier = $courierService->findBestCourier(
+            $assignedCourier = $this->courierAssignmentService->findBestCourier(
                 $validated['lat'] ?? null,
                 $validated['lng'] ?? null
             );
@@ -242,7 +242,7 @@ class OrderController extends Controller
 
         return redirect()
             ->route('siparis.liste')
-            ->with('success', 'Sipariş başarıyla oluşturuldu.');
+            ->with('success', __('messages.success.order_created'));
     }
 
     public function edit(Order $order)
@@ -275,25 +275,9 @@ class OrderController extends Controller
         return view('pages.siparis.edit', compact('order', 'categories', 'products', 'couriers', 'branches', 'restaurants'));
     }
 
-    public function update(Request $request, Order $order)
+    public function update(UpdateOrderRequest $request, Order $order)
     {
-        $validated = $request->validate([
-            'customer_name' => ['required', 'string', 'max:255'],
-            'customer_phone' => ['required', 'string', 'max:20'],
-            'customer_address' => ['required', 'string'],
-            'lat' => ['nullable', 'numeric'],
-            'lng' => ['nullable', 'numeric'],
-            'branch_id' => ['nullable', 'exists:branches,id'],
-            'restaurant_id' => ['nullable', 'exists:restaurants,id'],
-            'courier_id' => ['nullable', 'exists:couriers,id'],
-            'delivery_fee' => ['required', 'numeric', 'min:0'],
-            'payment_method' => ['nullable', 'in:cash,card,online'],
-            'status' => ['required', 'in:pending,preparing,ready,on_delivery,delivered,cancelled'],
-            'notes' => ['nullable', 'string'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'exists:products,id'],
-            'items.*.quantity' => ['required', 'integer', 'min:1'],
-        ]);
+        $validated = $request->validated();
 
         // Calculate totals
         $subtotal = 0;
@@ -325,12 +309,15 @@ class OrderController extends Controller
             $timestamps['picked_up_at'] = now();
         } elseif ($validated['status'] === 'delivered' && !$order->delivered_at) {
             $timestamps['delivered_at'] = now();
-            
+
             // Record delivery for courier
             if ($order->courier_id) {
                 $deliveryMinutes = $order->created_at->diffInMinutes(now());
                 $order->courier?->recordDelivery($deliveryMinutes);
                 $order->courier?->decrementActiveOrders();
+
+                // Nakit ödemeli siparişlerde kuryenin bakiyesini güncelle
+                $order->updateCourierCashBalance();
             }
         } elseif ($validated['status'] === 'cancelled' && !$order->cancelled_at) {
             $timestamps['cancelled_at'] = now();
@@ -373,6 +360,13 @@ class OrderController extends Controller
             }
         }
 
+        // Add to pool if status is ready and no courier assigned
+        if ($validated['status'] === 'ready' && !$newCourierId) {
+            if ($this->poolService->isPoolEnabled($order->branch_id) && !$order->pool_entered_at) {
+                $this->poolService->addToPool($order);
+            }
+        }
+
         // Update order items - delete old and create new
         $order->items()->delete();
         foreach ($newItems as $item) {
@@ -384,7 +378,7 @@ class OrderController extends Controller
 
         return redirect()
             ->route('siparis.liste')
-            ->with('success', 'Sipariş başarıyla güncellendi.');
+            ->with('success', __('messages.success.order_updated'));
     }
 
     public function destroy(Order $order)
@@ -393,7 +387,7 @@ class OrderController extends Controller
         if (!in_array($order->status, ['pending', 'cancelled'])) {
             return redirect()
                 ->route('siparis.liste')
-                ->with('error', 'Sadece beklemedeki veya iptal edilmiş siparişler silinebilir.');
+                ->with('error', __('messages.error.order_cannot_delete'));
         }
 
         // Update courier active orders
@@ -406,14 +400,12 @@ class OrderController extends Controller
 
         return redirect()
             ->route('siparis.liste')
-            ->with('success', 'Sipariş başarıyla silindi.');
+            ->with('success', __('messages.success.order_deleted'));
     }
 
-    public function updateStatus(Request $request, Order $order)
+    public function updateStatus(UpdateOrderStatusRequest $request, Order $order)
     {
-        $validated = $request->validate([
-            'status' => ['required', 'in:pending,preparing,ready,on_delivery,delivered,cancelled'],
-        ]);
+        $validated = $request->validated();
 
         $oldStatus = $order->status;
 
@@ -424,17 +416,28 @@ class OrderController extends Controller
             $timestamps['prepared_at'] = now();
         } elseif ($validated['status'] === 'on_delivery' && !$order->picked_up_at) {
             $timestamps['picked_up_at'] = now();
+            // Leave pool if was in pool
+            if ($order->pool_entered_at) {
+                $timestamps['pool_entered_at'] = null;
+            }
         } elseif ($validated['status'] === 'delivered' && !$order->delivered_at) {
             $timestamps['delivered_at'] = now();
-            
+
             if ($order->courier_id) {
                 $deliveryMinutes = $order->created_at->diffInMinutes(now());
                 $order->courier?->recordDelivery($deliveryMinutes);
                 $order->courier?->decrementActiveOrders();
+
+                // Nakit ödemeli siparişlerde kuryenin bakiyesini güncelle
+                $order->updateCourierCashBalance();
             }
         } elseif ($validated['status'] === 'cancelled' && !$order->cancelled_at) {
             $timestamps['cancelled_at'] = now();
-            
+            // Leave pool if was in pool
+            if ($order->pool_entered_at) {
+                $timestamps['pool_entered_at'] = null;
+            }
+
             if ($order->courier_id) {
                 $order->courier?->decrementActiveOrders();
             }
@@ -442,15 +445,29 @@ class OrderController extends Controller
 
         $order->update(['status' => $validated['status']] + $timestamps);
 
+        // Add to pool if status is ready and no courier assigned
+        if ($validated['status'] === 'ready' && !$order->courier_id) {
+            if ($this->poolService->isPoolEnabled($order->branch_id)) {
+                $this->poolService->addToPool($order);
+            }
+        }
+
         // Update customer stats
         $order->updateCustomerStats();
 
         // Broadcast status update event
         broadcast(new OrderStatusUpdated($order, $oldStatus))->toOthers();
 
+        // Müşteriye bildirim gönder
+        try {
+            $this->customerNotificationService->sendStatusNotification($order, $validated['status']);
+        } catch (\Exception $e) {
+            \Log::error(__('messages.error.customer_notification_failed'), ['error' => $e->getMessage()]);
+        }
+
         return response()->json([
             'success' => true,
-            'message' => 'Sipariş durumu güncellendi.',
+            'message' => __('messages.success.order_status_updated'),
         ]);
     }
 }

@@ -34,6 +34,9 @@ class Courier extends Authenticatable
         'status',
         'lat',
         'lng',
+        'battery_level',
+        'is_charging',
+        'battery_updated_at',
         'current_order_id',
         'last_login_at',
         'device_token',
@@ -67,6 +70,9 @@ class Courier extends Authenticatable
     protected $casts = [
         'lat' => 'decimal:7',
         'lng' => 'decimal:7',
+        'battery_level' => 'integer',
+        'is_charging' => 'boolean',
+        'battery_updated_at' => 'datetime',
         'shifts' => 'array',
         'break_durations' => 'array',
         'notification_enabled' => 'boolean',
@@ -87,10 +93,18 @@ class Courier extends Authenticatable
         'pricing_data' => 'array',
     ];
 
+    protected $appends = [
+        'formatted_phone',
+        'photo_url',
+    ];
+
     public const STATUS_AVAILABLE = 'available';
     public const STATUS_BUSY = 'busy';
     public const STATUS_OFFLINE = 'offline';
     public const STATUS_ON_BREAK = 'on_break';
+
+    // Maksimum aktif sipariş limiti (tüm sistemde tutarlı olmalı)
+    public const MAX_ACTIVE_ORDERS = 5;
 
     // Relationships
     public function orders(): HasMany
@@ -135,6 +149,16 @@ class Courier extends Authenticatable
         return $this->hasMany(CourierTimeLog::class);
     }
 
+    public function courierNotifications(): HasMany
+    {
+        return $this->hasMany(CourierNotification::class);
+    }
+
+    public function unreadNotifications(): HasMany
+    {
+        return $this->courierNotifications()->whereNull('read_at');
+    }
+
     // Scopes
     public function scopeAvailable($query)
     {
@@ -171,9 +195,13 @@ class Courier extends Authenticatable
         }
 
         $now = now()->format('H:i');
-        $start = is_string($this->shift_start) ? $this->shift_start : $this->shift_start->format('H:i');
-        $end = is_string($this->shift_end) ? $this->shift_end : $this->shift_end->format('H:i');
-        
+        $start = $this->shift_start instanceof \Carbon\Carbon
+            ? $this->shift_start->format('H:i')
+            : (string) $this->shift_start;
+        $end = $this->shift_end instanceof \Carbon\Carbon
+            ? $this->shift_end->format('H:i')
+            : (string) $this->shift_end;
+
         return $now >= $start && $now <= $end;
     }
 
@@ -189,13 +217,7 @@ class Courier extends Authenticatable
 
     public function getStatusLabel(): string
     {
-        return match ($this->status) {
-            self::STATUS_AVAILABLE => 'Müsait',
-            self::STATUS_BUSY => 'Meşgul',
-            self::STATUS_OFFLINE => 'Çevrimdışı',
-            self::STATUS_ON_BREAK => 'Molada',
-            default => $this->status,
-        };
+        return __('statuses.courier.' . $this->status, [], 'tr') ?? $this->status;
     }
 
     public function getStatusColor(): string
@@ -212,8 +234,8 @@ class Courier extends Authenticatable
     public function incrementActiveOrders(): void
     {
         $this->increment('active_orders_count');
-        
-        if ($this->active_orders_count >= 3) {
+
+        if ($this->active_orders_count >= self::MAX_ACTIVE_ORDERS) {
             $this->update(['status' => self::STATUS_BUSY]);
         }
     }
@@ -221,8 +243,8 @@ class Courier extends Authenticatable
     public function decrementActiveOrders(): void
     {
         $this->decrement('active_orders_count');
-        
-        if ($this->active_orders_count < 3 && $this->status === self::STATUS_BUSY) {
+
+        if ($this->active_orders_count < self::MAX_ACTIVE_ORDERS && $this->status === self::STATUS_BUSY) {
             $this->update(['status' => self::STATUS_AVAILABLE]);
         }
     }
@@ -366,5 +388,15 @@ class Courier extends Authenticatable
     public function getFormattedPhoneAttribute(): string
     {
         return \App\Helpers\PhoneFormatter::format($this->phone);
+    }
+
+    // Foto URL accessor
+    public function getPhotoUrlAttribute(): ?string
+    {
+        if (!$this->photo_path) {
+            return null;
+        }
+
+        return \Illuminate\Support\Facades\Storage::url($this->photo_path);
     }
 }

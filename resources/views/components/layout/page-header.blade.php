@@ -1,5 +1,5 @@
 @props([
-    'title',
+    'title' => null,
     'subtitle' => null,
     'backUrl' => null,
 ])
@@ -14,17 +14,21 @@
             @endif
 
             <div>
-                @isset($icon)
-                    <div class="flex items-center gap-3 mb-1">
-                        {{ $icon }}
+                @if($title)
+                    @isset($icon)
+                        <div class="flex items-center gap-3 mb-1">
+                            {{ $icon }}
+                            <h1 class="text-2xl font-bold text-black dark:text-white">{{ $title }}</h1>
+                        </div>
+                    @else
                         <h1 class="text-2xl font-bold text-black dark:text-white">{{ $title }}</h1>
-                    </div>
-                @else
-                    <h1 class="text-2xl font-bold text-black dark:text-white">{{ $title }}</h1>
-                @endisset
+                    @endisset
 
-                @if($subtitle)
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ $subtitle }}</p>
+                    @if($subtitle)
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ $subtitle }}</p>
+                    @endif
+                @else
+                    {{ $slot }}
                 @endif
             </div>
         </div>

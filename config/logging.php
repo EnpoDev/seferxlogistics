@@ -129,6 +129,23 @@ return [
 
         /*
         |--------------------------------------------------------------------------
+        | Audit Log Channel
+        |--------------------------------------------------------------------------
+        |
+        | Sipariş durumu, kurye hareketleri vb. işlem logları için kanal.
+        | Operasyonel denetim ve raporlama amaçlıdır.
+        |
+        */
+        'audit' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/audit.log'),
+            'level' => 'info',
+            'days' => 30,
+            'replace_placeholders' => true,
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
         | Security & Audit Log Channel
         |--------------------------------------------------------------------------
         |

@@ -6,7 +6,13 @@
     $sidebarAutoHide = $themeSettings?->sidebar_auto_hide ?? true;
     $sidebarWidth = $themeSettings?->sidebar_width ?? 'normal';
     $initialDarkMode = $themeMode === 'dark' ? 'true' : ($themeMode === 'light' ? 'false' : "window.matchMedia('(prefers-color-scheme: dark)').matches");
-    
+
+    // Server-side dark mode class determination for FOUC prevention
+    $serverDarkClass = '';
+    if ($themeMode === 'dark') {
+        $serverDarkClass = 'dark';
+    }
+
     // Sidebar width classes
     $sidebarWidthClass = match($sidebarWidth) {
         'narrow' => 'w-52',
@@ -15,39 +21,48 @@
     };
 @endphp
 <!DOCTYPE html>
-<html lang="tr" 
-      x-data="themeManager()" 
+<html lang="tr" class="{{ $serverDarkClass }} {{ $compactMode ? 'compact-mode' : '' }} {{ !$animationsEnabled ? 'no-animations' : '' }}"
+      x-data="themeManager()"
       x-init="init()"
       :class="{ 'dark': darkMode, 'compact-mode': compactMode, 'no-animations': !animationsEnabled }">
-<script>
-    function themeManager() {
-        return {
-            darkMode: {{ $initialDarkMode }},
-            sidebarOpen: {{ $sidebarAutoHide ? 'window.innerWidth >= 1024' : 'true' }},
-            openDropdown: null,
-            themeMode: '{{ $themeMode }}',
-            compactMode: {{ $compactMode ? 'true' : 'false' }},
-            animationsEnabled: {{ $animationsEnabled ? 'true' : 'false' }},
-            sidebarAutoHide: {{ $sidebarAutoHide ? 'true' : 'false' }},
-            init() {
-                // Watch for system theme changes if theme mode is 'system'
-                if (this.themeMode === 'system') {
-                    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-                        if (this.themeMode === 'system') this.darkMode = e.matches;
-                    });
+<head>
+    <!-- Prevent FOUC (Flash of Unstyled Content) for dark mode -->
+    <script>
+        (function() {
+            var themeMode = '{{ $themeMode }}';
+            var isDark = themeMode === 'dark' || (themeMode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+        })();
+    </script>
+    <script>
+        function themeManager() {
+            return {
+                darkMode: {!! $initialDarkMode !!},
+                sidebarOpen: {!! $sidebarAutoHide ? 'window.innerWidth >= 1024' : 'true' !!},
+                openDropdown: null,
+                themeMode: '{{ $themeMode }}',
+                compactMode: {!! $compactMode ? 'true' : 'false' !!},
+                animationsEnabled: {!! $animationsEnabled ? 'true' : 'false' !!},
+                sidebarAutoHide: {!! $sidebarAutoHide ? 'true' : 'false' !!},
+                init() {
+                    // Watch for system theme changes if theme mode is 'system'
+                    if (this.themeMode === 'system') {
+                        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+                            if (this.themeMode === 'system') this.darkMode = e.matches;
+                        });
+                    }
+                    // Handle sidebar auto-hide on resize
+                    if (this.sidebarAutoHide) {
+                        window.addEventListener('resize', () => {
+                            this.sidebarOpen = window.innerWidth >= 1024;
+                        });
+                    }
+                    this.$watch('darkMode', val => localStorage.setItem('darkMode', val));
                 }
-                // Handle sidebar auto-hide on resize
-                if (this.sidebarAutoHide) {
-                    window.addEventListener('resize', () => {
-                        this.sidebarOpen = window.innerWidth >= 1024;
-                    });
-                }
-                this.$watch('darkMode', val => localStorage.setItem('darkMode', val));
             }
         }
-    }
-</script>
-<head>
+    </script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -56,8 +71,8 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 
-    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.14.3/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
     <style>
         .dark { background-color: #181818; }
         
@@ -309,9 +324,6 @@
                         <a href="{{ route('yonetim.kartlar') }}" class="block px-3 py-2 rounded-lg text-sm {{ request()->routeIs('yonetim.kartlar') ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900' }}">
                             Kayıtlı Kartlarım
                         </a>
-                        <a href="{{ route('yonetim.abonelikler') }}" class="block px-3 py-2 rounded-lg text-sm {{ request()->routeIs('yonetim.abonelikler') ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900' }}">
-                            Aboneliklerim
-                        </a>
                         <a href="{{ route('yonetim.islemler') }}" class="block px-3 py-2 rounded-lg text-sm {{ request()->routeIs('yonetim.islemler') ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900' }}">
                             İşlemlerim
                         </a>
@@ -338,12 +350,6 @@
                          class="ml-8 space-y-1">
                         <a href="{{ route('isletmem.kullanicilar') }}" class="block px-3 py-2 rounded-lg text-sm {{ request()->routeIs('isletmem.kullanicilar') ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900' }}">
                             Kullanıcı Yönetimi
-                        </a>
-                        <a href="{{ route('isletmem.menu') }}" class="block px-3 py-2 rounded-lg text-sm {{ request()->routeIs('isletmem.menu') ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900' }}">
-                            Menü Yönetimi
-                        </a>
-                        <a href="{{ route('isletmem.menu-entegrasyon') }}" class="block px-3 py-2 rounded-lg text-sm {{ request()->routeIs('isletmem.menu-entegrasyon') ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900' }}">
-                            Menü Entegrasyonu
                         </a>
                         <a href="{{ route('musteri.index') }}" class="block px-3 py-2 rounded-lg text-sm {{ request()->routeIs('musteri.*') ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900' }}">
                             Müşteri Yönetimi
@@ -388,14 +394,8 @@
                         <a href="{{ route('ayarlar.odeme') }}" class="block px-3 py-2 rounded-lg text-sm {{ request()->routeIs('ayarlar.odeme') ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900' }}">
                             Ödeme Yöntemleri
                         </a>
-                        <a href="{{ route('ayarlar.yazici') }}" class="block px-3 py-2 rounded-lg text-sm {{ request()->routeIs('ayarlar.yazici') ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900' }}">
-                            Yazıcı Yönetimi
-                        </a>
                         <a href="{{ route('ayarlar.bildirim') }}" class="block px-3 py-2 rounded-lg text-sm {{ request()->routeIs('ayarlar.bildirim') ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900' }}">
                             Bildirim ayarları
-                        </a>
-                        <a href="{{ route('ayarlar.yazarkasa') }}" class="block px-3 py-2 rounded-lg text-sm {{ request()->routeIs('ayarlar.yazarkasa') ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900' }}">
-                            Yazarkasa Ayarları
                         </a>
                     </div>
                 </div>

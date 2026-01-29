@@ -1,12 +1,12 @@
 <x-bayi-layout>
-    <x-slot name="title">Uygulama Ayarlari - Bayi Paneli</x-slot>
+    <x-slot name="title">Uygulama Ayarları - Bayi Paneli</x-slot>
 
     <div class="space-y-6">
         <!-- Page Header -->
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-3xl font-bold text-black dark:text-white">Uygulama Ayarlari</h1>
-                <p class="text-gray-600 dark:text-gray-400 mt-1">Genel uygulama tercihlerini ayarlayin</p>
+                <h1 class="text-3xl font-bold text-black dark:text-white">Uygulama Ayarları</h1>
+                <p class="text-gray-600 dark:text-gray-400 mt-1">Genel uygulama tercihlerini ayarlayın</p>
             </div>
         </div>
 
@@ -25,7 +25,7 @@
                     <div>
                         <label class="block text-sm font-medium text-black dark:text-white mb-2">Dil</label>
                         <select name="language" class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-900 text-black dark:text-white rounded-lg border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-black dark:focus:border-white">
-                            <option value="tr" {{ ($settings->language ?? 'tr') === 'tr' ? 'selected' : '' }}>Turkce</option>
+                            <option value="tr" {{ ($settings->language ?? 'tr') === 'tr' ? 'selected' : '' }}>Türkçe</option>
                             <option value="en" {{ ($settings->language ?? 'tr') === 'en' ? 'selected' : '' }}>English</option>
                         </select>
                     </div>
@@ -39,15 +39,13 @@
                         </select>
                     </div>
 
-                    <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                        <div>
-                            <h3 class="font-medium text-black dark:text-white">Sesli Bildirimler</h3>
-                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Yeni siparis geldiginde ses cal</p>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" name="sound_notifications" value="1" class="sr-only peer" {{ $settings->sound_notifications ?? true ? 'checked' : '' }}>
-                            <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-black dark:peer-checked:bg-white"></div>
-                        </label>
+                    <div class="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                        <x-form.toggle
+                            name="sound_notifications"
+                            label="Sesli Bildirimler"
+                            description="Yeni sipariş geldiğinde ses çal"
+                            :checked="$settings->sound_notifications ?? true"
+                        />
                     </div>
                 </div>
 

@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             CourierSeeder::class,
             OrderSeeder::class,
             PlanSeeder::class,
+            OAuthClientSeeder::class,
         ]);
     }
 }

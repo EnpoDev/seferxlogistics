@@ -64,14 +64,7 @@
                     </button>
                 </form>
 
-                <div class="mt-6 text-center">
-                    <p class="text-sm text-gray-600 dark:text-gray-400">
-                        Hesabınız yok mu?
-                        <a href="{{ route('register') }}" class="font-medium text-black dark:text-white hover:underline">
-                            Kayıt olun
-                        </a>
-                    </p>
-                </div>
+                {{-- Kayıt ol butonu kaldırıldı - Admin manuel kayıt açacak --}}
             </div>
 
             <!-- Dark Mode Toggle -->

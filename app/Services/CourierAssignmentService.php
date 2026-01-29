@@ -46,7 +46,7 @@ class CourierAssignmentService
         return Courier::where('status', Courier::STATUS_AVAILABLE)
             ->orWhere(function ($query) {
                 $query->where('status', Courier::STATUS_BUSY)
-                      ->where('active_orders_count', '<', 3); // Can still take orders if less than 3 active
+                      ->where('active_orders_count', '<', Courier::MAX_ACTIVE_ORDERS);
             })
             ->get()
             ->filter(function ($courier) {

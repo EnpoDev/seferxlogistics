@@ -6,6 +6,10 @@ use App\Models\Courier;
 use App\Services\CourierAssignmentService;
 use App\Events\CourierStatusChanged;
 use App\Events\CourierLocationUpdated;
+use App\Http\Requests\Courier\StoreCourierRequest;
+use App\Http\Requests\Courier\UpdateCourierRequest;
+use App\Http\Requests\Courier\UpdateCourierStatusRequest;
+use App\Http\Requests\Courier\UpdateCourierLocationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -36,41 +40,9 @@ class CourierController extends Controller
         return view('pages.isletmem.couriers.create');
     }
 
-    public function store(Request $request)
+    public function store(StoreCourierRequest $request)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:20'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'status' => ['required', 'in:available,busy,offline,on_break,active'],
-            'photo' => ['nullable', 'image', 'max:2048'],
-            'tc_no' => ['nullable', 'string', 'max:11'],
-            'vehicle_plate' => ['nullable', 'string', 'max:20'],
-            'shift_start' => ['nullable', 'date_format:H:i'],
-            'shift_end' => ['nullable', 'date_format:H:i'],
-            'max_delivery_minutes' => ['nullable', 'integer', 'min:1'],
-            'notification_enabled' => ['nullable', 'boolean'],
-            // Yeni alanlar
-            'password' => ['nullable', 'string', 'min:4'],
-            'platform' => ['nullable', 'in:android,ios'],
-            'work_type' => ['nullable', 'in:full_time,part_time,freelance'],
-            'tier' => ['nullable', 'in:bronze,silver,gold,platinum'],
-            'vat_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'withholding_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'company_name' => ['nullable', 'string', 'max:255'],
-            'tax_office' => ['nullable', 'string', 'max:255'],
-            'tax_number' => ['nullable', 'string', 'max:11'],
-            'company_address' => ['nullable', 'string'],
-            'iban' => ['nullable', 'string', 'max:50'],
-            'kobi_key' => ['nullable', 'string', 'max:100'],
-            'can_reject_package' => ['nullable'],
-            'max_package_limit' => ['nullable', 'integer', 'min:1', 'max:50'],
-            'payment_editing_enabled' => ['nullable'],
-            'status_change_enabled' => ['nullable'],
-            // Calisma sekli ve fiyatlandirma
-            'working_type' => ['nullable', 'in:per_package,per_km,km_range,package_plus_km,fixed_km_plus_km,commission,tiered_package'],
-            'pricing_data' => ['nullable', 'array'],
-        ]);
+        $validated = $request->validated();
 
         if ($request->hasFile('photo')) {
             $path = $request->file('photo')->store('couriers', 'public');
@@ -97,10 +69,10 @@ class CourierController extends Controller
         }
 
         if (auth()->user()->hasRole('bayi') || session('active_panel') === 'bayi') {
-            return redirect()->route('bayi.kuryelerim')->with('success', 'Kurye başarıyla eklendi.');
+            return redirect()->route('bayi.kuryelerim')->with('success', __('messages.success.courier_created'));
         }
 
-        return redirect()->route('isletmem.kuryeler')->with('success', 'Kurye başarıyla eklendi.');
+        return redirect()->route('isletmem.kuryeler')->with('success', __('messages.success.courier_created'));
     }
 
     public function edit(Courier $courier)
@@ -108,43 +80,9 @@ class CourierController extends Controller
         return view('pages.isletmem.couriers.edit', compact('courier'));
     }
 
-    public function update(Request $request, Courier $courier)
+    public function update(UpdateCourierRequest $request, Courier $courier)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:20'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'status' => ['required', 'in:available,busy,offline,on_break,active'],
-            'lat' => ['nullable', 'numeric'],
-            'lng' => ['nullable', 'numeric'],
-            'photo' => ['nullable', 'image', 'max:2048'],
-            'tc_no' => ['nullable', 'string', 'max:11'],
-            'vehicle_plate' => ['nullable', 'string', 'max:20'],
-            'shift_start' => ['nullable', 'date_format:H:i'],
-            'shift_end' => ['nullable', 'date_format:H:i'],
-            'max_delivery_minutes' => ['nullable', 'integer', 'min:1'],
-            'notification_enabled' => ['nullable', 'boolean'],
-            // Yeni alanlar
-            'password' => ['nullable', 'string', 'min:4'],
-            'platform' => ['nullable', 'in:android,ios'],
-            'work_type' => ['nullable', 'in:full_time,part_time,freelance'],
-            'tier' => ['nullable', 'in:bronze,silver,gold,platinum'],
-            'vat_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'withholding_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'company_name' => ['nullable', 'string', 'max:255'],
-            'tax_office' => ['nullable', 'string', 'max:255'],
-            'tax_number' => ['nullable', 'string', 'max:11'],
-            'company_address' => ['nullable', 'string'],
-            'iban' => ['nullable', 'string', 'max:50'],
-            'kobi_key' => ['nullable', 'string', 'max:100'],
-            'can_reject_package' => ['nullable'],
-            'max_package_limit' => ['nullable', 'integer', 'min:1', 'max:50'],
-            'payment_editing_enabled' => ['nullable'],
-            'status_change_enabled' => ['nullable'],
-            // Calisma sekli ve fiyatlandirma
-            'working_type' => ['nullable', 'in:per_package,per_km,km_range,package_plus_km,fixed_km_plus_km,commission,tiered_package'],
-            'pricing_data' => ['nullable', 'array'],
-        ]);
+        $validated = $request->validated();
 
         if ($request->hasFile('photo')) {
             if ($courier->photo_path) {
@@ -170,10 +108,10 @@ class CourierController extends Controller
         $courier->update($validated);
 
         if (auth()->user()->hasRole('bayi') || session('active_panel') === 'bayi') {
-            return redirect()->route('bayi.kuryelerim')->with('success', 'Kurye bilgileri güncellendi.');
+            return redirect()->route('bayi.kuryelerim')->with('success', __('messages.success.courier_updated'));
         }
 
-        return redirect()->route('isletmem.kuryeler')->with('success', 'Kurye bilgileri güncellendi.');
+        return redirect()->route('isletmem.kuryeler')->with('success', __('messages.success.courier_updated'));
     }
 
     public function destroy(Courier $courier)
@@ -184,7 +122,7 @@ class CourierController extends Controller
             ->count();
 
         if ($activeOrders > 0) {
-            return back()->with('error', 'Bu kuryenin aktif siparişleri var. Silemezsiniz.');
+            return back()->with('error', __('messages.error.courier_has_active_orders'));
         }
 
         if ($courier->photo_path) {
@@ -194,17 +132,15 @@ class CourierController extends Controller
         $courier->delete();
 
         if (auth()->user()->hasRole('bayi') || session('active_panel') === 'bayi') {
-            return redirect()->route('bayi.kuryelerim')->with('success', 'Kurye başarıyla silindi.');
+            return redirect()->route('bayi.kuryelerim')->with('success', __('messages.success.courier_deleted'));
         }
 
-        return redirect()->route('isletmem.kuryeler')->with('success', 'Kurye başarıyla silindi.');
+        return redirect()->route('isletmem.kuryeler')->with('success', __('messages.success.courier_deleted'));
     }
 
-    public function updateStatus(Request $request, Courier $courier)
+    public function updateStatus(UpdateCourierStatusRequest $request, Courier $courier)
     {
-        $validated = $request->validate([
-            'status' => ['required', 'in:available,busy,offline,on_break'],
-        ]);
+        $validated = $request->validated();
 
         $oldStatus = $courier->status;
         $courier->update(['status' => $validated['status']]);
@@ -214,7 +150,7 @@ class CourierController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Kurye durumu güncellendi.',
+            'message' => __('messages.success.courier_status_updated'),
             'status' => $courier->status,
             'status_label' => $courier->getStatusLabel(),
         ]);
@@ -238,7 +174,7 @@ class CourierController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Vardiya ayarları güncellendi.',
+            'message' => __('messages.success.shift_updated'),
             'courier' => $courier->fresh(),
         ]);
     }
@@ -292,12 +228,9 @@ class CourierController extends Controller
     /**
      * Update courier location
      */
-    public function updateLocation(Request $request, Courier $courier)
+    public function updateLocation(UpdateCourierLocationRequest $request, Courier $courier)
     {
-        $validated = $request->validate([
-            'lat' => ['required', 'numeric'],
-            'lng' => ['required', 'numeric'],
-        ]);
+        $validated = $request->validated();
 
         $courier->update([
             'lat' => $validated['lat'],
@@ -309,7 +242,7 @@ class CourierController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Konum güncellendi.',
+            'message' => __('messages.success.location_updated'),
         ]);
     }
 }

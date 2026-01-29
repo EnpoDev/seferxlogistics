@@ -46,12 +46,12 @@ abstract class BaseIntegrationService implements IntegrationInterface
     /**
      * Get the platform display name
      */
-    abstract protected function getPlatformName(): string;
+    abstract public function getPlatformName(): string;
 
     /**
      * Get the platform description
      */
-    abstract protected function getPlatformDescription(): string;
+    abstract public function getPlatformDescription(): string;
 
     /**
      * Get the API base URL
@@ -242,8 +242,8 @@ abstract class BaseIntegrationService implements IntegrationInterface
                         $order->items()->create([
                             'product_name' => $item['name'] ?? '',
                             'quantity' => $item['quantity'] ?? 1,
-                            'unit_price' => $item['price'] ?? 0,
-                            'total_price' => ($item['quantity'] ?? 1) * ($item['price'] ?? 0),
+                            'price' => $item['price'] ?? 0,
+                            'total' => ($item['quantity'] ?? 1) * ($item['price'] ?? 0),
                             'notes' => $item['notes'] ?? null,
                         ]);
                     }

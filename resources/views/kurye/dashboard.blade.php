@@ -85,9 +85,9 @@
                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ $order->created_at->diffForHumans() }}</p>
                             </div>
                             <span class="px-2 py-1 text-xs font-medium rounded-full
-                                {{ $order->status === 'assigned' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' : '' }}
-                                {{ $order->status === 'picked_up' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' : '' }}
-                                {{ $order->status === 'on_way' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400' : '' }}">
+                                {{ $order->display_status === 'assigned' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' : '' }}
+                                {{ $order->display_status === 'picked_up' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' : '' }}
+                                {{ $order->display_status === 'on_way' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400' : '' }}">
                                 {{ $order->getStatusLabel() }}
                             </span>
                         </div>

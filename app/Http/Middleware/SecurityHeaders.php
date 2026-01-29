@@ -52,10 +52,14 @@ class SecurityHeaders
             'usb=()',
         ]));
 
-        // Content Security Policy
+        // Content Security Policy with nonce
         if (app()->environment('production')) {
-            $csp = $this->buildContentSecurityPolicy();
+            $nonce = $this->generateNonce();
+            $csp = $this->buildContentSecurityPolicy($nonce);
             $response->headers->set('Content-Security-Policy', $csp);
+
+            // Nonce'u view'larda kullanabilmek için session'a kaydet
+            session(['csp_nonce' => $nonce]);
         }
 
         // Strict Transport Security (sadece HTTPS)
@@ -77,21 +81,41 @@ class SecurityHeaders
     }
 
     /**
-     * Content Security Policy olustur
+     * CSP nonce olustur
      *
      * @return string
      */
-    private function buildContentSecurityPolicy(): string
+    private function generateNonce(): string
     {
+        return base64_encode(random_bytes(16));
+    }
+
+    /**
+     * Content Security Policy olustur
+     *
+     * @param string|null $nonce
+     * @return string
+     */
+    private function buildContentSecurityPolicy(?string $nonce = null): string
+    {
+        // Nonce varsa kullan, yoksa strict-dynamic ile fallback
+        $scriptSrc = $nonce
+            ? "'self' 'nonce-{$nonce}' 'strict-dynamic' https://js.pusher.com https://cdn.jsdelivr.net"
+            : "'self' https://js.pusher.com https://cdn.jsdelivr.net";
+
+        $styleSrc = $nonce
+            ? "'self' 'nonce-{$nonce}' https://fonts.googleapis.com"
+            : "'self' https://fonts.googleapis.com";
+
         $directives = [
             // Varsayilan kaynak
             "default-src 'self'",
 
-            // Script kaynaklari
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.pusher.com https://cdn.jsdelivr.net",
+            // Script kaynaklari - unsafe-inline/eval KALDIRILDI
+            "script-src {$scriptSrc}",
 
-            // Style kaynaklari
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            // Style kaynaklari - unsafe-inline KALDIRILDI
+            "style-src {$styleSrc}",
 
             // Font kaynaklari
             "font-src 'self' https://fonts.gstatic.com data:",

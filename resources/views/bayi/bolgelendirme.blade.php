@@ -1,6 +1,12 @@
 <x-bayi-layout>
     <x-slot name="title">Bölgelendirme - Bayi Paneli</x-slot>
 
+    @push('styles')
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    @endpush
+
     <div class="space-y-6" x-data="zoneManager()" x-init="init()">
         {{-- Page Header --}}
         <x-layout.page-header title="Bölgelendirme" subtitle="Teslimat bölgelerini tanımlayın ve yönetin">
@@ -114,8 +120,8 @@
         </x-layout.grid>
 
         {{-- Create/Edit Zone Modal --}}
-        <x-ui.modal name="zoneModal" x-bind:title="editingZone ? 'Bölge Düzenle' : 'Yeni Bölge Oluştur'" size="md">
-            <div x-show="showModal">
+        <x-ui.modal name="zoneModal" :title="'Bölge'" size="md">
+            <div>
                 <form @submit.prevent="saveZone()" class="space-y-4">
                     <x-form.input name="zone_name" label="Bölge Adı" x-model="zoneForm.name" required />
 
@@ -132,7 +138,7 @@
                     <x-form.textarea name="zone_description" label="Açıklama" x-model="zoneForm.description" :rows="2" />
 
                     <div class="flex gap-3 pt-4">
-                        <x-ui.button type="button" variant="secondary" @click="showModal = false" class="flex-1">İptal</x-ui.button>
+                        <x-ui.button type="button" variant="secondary" @click="$dispatch('close-modal', 'zoneModal')" class="flex-1">İptal</x-ui.button>
                         <x-ui.button type="submit" class="flex-1">Kaydet</x-ui.button>
                     </div>
                 </form>
@@ -315,6 +321,9 @@
     <x-ui.confirm-modal name="deleteZoneModal" title="Bölge Sil" type="danger" />
 
     @push('scripts')
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script>
     function zoneManager() {
         return {
@@ -369,7 +378,9 @@
                     this.drawnItems.addLayer(layer);
                     this.zoneForm.coordinates = coords;
                     this.stopDrawing();
-                    this.showModal = true;
+                    // Modal'ı aç - bölge adı vs. sormak için
+                    this.$dispatch('open-modal', 'zoneModal');
+                    window.showToast('Bölge çizildi! Şimdi bölge bilgilerini girin.', 'success');
                 });
             },
 
@@ -393,7 +404,9 @@
             openCreateModal() {
                 this.editingZone = null;
                 this.zoneForm = { name: '', color: '#3B82F6', delivery_fee: 0, estimated_delivery_minutes: 30, description: '', coordinates: null };
-                this.showModal = true;
+                // Önce çizim modunu başlat
+                this.startDrawing();
+                window.showToast('Haritada bölge çizin. Çizim tamamlandığında bilgi formu açılacak.', 'info');
             },
 
             startDrawing() {
@@ -433,7 +446,7 @@
                 if (zone) {
                     this.editingZone = zone;
                     this.zoneForm = { name: zone.name, color: zone.color, delivery_fee: zone.delivery_fee, estimated_delivery_minutes: zone.estimated_delivery_minutes, description: zone.description || '', coordinates: zone.coordinates };
-                    this.showModal = true;
+                    this.$dispatch('open-modal', 'zoneModal');
                 }
             },
 
@@ -452,12 +465,28 @@
             },
 
             async saveZone() {
+                // Validasyon
+                if (!this.zoneForm.name || this.zoneForm.name.trim() === '') {
+                    window.showToast('Bölge adı zorunludur', 'warning');
+                    return;
+                }
+                if (!this.editingZone && (!this.zoneForm.coordinates || this.zoneForm.coordinates.length < 4)) {
+                    window.showToast('Lütfen önce haritada bölge çizin (en az 4 nokta)', 'warning');
+                    return;
+                }
+
                 const url = this.editingZone ? `/bayi/zones/${this.editingZone.id}` : '/bayi/zones';
                 const method = this.editingZone ? 'PUT' : 'POST';
                 try {
                     const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Accept': 'application/json' }, body: JSON.stringify(this.zoneForm) });
                     const data = await response.json();
-                    if (data.success) { window.showToast(data.message, 'success'); this.showModal = false; location.reload(); }
+                    if (data.success) {
+                        window.showToast(data.message, 'success');
+                        this.$dispatch('close-modal', 'zoneModal');
+                        setTimeout(() => location.reload(), 500);
+                    } else {
+                        window.showToast(data.message || 'Bir hata oluştu', 'error');
+                    }
                 } catch (error) { window.showToast('Bir hata oluştu', 'error'); }
             },
 

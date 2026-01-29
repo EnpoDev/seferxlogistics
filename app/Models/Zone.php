@@ -104,9 +104,15 @@ class Zone extends Model
 
     /**
      * Get count of assigned couriers
+     * Note: Prefer using withCount('couriers') in queries for better performance
      */
-    public function getCourierCountAttribute(): int
+    public function getCouriersCountAttribute(): int
     {
+        // If loaded via withCount('couriers'), use that value
+        if (array_key_exists('couriers_count', $this->attributes)) {
+            return $this->attributes['couriers_count'];
+        }
+        // Fallback to query (avoid if possible)
         return $this->couriers()->count();
     }
 
