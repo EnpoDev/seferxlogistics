@@ -11,8 +11,75 @@ class BayiStatsController extends Controller
 {
     public function kullaniciYonetimi()
     {
-        $users = \App\Models\User::orderBy('name')->paginate(20);
+        $users = \App\Models\User::where('parent_id', auth()->id())
+            ->orWhere('id', auth()->id())
+            ->orderBy('name')
+            ->paginate(20);
         return view('bayi.kullanici-yonetimi', compact('users'));
+    }
+
+    public function kullaniciEkle()
+    {
+        return view('bayi.kullanici-ekle');
+    }
+
+    public function kullaniciKaydet(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:6|confirmed',
+            'phone' => 'nullable|string|max:20',
+        ]);
+
+        $user = \App\Models\User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => $validated['password'],
+            'phone' => $validated['phone'] ?? null,
+            'role' => 'staff',
+            'parent_id' => auth()->id(),
+        ]);
+
+        return redirect()->route('bayi.kullanici-yonetimi')
+            ->with('success', "{$user->name} başarıyla eklendi.");
+    }
+
+    public function kullaniciDuzenle(\App\Models\User $user)
+    {
+        // Only allow editing own staff
+        if ($user->parent_id !== auth()->id() && $user->id !== auth()->id()) {
+            abort(403, 'Bu kullanıcıyı düzenleme yetkiniz yok.');
+        }
+        return view('bayi.kullanici-duzenle', compact('user'));
+    }
+
+    public function kullaniciGuncelle(Request $request, \App\Models\User $user)
+    {
+        // Only allow editing own staff
+        if ($user->parent_id !== auth()->id() && $user->id !== auth()->id()) {
+            abort(403, 'Bu kullanıcıyı düzenleme yetkiniz yok.');
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $user->id,
+            'password' => 'nullable|string|min:6|confirmed',
+            'phone' => 'nullable|string|max:20',
+        ]);
+
+        $user->name = $validated['name'];
+        $user->email = $validated['email'];
+        $user->phone = $validated['phone'] ?? null;
+
+        if (!empty($validated['password'])) {
+            $user->password = $validated['password'];
+        }
+
+        $user->save();
+
+        return redirect()->route('bayi.kullanici-yonetimi')
+            ->with('success', "{$user->name} başarıyla güncellendi.");
     }
 
     public function istatistik()

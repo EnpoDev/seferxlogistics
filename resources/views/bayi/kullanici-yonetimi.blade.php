@@ -12,8 +12,8 @@
         </x-slot>
 
         <x-slot name="actions">
-            <x-ui.button icon="plus">
-                Yeni Kullanıcı Ekle
+            <x-ui.button icon="plus" :href="route('bayi.kullanici-ekle')">
+                Yeni Kullanici Ekle
             </x-ui.button>
         </x-slot>
     </x-layout.page-header>
@@ -51,8 +51,8 @@
                         <x-data.date-time :date="$user->created_at" />
                     </x-table.td>
                     <x-table.td align="right">
-                        <x-ui.button variant="ghost" size="sm" icon="edit">
-                            Düzenle
+                        <x-ui.button variant="ghost" size="sm" icon="edit" :href="route('bayi.kullanici-duzenle', $user)">
+                            Duzenle
                         </x-ui.button>
                     </x-table.td>
                 </x-table.tr>

@@ -348,6 +348,10 @@ Route::middleware('auth')->group(function () {
 
         // Statistics Routes - BayiStatsController
         Route::get('/kullanici-yonetimi', [BayiStatsController::class, 'kullaniciYonetimi'])->name('kullanici-yonetimi');
+        Route::get('/kullanici-ekle', [BayiStatsController::class, 'kullaniciEkle'])->name('kullanici-ekle');
+        Route::post('/kullanici-ekle', [BayiStatsController::class, 'kullaniciKaydet'])->name('kullanici-kaydet');
+        Route::get('/kullanici/{user}/duzenle', [BayiStatsController::class, 'kullaniciDuzenle'])->name('kullanici-duzenle');
+        Route::put('/kullanici/{user}', [BayiStatsController::class, 'kullaniciGuncelle'])->name('kullanici-guncelle');
         Route::get('/istatistik', [BayiStatsController::class, 'istatistik'])->name('istatistik');
         Route::get('/gelismis-istatistik', [BayiStatsController::class, 'gelismisIstatistik'])->name('gelismis-istatistik');
 
