@@ -41,6 +41,64 @@ class BayiCourierController extends Controller
         return view('bayi.kurye-ekle');
     }
 
+    public function kuryeKaydet(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|max:20',
+            'email' => 'nullable|email|max:255',
+            'password' => 'nullable|string|min:6',
+            'platform' => 'nullable|in:android,ios',
+            'photo' => 'nullable|image|max:2048',
+            'vehicle_plate' => 'nullable|string|max:20',
+            'work_type' => 'nullable|in:full_time,part_time,freelance',
+            'tier' => 'nullable|in:bronze,silver,gold,platinum',
+            'status' => 'required|in:available,active,offline',
+            'max_package_limit' => 'nullable|integer|min:1|max:20',
+            'working_type' => 'nullable|string',
+            'pricing_data' => 'nullable|array',
+            'can_reject_package' => 'nullable|boolean',
+            'payment_editing_enabled' => 'nullable|boolean',
+            'status_change_enabled' => 'nullable|boolean',
+            // Vergi ve finans
+            'vat_rate' => 'nullable|numeric|min:0|max:100',
+            'withholding_rate' => 'nullable|numeric|min:0|max:100',
+            'tax_number' => 'nullable|string|max:20',
+            'iban' => 'nullable|string|max:50',
+            'kobi_key' => 'nullable|string|max:100',
+            // Şirket bilgileri
+            'company_name' => 'nullable|string|max:255',
+            'tax_office' => 'nullable|string|max:255',
+            'company_address' => 'nullable|string',
+        ]);
+
+        // Fotoğraf yükleme
+        if ($request->hasFile('photo')) {
+            $path = $request->file('photo')->store('couriers', 'public');
+            $validated['photo_path'] = $path;
+        }
+        unset($validated['photo']);
+
+        // Boolean alanları ayarla
+        $validated['can_reject_package'] = $request->boolean('can_reject_package', true);
+        $validated['payment_editing_enabled'] = $request->boolean('payment_editing_enabled', true);
+        $validated['status_change_enabled'] = $request->boolean('status_change_enabled', true);
+        $validated['notification_enabled'] = true;
+
+        // Şifre ayarlandıysa app erişimini aç
+        if (!empty($validated['password'])) {
+            $validated['is_app_enabled'] = true;
+        }
+
+        // Bayi'nin user_id'sini ekle
+        $validated['user_id'] = auth()->id();
+
+        $courier = Courier::create($validated);
+
+        return redirect()->route('bayi.kuryelerim')
+            ->with('success', "{$courier->name} başarıyla eklendi.");
+    }
+
     public function kuryeDuzenle(Courier $courier)
     {
         return view('bayi.kurye-duzenle', compact('courier'));

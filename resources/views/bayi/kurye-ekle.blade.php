@@ -11,7 +11,7 @@
 
     {{-- Form --}}
     <x-ui.card class="max-w-7xl mx-auto">
-        <form action="{{ route('couriers.store') }}" method="POST" enctype="multipart/form-data" class="space-y-8">
+        <form action="{{ route('bayi.kurye-kaydet') }}" method="POST" enctype="multipart/form-data" class="space-y-8">
             @csrf
 
             {{-- Kişisel Bilgiler --}}

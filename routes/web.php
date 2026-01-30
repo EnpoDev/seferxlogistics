@@ -250,6 +250,7 @@ Route::middleware('auth')->group(function () {
         // Kurye Routes - BayiCourierController
         Route::get('/kuryelerim', [BayiCourierController::class, 'kuryelerim'])->name('kuryelerim');
         Route::get('/kuryelerim/yeni', [BayiCourierController::class, 'kuryeEkle'])->name('kurye-ekle');
+        Route::post('/kuryelerim', [BayiCourierController::class, 'kuryeKaydet'])->name('kurye-kaydet');
         Route::get('/kuryelerim/{courier}/duzenle', [BayiCourierController::class, 'kuryeDuzenle'])->name('kurye-duzenle');
         Route::get('/kuryelerim/{courier}', [BayiCourierController::class, 'kuryeDetay'])->name('kurye-detay');
         Route::put('/kuryelerim/{courier}/ayarlar', [BayiCourierController::class, 'kuryeAyarlarGuncelle'])->name('kurye-ayarlar-guncelle');
