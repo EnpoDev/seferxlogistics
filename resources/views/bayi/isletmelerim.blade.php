@@ -5,7 +5,7 @@
     {{-- Page Header --}}
     <x-layout.page-header
         title="İşletmelerim"
-        subtitle="İşletme şubelerinizi yönetin ve takip edin"
+        subtitle="İşletmelerinizi yönetin ve takip edin"
     >
         <x-slot name="icon">
             <x-ui.icon name="building" class="w-7 h-7 text-black dark:text-white" />
@@ -15,7 +15,7 @@
             <form action="{{ route('bayi.isletmelerim') }}" method="GET">
                 <x-form.search-input
                     name="search"
-                    placeholder="Şube ara..."
+                    placeholder="İşletme ara..."
                     :value="request('search')"
                     :autoSubmit="true"
                 />
@@ -38,7 +38,6 @@
         <x-table.thead>
             <x-table.tr :hoverable="false">
                 <x-table.th>İşletme Adı</x-table.th>
-                <x-table.th>Şube Sayısı</x-table.th>
                 <x-table.th>İletişim</x-table.th>
                 <x-table.th>Durum</x-table.th>
                 <x-table.th align="right">İşlemler</x-table.th>
@@ -59,11 +58,6 @@
                                 <p class="text-xs text-gray-500 dark:text-gray-400">ID: #{{ $branch->id }}</p>
                             </div>
                         </div>
-                    </x-table.td>
-
-                    {{-- Şube Sayısı --}}
-                    <x-table.td>
-                        <x-ui.badge type="info">{{ $branch->children_count }} Şube</x-ui.badge>
                     </x-table.td>
 
                     {{-- İletişim --}}
@@ -98,7 +92,7 @@
                 </x-table.tr>
             @empty
                 <x-table.empty
-                    colspan="5"
+                    colspan="4"
                     icon="building"
                     message="Henüz işletme eklenmemiş"
                 >
