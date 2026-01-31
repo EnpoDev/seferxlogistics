@@ -46,7 +46,8 @@ class BayiBranchController extends Controller
             'name' => 'required|string|max:255',
             'address' => 'required|string',
             'phone' => 'required|string|max:20',
-            'email' => 'nullable|email|max:255',
+            'email' => 'required|email|max:255|unique:users,email',
+            'password' => 'required|string|min:6|confirmed',
             'lat' => 'nullable|numeric',
             'lng' => 'nullable|numeric',
             'status' => 'required|in:active,passive',
@@ -54,13 +55,26 @@ class BayiBranchController extends Controller
             'is_main' => 'sometimes|boolean'
         ]);
 
+        // Isletme icin kullanici hesabi olustur
+        $user = \App\Models\User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => $validated['password'],
+            'phone' => $validated['phone'],
+            'role' => 'isletme',
+            'parent_id' => auth()->id(),
+        ]);
+
         $validated['is_active'] = $request->status === 'active';
         $validated['is_main'] = $request->has('is_main') && !$request->parent_id;
-        $validated['user_id'] = auth()->id(); // Bayi'nin user_id'si
+        $validated['user_id'] = $user->id; // Isletmenin kendi user_id'si
 
         if ($validated['is_main']) {
             \App\Models\Branch::where('user_id', auth()->id())->where('is_main', true)->update(['is_main' => false]);
         }
+
+        // Password'u branch'e kaydetme
+        unset($validated['password']);
 
         $branch = \App\Models\Branch::create($validated);
 

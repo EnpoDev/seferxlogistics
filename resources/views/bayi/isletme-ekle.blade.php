@@ -38,11 +38,20 @@
             <x-layout.section title="İletişim Bilgileri" border>
                 <x-layout.grid cols="1" mdCols="2">
                     <x-form.input name="phone" label="Telefon" placeholder="0212 555 55 55" :value="old('phone')" required />
-                    <x-form.input type="email" name="email" label="E-posta" placeholder="ornek@email.com" :value="old('email')" />
+                    <x-form.input type="email" name="email" label="E-posta" placeholder="ornek@email.com" :value="old('email')" required />
                     <div class="md:col-span-2">
                         <x-form.textarea name="address" label="Adres" placeholder="Açık adres giriniz" :value="old('address')" :rows="3" required />
                     </div>
                 </x-layout.grid>
+            </x-layout.section>
+
+            {{-- Giris Bilgileri --}}
+            <x-layout.section title="Giris Bilgileri" border>
+                <x-layout.grid cols="1" mdCols="2">
+                    <x-form.input type="password" name="password" label="Sifre" placeholder="Isletme giris sifresi" required />
+                    <x-form.input type="password" name="password_confirmation" label="Sifre Tekrar" placeholder="Sifreyi tekrar girin" required />
+                </x-layout.grid>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Bu sifre ile isletme sisteme giris yapabilecek.</p>
             </x-layout.section>
 
             {{-- Actions --}}
