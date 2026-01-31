@@ -220,6 +220,9 @@
     </style>
 </head>
 <body class="bg-white dark:bg-[#181818] transition-colors duration-200">
+    {{-- Impersonation Bar --}}
+    <x-impersonation-bar />
+
     <div class="flex h-screen overflow-hidden">
 
         <!-- Sidebar -->

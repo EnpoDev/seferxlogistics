@@ -18,6 +18,12 @@
         </div>
 
         <x-slot name="actions">
+            <form action="{{ route('bayi.isletme.giris', $branch->id) }}" method="POST" class="inline">
+                @csrf
+                <x-ui.button type="submit" variant="primary" icon="login">
+                    İşletme Olarak Giriş Yap
+                </x-ui.button>
+            </form>
             <x-ui.button variant="secondary" :href="route('bayi.isletme-duzenle', $branch->id)">
                 Düzenle
             </x-ui.button>

@@ -81,6 +81,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/panel-secimi', [PanelController::class, 'showSelection'])->name('panel.selection');
     Route::get('/panel/{panel}', [PanelController::class, 'selectPanel'])->name('panel.select');
 
+    // Impersonation - Bayi paneline geri don
+    Route::post('/bayi-paneline-geri-don', [BayiBranchController::class, 'bayiPanelineGeriDon'])->name('bayi.geri-don');
+
     // Ana Sayfa - Redirect based on active panel
     Route::get('/', function () {
         $activePanel = session('active_panel', auth()->user()->getFirstRole());
@@ -278,6 +281,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/isletmelerim/{branch}/duzenle', [BayiBranchController::class, 'isletmeDuzenle'])->name('isletme-duzenle');
         Route::put('/isletmelerim/{branch}', [BayiBranchController::class, 'isletmeGuncelle'])->name('isletme-guncelle');
         Route::delete('/isletmelerim/{branch}', [BayiBranchController::class, 'isletmeSil'])->name('isletme-sil');
+        Route::post('/isletmelerim/{branch}/giris', [BayiBranchController::class, 'isletmeOlarakGiris'])->name('isletme.giris');
         Route::post('/isletmelerim/{branch}/ayarlar', [BayiBranchController::class, 'updateBranchSettings'])->name('isletme.ayarlar');
         Route::post('/isletmelerim/{branch}/bakiye-ekle', [BayiBranchController::class, 'addBranchBalance'])->name('isletme.bakiye-ekle');
         Route::get('/isletmelerim/{branch}/siparisler', [BayiBranchController::class, 'getBranchOrders'])->name('isletme.siparisler');

@@ -236,6 +236,61 @@ class BayiBranchController extends Controller
         return redirect()->route('bayi.isletmelerim')->with('success', "{$branchName} basariyla silindi.");
     }
 
+    /**
+     * Isletme olarak giris yap (impersonation)
+     */
+    public function isletmeOlarakGiris(\App\Models\Branch $branch)
+    {
+        $this->checkBranchOwnership($branch);
+
+        // Isletmenin kullanici hesabini bul
+        $isletmeUser = \App\Models\User::find($branch->user_id);
+
+        if (!$isletmeUser) {
+            return back()->with('error', 'Isletme kullanici hesabi bulunamadi.');
+        }
+
+        // Orijinal bayi kullanicisini session'a kaydet
+        session([
+            'impersonating_from' => auth()->id(),
+            'impersonating_from_name' => auth()->user()->name,
+            'impersonated_branch_id' => $branch->id,
+            'impersonated_branch_name' => $branch->name,
+        ]);
+
+        // Isletme kullanicisi olarak giris yap
+        auth()->login($isletmeUser);
+
+        return redirect()->route('dashboard')->with('success', "{$branch->name} olarak giris yapildi.");
+    }
+
+    /**
+     * Bayi paneline geri don (stop impersonation)
+     */
+    public function bayiPanelineGeriDon()
+    {
+        $originalUserId = session('impersonating_from');
+
+        if (!$originalUserId) {
+            return redirect()->route('dashboard');
+        }
+
+        $originalUser = \App\Models\User::find($originalUserId);
+
+        if (!$originalUser) {
+            session()->forget(['impersonating_from', 'impersonating_from_name', 'impersonated_branch_id', 'impersonated_branch_name']);
+            return redirect()->route('login');
+        }
+
+        // Session'i temizle
+        session()->forget(['impersonating_from', 'impersonating_from_name', 'impersonated_branch_id', 'impersonated_branch_name']);
+
+        // Orijinal kullanici olarak giris yap
+        auth()->login($originalUser);
+
+        return redirect()->route('bayi.isletmelerim')->with('success', 'Bayi paneline geri donuldu.');
+    }
+
     public function updateBranchSettings(Request $request, \App\Models\Branch $branch)
     {
         $this->checkBranchOwnership($branch);
