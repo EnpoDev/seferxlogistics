@@ -250,16 +250,20 @@ class BayiBranchController extends Controller
             return back()->with('error', 'Isletme kullanici hesabi bulunamadi.');
         }
 
-        // Orijinal bayi kullanicisini session'a kaydet
-        session([
+        // Impersonation bilgilerini kaydet
+        $impersonationData = [
             'impersonating_from' => auth()->id(),
             'impersonating_from_name' => auth()->user()->name,
             'impersonated_branch_id' => $branch->id,
             'impersonated_branch_name' => $branch->name,
-        ]);
+        ];
 
-        // Isletme kullanicisi olarak giris yap
-        auth()->login($isletmeUser);
+        // Isletme kullanicisi olarak giris yap (session regenerate etmeden)
+        auth()->login($isletmeUser, false);
+
+        // Session regenerate olduktan sonra impersonation bilgilerini tekrar kaydet
+        session($impersonationData);
+        session()->save();
 
         return redirect()->route('dashboard')->with('success', "{$branch->name} olarak giris yapildi.");
     }
