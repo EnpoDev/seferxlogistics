@@ -19,7 +19,9 @@ class BayiNotificationController extends Controller
      */
     public function index()
     {
-        $couriers = Courier::where('is_app_enabled', true)
+        // SADECE KENDI KURYELERINI GOSTER
+        $couriers = Courier::where('user_id', auth()->id())
+            ->where('is_app_enabled', true)
             ->orderBy('name')
             ->get();
 
@@ -43,12 +45,22 @@ class BayiNotificationController extends Controller
             'message' => 'required|string|max:500',
         ]);
 
+        // SADECE KENDI KURYELERINE BILDIRIM GONDEREBILIR
+        $allowedCourierIds = Courier::where('user_id', auth()->id())
+            ->whereIn('id', $validated['courier_ids'])
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($allowedCourierIds)) {
+            return back()->with('error', 'Secilen kuryelere erisim yetkiniz yok.');
+        }
+
         $this->notificationService->sendToMany(
-            $validated['courier_ids'],
+            $allowedCourierIds,
             $validated['message']
         );
 
-        $count = count($validated['courier_ids']);
+        $count = count($allowedCourierIds);
         return back()->with('success', "{$count} kuryeye bildirim gonderildi.");
     }
 }
