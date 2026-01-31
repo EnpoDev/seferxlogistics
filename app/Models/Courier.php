@@ -14,6 +14,7 @@ class Courier extends Authenticatable
     use HasFactory, Notifiable;
 
     protected $fillable = [
+        'user_id',
         'name',
         'phone',
         'password',
@@ -107,6 +108,11 @@ class Courier extends Authenticatable
     public const MAX_ACTIVE_ORDERS = 5;
 
     // Relationships
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
