@@ -250,12 +250,16 @@ class BayiBranchController extends Controller
             return back()->with('error', 'Isletme kullanici hesabi bulunamadi.');
         }
 
+        // Mevcut paneli kaydet
+        $previousPanel = session('active_panel', 'bayi');
+
         // Impersonation bilgilerini kaydet
         $impersonationData = [
             'impersonating_from' => auth()->id(),
             'impersonating_from_name' => auth()->user()->name,
             'impersonated_branch_id' => $branch->id,
             'impersonated_branch_name' => $branch->name,
+            'impersonating_from_panel' => $previousPanel,
         ];
 
         // Isletme kullanicisi olarak giris yap (session regenerate etmeden)
@@ -263,6 +267,9 @@ class BayiBranchController extends Controller
 
         // Session regenerate olduktan sonra impersonation bilgilerini tekrar kaydet
         session($impersonationData);
+
+        // Paneli isletme olarak degistir
+        session(['active_panel' => 'isletme']);
         session()->save();
 
         return redirect()->route('dashboard')->with('success', "{$branch->name} olarak giris yapildi.");
@@ -274,6 +281,7 @@ class BayiBranchController extends Controller
     public function bayiPanelineGeriDon()
     {
         $originalUserId = session('impersonating_from');
+        $originalPanel = session('impersonating_from_panel', 'bayi');
 
         if (!$originalUserId) {
             return redirect()->route('dashboard');
@@ -282,15 +290,17 @@ class BayiBranchController extends Controller
         $originalUser = \App\Models\User::find($originalUserId);
 
         if (!$originalUser) {
-            session()->forget(['impersonating_from', 'impersonating_from_name', 'impersonated_branch_id', 'impersonated_branch_name']);
+            session()->forget(['impersonating_from', 'impersonating_from_name', 'impersonated_branch_id', 'impersonated_branch_name', 'impersonating_from_panel']);
             return redirect()->route('login');
         }
 
-        // Session'i temizle
-        session()->forget(['impersonating_from', 'impersonating_from_name', 'impersonated_branch_id', 'impersonated_branch_name']);
-
         // Orijinal kullanici olarak giris yap
-        auth()->login($originalUser);
+        auth()->login($originalUser, false);
+
+        // Session'i temizle ve paneli geri yukle
+        session()->forget(['impersonating_from', 'impersonating_from_name', 'impersonated_branch_id', 'impersonated_branch_name', 'impersonating_from_panel']);
+        session(['active_panel' => $originalPanel]);
+        session()->save();
 
         return redirect()->route('bayi.isletmelerim')->with('success', 'Bayi paneline geri donuldu.');
     }
