@@ -173,18 +173,23 @@ class BayiBranchController extends Controller
         return redirect()->route('bayi.isletmelerim')->with('success', __('messages.success.restaurant_updated'));
     }
 
-    public function isletmeSil(\App\Models\Branch $branch)
+    public function isletmeSil(Request $request, \App\Models\Branch $branch)
     {
         $this->checkBranchOwnership($branch);
 
-        $parentId = $branch->parent_id;
-        $branch->delete();
+        // Isim onay kontrolu
+        $request->validate([
+            'confirm_name' => 'required|string',
+        ]);
 
-        if ($parentId) {
-            return redirect()->route('bayi.isletme-detay', $parentId)->with('success', __('messages.success.branch_deleted'));
+        if ($request->confirm_name !== $branch->name) {
+            return back()->with('error', 'Isletme adi eslesmedi. Silme islemi iptal edildi.');
         }
 
-        return redirect()->route('bayi.isletmelerim')->with('success', __('messages.success.restaurant_deleted'));
+        $branchName = $branch->name;
+        $branch->delete();
+
+        return redirect()->route('bayi.isletmelerim')->with('success', "{$branchName} basariyla silindi.");
     }
 
     public function updateBranchSettings(Request $request, \App\Models\Branch $branch)
