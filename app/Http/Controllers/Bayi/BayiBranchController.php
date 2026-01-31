@@ -123,8 +123,52 @@ class BayiBranchController extends Controller
     {
         $this->checkBranchOwnership($branch);
 
-        $children = $branch->children()->orderBy('created_at', 'desc')->get();
-        return view('bayi.isletme-detay', compact('branch', 'children'));
+        // Siparis istatistikleri
+        $stats = [
+            'today_orders' => $branch->orders()->whereDate('created_at', today())->count(),
+            'today_revenue' => $branch->orders()->whereDate('created_at', today())->where('status', 'delivered')->sum('total'),
+            'week_orders' => $branch->orders()->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])->count(),
+            'week_revenue' => $branch->orders()->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])->where('status', 'delivered')->sum('total'),
+            'month_orders' => $branch->orders()->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->count(),
+            'month_revenue' => $branch->orders()->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->where('status', 'delivered')->sum('total'),
+            'total_orders' => $branch->orders()->count(),
+            'total_revenue' => $branch->orders()->where('status', 'delivered')->sum('total'),
+            'pending_orders' => $branch->orders()->where('status', 'pending')->count(),
+            'on_delivery_orders' => $branch->orders()->where('status', 'on_delivery')->count(),
+            'delivered_orders' => $branch->orders()->where('status', 'delivered')->count(),
+            'cancelled_orders' => $branch->orders()->where('status', 'cancelled')->count(),
+        ];
+
+        // Tamamlanma orani
+        $totalCompleted = $stats['delivered_orders'] + $stats['cancelled_orders'];
+        $stats['completion_rate'] = $totalCompleted > 0
+            ? round(($stats['delivered_orders'] / $totalCompleted) * 100, 1)
+            : 0;
+
+        // Ortalama teslimat suresi (son 30 gun)
+        $deliveredOrders = $branch->orders()
+            ->where('status', 'delivered')
+            ->whereNotNull('delivered_at')
+            ->whereDate('created_at', '>=', now()->subDays(30))
+            ->get();
+
+        $avgDeliveryTime = 0;
+        if ($deliveredOrders->count() > 0) {
+            $totalMinutes = $deliveredOrders->sum(function ($order) {
+                return $order->created_at->diffInMinutes($order->delivered_at);
+            });
+            $avgDeliveryTime = round($totalMinutes / $deliveredOrders->count());
+        }
+        $stats['avg_delivery_time'] = $avgDeliveryTime;
+
+        // Son siparisler
+        $recentOrders = $branch->orders()
+            ->with('courier')
+            ->latest()
+            ->take(10)
+            ->get();
+
+        return view('bayi.isletme-detay', compact('branch', 'stats', 'recentOrders'));
     }
 
     public function isletmeDuzenle(\App\Models\Branch $branch)
