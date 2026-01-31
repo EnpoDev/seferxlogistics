@@ -297,11 +297,17 @@ class ShiftManagementService
 
     /**
      * Shifts JSON'ını parse et
+     * Courier modelinde shifts array olarak cast edildigi icin hem string hem array kabul eder
      */
-    private function parseShifts(?string $shifts): array
+    private function parseShifts(string|array|null $shifts): array
     {
         if (!$shifts) {
             return [];
+        }
+
+        // Zaten array ise direkt don
+        if (is_array($shifts)) {
+            return $shifts;
         }
 
         $parsed = json_decode($shifts, true);
