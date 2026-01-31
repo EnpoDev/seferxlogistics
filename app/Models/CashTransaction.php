@@ -73,6 +73,12 @@ class CashTransaction extends Model
 
     /**
      * Apply transaction to courier balance
+     *
+     * MANTIK HATASI DUZELTILDI:
+     * - Bakiye negatife dusebiliyordu
+     * - Simdi decrement oncesi kontrol yapiliyor
+     *
+     * @throws \RuntimeException Yetersiz bakiye durumunda
      */
     public function applyToBalance(): void
     {
@@ -88,6 +94,14 @@ class CashTransaction extends Model
 
         if ($this->type === self::TYPE_PAYMENT_RECEIVED) {
             // Ödeme alındı - bakiyeyi azalt
+            // Bakiye kontrolu: negatife dusmemeli
+            $newBalance = $courier->cash_balance - $this->amount;
+            if ($newBalance < 0) {
+                throw new \RuntimeException(
+                    "Yetersiz bakiye: Kurye bakiyesi {$courier->cash_balance} TL, " .
+                    "islem tutari {$this->amount} TL. Negatif bakiyeye izin verilmez."
+                );
+            }
             $courier->decrement('cash_balance', $this->amount);
         } else {
             // Avans verildi - bakiyeyi artır
@@ -97,6 +111,12 @@ class CashTransaction extends Model
 
     /**
      * Reverse transaction from courier balance
+     *
+     * MANTIK HATASI DUZELTILDI:
+     * - Bakiye negatife dusebiliyordu
+     * - Simdi decrement oncesi kontrol yapiliyor
+     *
+     * @throws \RuntimeException Yetersiz bakiye durumunda
      */
     public function reverseFromBalance(): void
     {
@@ -111,6 +131,14 @@ class CashTransaction extends Model
             $courier->increment('cash_balance', $this->amount);
         } else {
             // Avans vermeyi geri al - bakiyeyi azalt
+            // Bakiye kontrolu: negatife dusmemeli
+            $newBalance = $courier->cash_balance - $this->amount;
+            if ($newBalance < 0) {
+                throw new \RuntimeException(
+                    "Yetersiz bakiye: Kurye bakiyesi {$courier->cash_balance} TL, " .
+                    "islem tutari {$this->amount} TL. Negatif bakiyeye izin verilmez."
+                );
+            }
             $courier->decrement('cash_balance', $this->amount);
         }
     }

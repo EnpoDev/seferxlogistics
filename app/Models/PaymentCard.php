@@ -141,7 +141,12 @@ class PaymentCard extends Model
             try {
                 return Crypt::decryptString($value);
             } catch (\Exception $e) {
-                return $value;
+                // Decryption basarisiz - encrypted degeri sizmesini onlemek icin null don
+                \Log::error('PaymentCard token decryption failed', [
+                    'card_id' => $this->id ?? 'unknown',
+                    'error' => $e->getMessage(),
+                ]);
+                return null;
             }
         }
         return null;

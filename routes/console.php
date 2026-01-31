@@ -21,6 +21,12 @@ Schedule::command('settlements:calculate')->dailyAt('00:30')
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/settlements.log'));
 
+// Abonelik durumu kontrolu (her saat basta)
+// Suresi dolan abonelikleri expired yapar
+Schedule::command('app:check-subscription-status')->hourly()
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/subscriptions.log'));
+
 // Manuel senkronizasyon komutu
 Artisan::command('integrations:sync {platform?}', function (?string $platform = null) {
     $this->info('Starting integration sync...');

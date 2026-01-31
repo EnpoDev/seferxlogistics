@@ -32,9 +32,12 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\PanelMiddleware::class,
         ]);
 
-        // Exclude OAuth token endpoint from CSRF verification
+        // Exclude webhook ve OAuth endpoint'lerini CSRF verification'dan
         $middleware->validateCsrfTokens(except: [
             'oauth/token',
+            'webhooks/*',
+            'voip/webhook',
+            'voip/connect/*',
         ]);
 
         // Middleware aliases

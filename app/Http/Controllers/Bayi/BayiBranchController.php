@@ -262,10 +262,13 @@ class BayiBranchController extends Controller
             'impersonating_from_panel' => $previousPanel,
         ];
 
-        // Isletme kullanicisi olarak giris yap (session regenerate etmeden)
+        // Isletme kullanicisi olarak giris yap
         auth()->login($isletmeUser, false);
 
-        // Session regenerate olduktan sonra impersonation bilgilerini tekrar kaydet
+        // Session fixation saldirilarindan korunmak icin session ID'sini yenile
+        session()->regenerate();
+
+        // Session regenerate olduktan sonra impersonation bilgilerini kaydet
         session($impersonationData);
 
         // Paneli isletme olarak degistir
@@ -296,6 +299,9 @@ class BayiBranchController extends Controller
 
         // Orijinal kullanici olarak giris yap
         auth()->login($originalUser, false);
+
+        // Session fixation saldirilarindan korunmak icin session ID'sini yenile
+        session()->regenerate();
 
         // Session'i temizle ve paneli geri yukle
         session()->forget(['impersonating_from', 'impersonating_from_name', 'impersonated_branch_id', 'impersonated_branch_name', 'impersonating_from_panel']);

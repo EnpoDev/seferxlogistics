@@ -22,16 +22,46 @@ class CourierController extends Controller
         $this->assignmentService = $assignmentService;
     }
 
+    /**
+     * Get the bayi user ID for the current user
+     * If user is işletme, return their parent (bayi) ID
+     * If user is bayi, return their own ID
+     */
+    private function getBayiUserId(): int
+    {
+        $user = auth()->user();
+
+        // If user is işletme, their couriers belong to their parent (bayi)
+        if ($user->hasRole('isletme') && $user->parent_id) {
+            return $user->parent_id;
+        }
+
+        return $user->id;
+    }
+
+    /**
+     * Check if the authenticated user owns this courier
+     */
+    private function checkCourierOwnership(Courier $courier): void
+    {
+        if ($courier->user_id !== $this->getBayiUserId()) {
+            abort(403, 'Bu kuryeye erişim yetkiniz yok.');
+        }
+    }
+
     public function index()
     {
-        $couriers = Courier::withCount(['orders as today_deliveries' => function ($query) {
-            $query->whereDate('created_at', today());
-        }])
-        ->orderBy('name')
-        ->get();
+        $bayiUserId = $this->getBayiUserId();
+
+        $couriers = Courier::where('user_id', $bayiUserId)
+            ->withCount(['orders as today_deliveries' => function ($query) {
+                $query->whereDate('created_at', today());
+            }])
+            ->orderBy('name')
+            ->get();
 
         $stats = $this->assignmentService->getCourierWorkloadStats();
-        
+
         return view('pages.isletmem.kuryeler', compact('couriers', 'stats'));
     }
 
@@ -55,6 +85,9 @@ class CourierController extends Controller
         $validated['payment_editing_enabled'] = $request->boolean('payment_editing_enabled', true);
         $validated['status_change_enabled'] = $request->boolean('status_change_enabled', true);
 
+        // Set the owner (bayi) user_id
+        $validated['user_id'] = $this->getBayiUserId();
+
         // Sifre ayarlandiysa app erisimini ac
         if (!empty($validated['password'])) {
             $validated['is_app_enabled'] = true;
@@ -77,11 +110,15 @@ class CourierController extends Controller
 
     public function edit(Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         return view('pages.isletmem.couriers.edit', compact('courier'));
     }
 
     public function update(UpdateCourierRequest $request, Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         $validated = $request->validated();
 
         if ($request->hasFile('photo')) {
@@ -116,6 +153,8 @@ class CourierController extends Controller
 
     public function destroy(Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         // Check if courier has active orders
         $activeOrders = $courier->orders()
             ->whereNotIn('status', ['delivered', 'cancelled'])
@@ -140,6 +179,8 @@ class CourierController extends Controller
 
     public function updateStatus(UpdateCourierStatusRequest $request, Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         $validated = $request->validated();
 
         $oldStatus = $courier->status;
@@ -161,6 +202,8 @@ class CourierController extends Controller
      */
     public function updateShift(Request $request, Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         $validated = $request->validate([
             'shift_start' => ['nullable', 'date_format:H:i'],
             'shift_end' => ['nullable', 'date_format:H:i'],
@@ -184,6 +227,8 @@ class CourierController extends Controller
      */
     public function checkShift(Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         return response()->json([
             'is_on_shift' => $courier->isOnShift(),
             'can_receive_notifications' => $courier->canReceiveNotification(),

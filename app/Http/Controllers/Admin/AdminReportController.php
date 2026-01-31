@@ -18,13 +18,17 @@ class AdminReportController extends Controller
      */
     public function bayiRaporlari(Request $request)
     {
-        // Tarih aralığı
-        $startDate = $request->filled('start_date')
-            ? Carbon::parse($request->start_date)->startOfDay()
-            : null;
-        $endDate = $request->filled('end_date')
-            ? Carbon::parse($request->end_date)->endOfDay()
-            : null;
+        // Tarih aralığı - validation ile
+        try {
+            $startDate = $request->filled('start_date')
+                ? Carbon::parse($request->start_date)->startOfDay()
+                : null;
+            $endDate = $request->filled('end_date')
+                ? Carbon::parse($request->end_date)->endOfDay()
+                : null;
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gecersiz tarih formati');
+        }
 
         // Bu ay ve geçen ay başlangıç/bitiş tarihleri
         $thisMonthStart = now()->startOfMonth();
@@ -41,69 +45,137 @@ class AdminReportController extends Controller
         }
 
         // Tüm bayileri al
-        $bayiler = User::whereJsonContains('roles', 'bayi')
+        $bayiUsers = User::whereJsonContains('roles', 'bayi')
             ->with('activeSubscription.plan')
+            ->get();
+
+        $bayiIds = $bayiUsers->pluck('id')->toArray();
+
+        // N+1 OPTIMIZE: Tum isletme user'larini tek sorguda al
+        $allIsletmeUsers = User::whereIn('parent_id', $bayiIds)
+            ->whereJsonContains('roles', 'isletme')
             ->get()
-            ->map(function ($bayi) use ($startDate, $endDate, $thisMonthStart, $thisMonthEnd, $lastMonthStart, $lastMonthEnd) {
-                // Bayi'nin işletmelerini al (user tablosunda parent_id ile bağlı)
-                $isletmeUserIds = User::where('parent_id', $bayi->id)
-                    ->whereJsonContains('roles', 'isletme')
-                    ->pluck('id');
+            ->groupBy('parent_id');
 
-                // İşletmelerin branch'lerini al
-                $branchIds = Branch::whereIn('user_id', $isletmeUserIds->push($bayi->id))->pluck('id');
+        // N+1 OPTIMIZE: Tum branch'leri tek sorguda al
+        $allIsletmeUserIds = $allIsletmeUsers->flatten()->pluck('id')->toArray();
+        $allUserIds = array_merge($bayiIds, $allIsletmeUserIds);
+        $allBranches = Branch::whereIn('user_id', $allUserIds)->get()->groupBy('user_id');
 
-                // Kurye sayısı
-                $kuryeSayisi = Courier::where('user_id', $bayi->id)->count();
+        // N+1 OPTIMIZE: Tum kuryeleri tek sorguda al
+        $allCouriers = Courier::whereIn('user_id', $bayiIds)
+            ->select('user_id', DB::raw('count(*) as count'))
+            ->groupBy('user_id')
+            ->pluck('count', 'user_id');
 
-                // İşletme sayısı
-                $isletmeSayisi = $isletmeUserIds->count();
+        // N+1 OPTIMIZE: Siparis istatistiklerini toplu hesapla
+        $allBranchIds = $allBranches->flatten()->pluck('id')->toArray();
 
-                // Sipariş istatistikleri - tarih filtreli
-                $orderQuery = Order::whereIn('branch_id', $branchIds);
+        // Branch -> bayi eslestirmesi olustur
+        $branchToBayi = [];
+        foreach ($bayiUsers as $bayi) {
+            $isletmeUsers = $allIsletmeUsers->get($bayi->id, collect());
+            $isletmeUserIds = $isletmeUsers->pluck('id')->toArray();
+            $userIds = array_merge([$bayi->id], $isletmeUserIds);
 
-                // Genel toplam (tarih filtresi varsa uygula)
-                $filteredQuery = clone $orderQuery;
-                if ($startDate && $endDate) {
-                    $filteredQuery->whereBetween('created_at', [$startDate, $endDate]);
+            foreach ($userIds as $userId) {
+                $branches = $allBranches->get($userId, collect());
+                foreach ($branches as $branch) {
+                    $branchToBayi[$branch->id] = $bayi->id;
                 }
-                $totalSiparis = $filteredQuery->count();
-                $totalCiro = $filteredQuery->sum('total');
+            }
+        }
 
-                // Bu ay
-                $buAySiparis = (clone $orderQuery)->whereBetween('created_at', [$thisMonthStart, $thisMonthEnd])->count();
-                $buAyCiro = (clone $orderQuery)->whereBetween('created_at', [$thisMonthStart, $thisMonthEnd])->sum('total');
+        // Siparis istatistiklerini tek sorguda al
+        $orderStatsQuery = Order::whereIn('branch_id', $allBranchIds)
+            ->select(
+                'branch_id',
+                DB::raw('COUNT(*) as total_count'),
+                DB::raw('SUM(total) as total_sum'),
+                DB::raw('SUM(CASE WHEN status = "delivered" THEN 1 ELSE 0 END) as delivered_count'),
+                DB::raw('SUM(CASE WHEN created_at BETWEEN "' . $thisMonthStart->toDateTimeString() . '" AND "' . $thisMonthEnd->toDateTimeString() . '" THEN 1 ELSE 0 END) as this_month_count'),
+                DB::raw('SUM(CASE WHEN created_at BETWEEN "' . $thisMonthStart->toDateTimeString() . '" AND "' . $thisMonthEnd->toDateTimeString() . '" THEN total ELSE 0 END) as this_month_sum'),
+                DB::raw('SUM(CASE WHEN created_at BETWEEN "' . $lastMonthStart->toDateTimeString() . '" AND "' . $lastMonthEnd->toDateTimeString() . '" THEN 1 ELSE 0 END) as last_month_count'),
+                DB::raw('SUM(CASE WHEN created_at BETWEEN "' . $lastMonthStart->toDateTimeString() . '" AND "' . $lastMonthEnd->toDateTimeString() . '" THEN total ELSE 0 END) as last_month_sum')
+            );
 
-                // Geçen ay
-                $gecenAySiparis = (clone $orderQuery)->whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])->count();
-                $gecenAyCiro = (clone $orderQuery)->whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])->sum('total');
+        if ($startDate && $endDate) {
+            $orderStatsQuery->addSelect(
+                DB::raw('SUM(CASE WHEN created_at BETWEEN "' . $startDate->toDateTimeString() . '" AND "' . $endDate->toDateTimeString() . '" THEN 1 ELSE 0 END) as filtered_count'),
+                DB::raw('SUM(CASE WHEN created_at BETWEEN "' . $startDate->toDateTimeString() . '" AND "' . $endDate->toDateTimeString() . '" THEN total ELSE 0 END) as filtered_sum')
+            );
+        }
 
-                // Tamamlanan sipariş oranı
-                $tamamlananSiparis = (clone $orderQuery)->where('status', 'delivered')->count();
-                $toplamSiparisGenel = (clone $orderQuery)->count();
-                $tamamlanmaOrani = $toplamSiparisGenel > 0
-                    ? round(($tamamlananSiparis / $toplamSiparisGenel) * 100, 1)
-                    : 0;
+        $orderStats = $orderStatsQuery->groupBy('branch_id')->get()->keyBy('branch_id');
 
-                return [
-                    'id' => $bayi->id,
-                    'name' => $bayi->name,
-                    'email' => $bayi->email,
-                    'phone' => $bayi->phone,
-                    'created_at' => $bayi->created_at,
-                    'subscription' => $bayi->activeSubscription?->plan?->name ?? 'Abonelik Yok',
-                    'subscription_status' => $bayi->activeSubscription?->status ?? 'inactive',
-                    'isletme_sayisi' => $isletmeSayisi,
-                    'kurye_sayisi' => $kuryeSayisi,
-                    'total_siparis' => $totalSiparis,
-                    'total_ciro' => $totalCiro,
-                    'bu_ay_siparis' => $buAySiparis,
-                    'bu_ay_ciro' => $buAyCiro,
-                    'gecen_ay_siparis' => $gecenAySiparis,
-                    'gecen_ay_ciro' => $gecenAyCiro,
-                    'tamamlanma_orani' => $tamamlanmaOrani,
-                ];
-            });
+        // Bayi bazli istatistikleri hesapla
+        $bayiler = $bayiUsers->map(function ($bayi) use ($allIsletmeUsers, $allBranches, $allCouriers, $orderStats, $branchToBayi, $startDate, $endDate) {
+            $isletmeUsers = $allIsletmeUsers->get($bayi->id, collect());
+            $isletmeSayisi = $isletmeUsers->count();
+            $kuryeSayisi = $allCouriers->get($bayi->id, 0);
+
+            // Bu bayi'nin branch'lerini bul
+            $isletmeUserIds = $isletmeUsers->pluck('id')->toArray();
+            $userIds = array_merge([$bayi->id], $isletmeUserIds);
+
+            $bayiBranchIds = [];
+            foreach ($userIds as $userId) {
+                $branches = $allBranches->get($userId, collect());
+                $bayiBranchIds = array_merge($bayiBranchIds, $branches->pluck('id')->toArray());
+            }
+
+            // Siparis istatistiklerini topla
+            $totalSiparis = 0;
+            $totalCiro = 0;
+            $buAySiparis = 0;
+            $buAyCiro = 0;
+            $gecenAySiparis = 0;
+            $gecenAyCiro = 0;
+            $tamamlananSiparis = 0;
+            $toplamSiparisGenel = 0;
+
+            foreach ($bayiBranchIds as $branchId) {
+                $stats = $orderStats->get($branchId);
+                if ($stats) {
+                    if ($startDate && $endDate) {
+                        $totalSiparis += $stats->filtered_count ?? 0;
+                        $totalCiro += $stats->filtered_sum ?? 0;
+                    } else {
+                        $totalSiparis += $stats->total_count ?? 0;
+                        $totalCiro += $stats->total_sum ?? 0;
+                    }
+                    $buAySiparis += $stats->this_month_count ?? 0;
+                    $buAyCiro += $stats->this_month_sum ?? 0;
+                    $gecenAySiparis += $stats->last_month_count ?? 0;
+                    $gecenAyCiro += $stats->last_month_sum ?? 0;
+                    $tamamlananSiparis += $stats->delivered_count ?? 0;
+                    $toplamSiparisGenel += $stats->total_count ?? 0;
+                }
+            }
+
+            $tamamlanmaOrani = $toplamSiparisGenel > 0
+                ? round(($tamamlananSiparis / $toplamSiparisGenel) * 100, 1)
+                : 0;
+
+            return [
+                'id' => $bayi->id,
+                'name' => $bayi->name,
+                'email' => $bayi->email,
+                'phone' => $bayi->phone,
+                'created_at' => $bayi->created_at,
+                'subscription' => $bayi->activeSubscription?->plan?->name ?? 'Abonelik Yok',
+                'subscription_status' => $bayi->activeSubscription?->status ?? 'inactive',
+                'isletme_sayisi' => $isletmeSayisi,
+                'kurye_sayisi' => $kuryeSayisi,
+                'total_siparis' => $totalSiparis,
+                'total_ciro' => $totalCiro,
+                'bu_ay_siparis' => $buAySiparis,
+                'bu_ay_ciro' => $buAyCiro,
+                'gecen_ay_siparis' => $gecenAySiparis,
+                'gecen_ay_ciro' => $gecenAyCiro,
+                'tamamlanma_orani' => $tamamlanmaOrani,
+            ];
+        });
 
         // Sıralama uygula
         $bayiler = $bayiler->sortBy(function ($item) use ($sortBy) {
@@ -140,12 +212,16 @@ class AdminReportController extends Controller
      */
     public function bayiRaporlariExport(Request $request)
     {
-        $startDate = $request->filled('start_date')
-            ? Carbon::parse($request->start_date)->startOfDay()
-            : null;
-        $endDate = $request->filled('end_date')
-            ? Carbon::parse($request->end_date)->endOfDay()
-            : null;
+        try {
+            $startDate = $request->filled('start_date')
+                ? Carbon::parse($request->start_date)->startOfDay()
+                : null;
+            $endDate = $request->filled('end_date')
+                ? Carbon::parse($request->end_date)->endOfDay()
+                : null;
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gecersiz tarih formati');
+        }
 
         $thisMonthStart = now()->startOfMonth();
         $thisMonthEnd = now()->endOfMonth();

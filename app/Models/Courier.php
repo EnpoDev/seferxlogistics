@@ -194,6 +194,13 @@ class Courier extends Authenticatable
     }
 
     // Methods
+    /**
+     * Kuryenin vardiyada olup olmadigini kontrol eder
+     *
+     * MANTIK HATASI DUZELTILDI:
+     * - Gece yarisini gecen vardiyalar (20:00-04:00) artik dogru hesaplaniyor
+     * - Ornek: 20:00-04:00 vardiyasinda saat 01:00 ise -> TRUE donmeli
+     */
     public function isOnShift(): bool
     {
         if (!$this->shift_start || !$this->shift_end) {
@@ -208,6 +215,13 @@ class Courier extends Authenticatable
             ? $this->shift_end->format('H:i')
             : (string) $this->shift_end;
 
+        // Gece yarisini gecen vardiya kontrolu (ornek: 20:00-04:00)
+        if ($end < $start) {
+            // Gece vardiyasi: ya baslangictan sonra ya da bitisten once olmali
+            return $now >= $start || $now <= $end;
+        }
+
+        // Normal vardiya: baslangic ve bitis arasinda olmali
         return $now >= $start && $now <= $end;
     }
 
@@ -237,19 +251,44 @@ class Courier extends Authenticatable
         };
     }
 
+    /**
+     * Aktif siparis sayisini artir
+     *
+     * MANTIK HATASI DUZELTILDI:
+     * - increment() sonrasi stale value kullaniliyordu
+     * - Simdi refresh() ile guncel deger aliniyor
+     */
     public function incrementActiveOrders(): void
     {
         $this->increment('active_orders_count');
+        $this->refresh(); // Guncel degeri DB'den al
 
         if ($this->active_orders_count >= self::MAX_ACTIVE_ORDERS) {
             $this->update(['status' => self::STATUS_BUSY]);
         }
     }
 
+    /**
+     * Aktif siparis sayisini azalt
+     *
+     * MANTIK HATASI DUZELTILDI:
+     * - decrement() sonrasi stale value kullaniliyordu
+     * - Negatif deger kontrolu eklendi
+     * - Simdi refresh() ile guncel deger aliniyor
+     */
     public function decrementActiveOrders(): void
     {
-        $this->decrement('active_orders_count');
+        // Negatif deger kontrolu - 0'dan asagi dusmemeli
+        if ($this->active_orders_count <= 0) {
+            // Zaten 0 veya negatif, decrement yapma
+            $this->update(['active_orders_count' => 0]);
+            return;
+        }
 
+        $this->decrement('active_orders_count');
+        $this->refresh(); // Guncel degeri DB'den al
+
+        // BUSY durumdayken kapasite acildiysa AVAILABLE yap
         if ($this->active_orders_count < self::MAX_ACTIVE_ORDERS && $this->status === self::STATUS_BUSY) {
             $this->update(['status' => self::STATUS_AVAILABLE]);
         }

@@ -47,8 +47,9 @@ Route::post('/voip/connect/{callLogId}', [\App\Http\Controllers\CallController::
 // ============================================
 Route::prefix('portal')->name('portal.')->group(function () {
     Route::get('/', [\App\Http\Controllers\CustomerPortalController::class, 'index'])->name('index');
-    Route::post('/send-otp', [\App\Http\Controllers\CustomerPortalController::class, 'sendOtp'])->name('send-otp');
-    Route::post('/verify-otp', [\App\Http\Controllers\CustomerPortalController::class, 'verifyOtp'])->name('verify-otp');
+    // OTP brute-force saldirilarini onlemek icin rate limit (5 istek/dakika)
+    Route::post('/send-otp', [\App\Http\Controllers\CustomerPortalController::class, 'sendOtp'])->middleware('throttle:5,1')->name('send-otp');
+    Route::post('/verify-otp', [\App\Http\Controllers\CustomerPortalController::class, 'verifyOtp'])->middleware('throttle:5,1')->name('verify-otp');
     Route::get('/dashboard', [\App\Http\Controllers\CustomerPortalController::class, 'dashboard'])->name('dashboard');
     Route::get('/orders', [\App\Http\Controllers\CustomerPortalController::class, 'orders'])->name('orders');
     Route::get('/order/{order}', [\App\Http\Controllers\CustomerPortalController::class, 'orderDetail'])->name('order');

@@ -12,7 +12,9 @@ use App\Models\Restaurant;
 use App\Models\OrderItem;
 use App\Services\CourierAssignmentService;
 use App\Services\CustomerNotificationService;
+use App\Services\OrderStatusService;
 use App\Services\PoolService;
+use Illuminate\Support\Facades\DB;
 use App\Events\OrderCreated;
 use App\Events\OrderStatusUpdated;
 use App\Http\Requests\Order\StoreOrderRequest;
@@ -26,8 +28,56 @@ class OrderController extends Controller
     public function __construct(
         private CourierAssignmentService $courierAssignmentService,
         private PoolService $poolService,
-        private CustomerNotificationService $customerNotificationService
+        private CustomerNotificationService $customerNotificationService,
+        private OrderStatusService $orderStatusService
     ) {}
+
+    /**
+     * Gecerli status gecislerini kontrol et
+     */
+    private function isValidStatusTransition(string $currentStatus, string $newStatus): bool
+    {
+        $validTransitions = [
+            Order::STATUS_PENDING => [Order::STATUS_PREPARING, Order::STATUS_CANCELLED],
+            Order::STATUS_PREPARING => [Order::STATUS_READY, Order::STATUS_CANCELLED],
+            Order::STATUS_READY => [Order::STATUS_ON_DELIVERY, Order::STATUS_CANCELLED],
+            Order::STATUS_ON_DELIVERY => [Order::STATUS_DELIVERED, Order::STATUS_CANCELLED, Order::STATUS_RETURNED],
+            Order::STATUS_DELIVERED => [], // Hicbir gecis yok
+            Order::STATUS_CANCELLED => [], // Hicbir gecis yok
+            Order::STATUS_RETURNED => [],  // Hicbir gecis yok
+        ];
+
+        return isset($validTransitions[$currentStatus]) &&
+               in_array($newStatus, $validTransitions[$currentStatus]);
+    }
+
+    /**
+     * Siparis guncellemesinin gecerli olup olmadigini kontrol et
+     */
+    private function validateOrderUpdate(Order $order, array $validated): ?string
+    {
+        $newStatus = $validated['status'] ?? $order->status;
+        $newCourierId = $validated['courier_id'] ?? null;
+
+        // Status degisiyorsa gecis validasyonu yap
+        if ($newStatus !== $order->status) {
+            if (!$this->isValidStatusTransition($order->status, $newStatus)) {
+                return "Gecersiz status gecisi: {$order->status} -> {$newStatus}";
+            }
+        }
+
+        // on_delivery'e gecis icin kurye zorunlu
+        if ($newStatus === Order::STATUS_ON_DELIVERY && !$order->courier_id && !$newCourierId) {
+            return 'Siparis yolda durumuna gecmek icin kurye atanmis olmali.';
+        }
+
+        // Teslim veya iptal edilmis siparise kurye atanamaz
+        if ($newCourierId && in_array($order->status, [Order::STATUS_DELIVERED, Order::STATUS_CANCELLED])) {
+            return 'Teslim edilmis veya iptal edilmis siparise kurye atanamaz.';
+        }
+
+        return null; // Gecerli
+    }
 
     public function index(Request $request)
     {
@@ -300,6 +350,12 @@ class OrderController extends Controller
     {
         $validated = $request->validated();
 
+        // Siparis guncelleme validasyonu
+        $validationError = $this->validateOrderUpdate($order, $validated);
+        if ($validationError) {
+            return redirect()->back()->with('error', $validationError);
+        }
+
         // Calculate totals
         $subtotal = 0;
         $newItems = [];
@@ -353,45 +409,54 @@ class OrderController extends Controller
         $oldCourierId = $order->courier_id;
         $newCourierId = $validated['courier_id'] ?? null;
 
-        // Update order
-        $order->update([
-            'customer_name' => $validated['customer_name'],
-            'customer_phone' => preg_replace('/[^0-9]/', '', $validated['customer_phone']),
-            'customer_address' => $validated['customer_address'],
-            'lat' => $validated['lat'] ?? null,
-            'lng' => $validated['lng'] ?? null,
-            'courier_id' => $newCourierId,
-            'branch_id' => $validated['branch_id'] ?? null,
-            'restaurant_id' => $validated['restaurant_id'] ?? null,
-            'subtotal' => $subtotal,
-            'delivery_fee' => $validated['delivery_fee'],
-            'total' => $total,
-            'payment_method' => $validated['payment_method'] ?? 'cash',
-            'status' => $validated['status'],
-            'notes' => $validated['notes'] ?? null,
-        ] + $timestamps);
+        // Atomic transaction ile kurye atama ve siparis guncelleme
+        // Race condition'lari onlemek icin lockForUpdate kullaniyoruz
+        DB::transaction(function () use ($order, $validated, $subtotal, $total, $timestamps, $newItems, $oldCourierId, $newCourierId) {
+            // Siparisi kilitle
+            $order = Order::lockForUpdate()->find($order->id);
 
-        // Handle courier change
-        if ($oldCourierId !== $newCourierId && !in_array($validated['status'], ['delivered', 'cancelled'])) {
-            if ($oldCourierId) {
-                Courier::find($oldCourierId)?->decrementActiveOrders();
+            // Update order
+            $order->update([
+                'customer_name' => $validated['customer_name'],
+                'customer_phone' => preg_replace('/[^0-9]/', '', $validated['customer_phone']),
+                'customer_address' => $validated['customer_address'],
+                'lat' => $validated['lat'] ?? null,
+                'lng' => $validated['lng'] ?? null,
+                'courier_id' => $newCourierId,
+                'branch_id' => $validated['branch_id'] ?? null,
+                'restaurant_id' => $validated['restaurant_id'] ?? null,
+                'subtotal' => $subtotal,
+                'delivery_fee' => $validated['delivery_fee'],
+                'total' => $total,
+                'payment_method' => $validated['payment_method'] ?? 'cash',
+                'status' => $validated['status'],
+                'notes' => $validated['notes'] ?? null,
+            ] + $timestamps);
+
+            // Handle courier change - atomic
+            if ($oldCourierId !== $newCourierId && !in_array($validated['status'], ['delivered', 'cancelled'])) {
+                if ($oldCourierId) {
+                    $oldCourier = Courier::lockForUpdate()->find($oldCourierId);
+                    $oldCourier?->decrementActiveOrders();
+                }
+                if ($newCourierId) {
+                    $newCourier = Courier::lockForUpdate()->find($newCourierId);
+                    $newCourier?->incrementActiveOrders();
+                }
             }
-            if ($newCourierId) {
-                Courier::find($newCourierId)?->incrementActiveOrders();
+
+            // Update order items - delete old and create new
+            $order->items()->delete();
+            foreach ($newItems as $item) {
+                $order->items()->create($item);
             }
-        }
+        });
 
         // Add to pool if status is ready and no courier assigned
         if ($validated['status'] === 'ready' && !$newCourierId) {
             if ($this->poolService->isPoolEnabled($order->branch_id) && !$order->pool_entered_at) {
                 $this->poolService->addToPool($order);
             }
-        }
-
-        // Update order items - delete old and create new
-        $order->items()->delete();
-        foreach ($newItems as $item) {
-            $order->items()->create($item);
         }
 
         // Update customer stats
@@ -411,8 +476,16 @@ class OrderController extends Controller
                 ->with('error', __('messages.error.order_cannot_delete'));
         }
 
-        // Update courier active orders
-        if ($order->courier_id && $order->status === 'pending') {
+        // Update courier active orders - tum aktif durumlarda decrement yap
+        // pending, preparing, ready, on_delivery durumlarinda kurye varsa sayac dusur
+        $activeStatuses = [
+            Order::STATUS_PENDING,
+            Order::STATUS_PREPARING,
+            Order::STATUS_READY,
+            Order::STATUS_ON_DELIVERY,
+        ];
+
+        if ($order->courier_id && in_array($order->status, $activeStatuses)) {
             $order->courier?->decrementActiveOrders();
         }
 
@@ -429,6 +502,23 @@ class OrderController extends Controller
         $validated = $request->validated();
 
         $oldStatus = $order->status;
+        $newStatus = $validated['status'];
+
+        // Status gecis validasyonu
+        if (!$this->isValidStatusTransition($oldStatus, $newStatus)) {
+            return response()->json([
+                'success' => false,
+                'message' => "Gecersiz status gecisi: {$oldStatus} -> {$newStatus}",
+            ], 422);
+        }
+
+        // on_delivery icin kurye zorunlu
+        if ($newStatus === Order::STATUS_ON_DELIVERY && !$order->courier_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Siparis yolda durumuna gecmek icin kurye atanmis olmali.',
+            ], 422);
+        }
 
         $timestamps = [];
         if ($validated['status'] === 'preparing' && !$order->accepted_at) {

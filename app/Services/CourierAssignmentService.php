@@ -40,16 +40,21 @@ class CourierAssignmentService
 
     /**
      * Get all available couriers who are on shift
+     *
+     * MANTIK HATASI DUZELTILDI:
+     * - BUSY kuryeler artik yeni siparis ALMAZ (BUSY = mesguller, yeni is almaz)
+     * - Sadece STATUS_AVAILABLE olan kuryeler yeni siparis alabilir
+     * - offline ve on_break durumlari zaten where ile exclude edilir
      */
     public function getAvailableCouriers(): Collection
     {
+        // Sadece AVAILABLE durumdaki kuryeler
+        // BUSY, OFFLINE, ON_BREAK durumlarindaki kuryeler haric
         return Courier::where('status', Courier::STATUS_AVAILABLE)
-            ->orWhere(function ($query) {
-                $query->where('status', Courier::STATUS_BUSY)
-                      ->where('active_orders_count', '<', Courier::MAX_ACTIVE_ORDERS);
-            })
+            ->where('active_orders_count', '<', Courier::MAX_ACTIVE_ORDERS)
             ->get()
             ->filter(function ($courier) {
+                // Vardiya kontrolu - sadece vardiyada olanlar
                 return $courier->isOnShift();
             });
     }
