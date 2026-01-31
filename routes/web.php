@@ -516,6 +516,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::post('/planlar', [\App\Http\Controllers\Admin\AdminController::class, 'planStore'])->name('planlar.store');
     Route::put('/planlar/{plan}', [\App\Http\Controllers\Admin\AdminController::class, 'planUpdate'])->name('planlar.update');
     Route::delete('/planlar/{plan}', [\App\Http\Controllers\Admin\AdminController::class, 'planDestroy'])->name('planlar.destroy');
+
+    // Raporlar
+    Route::get('/raporlar/bayi', [\App\Http\Controllers\Admin\AdminReportController::class, 'bayiRaporlari'])->name('raporlar.bayi');
+    Route::get('/raporlar/bayi/export', [\App\Http\Controllers\Admin\AdminReportController::class, 'bayiRaporlariExport'])->name('raporlar.bayi-export');
 });
 
 // ============================================

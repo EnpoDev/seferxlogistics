@@ -202,6 +202,27 @@ class OrderController extends Controller
             $courierId = $assignedCourier?->id;
         }
 
+        // Validate courier ownership - ensure courier belongs to branch's bayi
+        if ($courierId && isset($validated['branch_id'])) {
+            $courierToValidate = Courier::find($courierId);
+            $branchToValidate = Branch::find($validated['branch_id']);
+
+            if ($courierToValidate && $branchToValidate) {
+                $branchOwner = $branchToValidate->getOwnerUser();
+
+                if ($branchOwner) {
+                    // Determine the bayi user ID (owner might be isletme or bayi)
+                    $bayiUserId = $branchOwner->role === 'isletme'
+                        ? $branchOwner->parent_id
+                        : $branchOwner->id;
+
+                    if ($courierToValidate->user_id !== $bayiUserId) {
+                        abort(403, 'Bu kuryeyi kullanamazsınız.');
+                    }
+                }
+            }
+        }
+
         // Create order
         $order = Order::create([
             'order_number' => $orderNumber,

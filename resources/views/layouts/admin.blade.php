@@ -231,6 +231,17 @@
                     <span class="font-medium">Destek Talepleri</span>
                 </a>
 
+                <div class="border-t border-gray-200 dark:border-gray-800 my-3"></div>
+
+                <!-- Raporlar -->
+                <a href="{{ route('admin.raporlar.bayi') }}"
+                   class="flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors {{ request()->routeIs('admin.raporlar.*') ? 'bg-black dark:bg-white text-white dark:text-black' : 'text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-900' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    <span class="font-medium">Bayi Raporları</span>
+                </a>
+
             </nav>
 
             <!-- Sidebar Footer -->
