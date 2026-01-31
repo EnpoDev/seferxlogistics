@@ -9,17 +9,29 @@ use Illuminate\Http\Request;
 
 class BayiCourierController extends Controller
 {
+    /**
+     * Kurye sahiplik kontrolu
+     */
+    private function checkCourierOwnership(Courier $courier): void
+    {
+        if ($courier->user_id !== auth()->id()) {
+            abort(403, 'Bu kuryeye erisim yetkiniz yok.');
+        }
+    }
+
     public function kuryelerim(Request $request)
     {
-        $query = Courier::withCount([
-            'orders as today_deliveries' => function($q) {
-                $q->whereDate('created_at', today())
-                  ->where('status', 'delivered');
-            },
-            'orders as total_deliveries' => function($q) {
-                $q->where('status', 'delivered');
-            }
-        ]);
+        // SADECE KENDI KURYELERINI GOSTER
+        $query = Courier::where('user_id', auth()->id())
+            ->withCount([
+                'orders as today_deliveries' => function($q) {
+                    $q->whereDate('created_at', today())
+                      ->where('status', 'delivered');
+                },
+                'orders as total_deliveries' => function($q) {
+                    $q->where('status', 'delivered');
+                }
+            ]);
 
         if ($request->has('search')) {
             $search = $request->get('search');
@@ -101,11 +113,14 @@ class BayiCourierController extends Controller
 
     public function kuryeDuzenle(Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
         return view('bayi.kurye-duzenle', compact('courier'));
     }
 
     public function kuryeDetay(Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         // Eager load relationships
         $courier->load([
             'pricingPolicy.rules',
@@ -141,6 +156,8 @@ class BayiCourierController extends Controller
 
     public function kuryeSil(Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         // Aktif sipariş kontrolü
         $activeOrdersCount = $courier->orders()->active()->count();
 
@@ -157,6 +174,8 @@ class BayiCourierController extends Controller
 
     public function kuryeSifreAyarla(Request $request, Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         $request->validate([
             'password' => ['required', 'string', 'min:6', 'confirmed'],
         ]);
@@ -171,6 +190,8 @@ class BayiCourierController extends Controller
 
     public function kuryeAppToggle(Request $request, Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         $courier->update([
             'is_app_enabled' => !$courier->is_app_enabled,
         ]);
@@ -186,6 +207,8 @@ class BayiCourierController extends Controller
 
     public function kuryePastOrders(Request $request, Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         $startDate = $request->input('start_date', now()->subDays(30)->format('Y-m-d'));
         $endDate = $request->input('end_date', now()->format('Y-m-d'));
 
@@ -216,6 +239,8 @@ class BayiCourierController extends Controller
 
     public function kuryeStatistics(Request $request, Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         $period = $request->input('period', 'week'); // day, week, month
 
         $startDate = match($period) {
@@ -289,6 +314,8 @@ class BayiCourierController extends Controller
 
     public function kuryeMesaiLogs(Request $request, Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         $startDate = $request->input('start_date', now()->subDays(30)->format('Y-m-d'));
         $endDate = $request->input('end_date', now()->format('Y-m-d'));
 
@@ -367,6 +394,8 @@ class BayiCourierController extends Controller
 
     public function kuryeAyarlarGuncelle(Request $request, Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|max:255',
@@ -384,10 +413,12 @@ class BayiCourierController extends Controller
 
     public function kuryeOdemeleri()
     {
-        $couriers = Courier::with(['orders' => function($q) {
-            $q->where('status', 'delivered')
-              ->whereMonth('delivered_at', now()->month);
-        }])->get();
+        // SADECE KENDI KURYELERINI GOSTER
+        $couriers = Courier::where('user_id', auth()->id())
+            ->with(['orders' => function($q) {
+                $q->where('status', 'delivered')
+                  ->whereMonth('delivered_at', now()->month);
+            }])->get();
 
         return view('bayi.odemeler.kurye', compact('couriers'));
     }
@@ -506,6 +537,8 @@ class BayiCourierController extends Controller
 
     public function kuryePricingPolicyAta(Request $request, Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         $request->validate([
             'pricing_policy_id' => 'nullable|exists:pricing_policies,id',
         ]);
@@ -544,11 +577,14 @@ class BayiCourierController extends Controller
 
     public function nakitOdemeler(Request $request)
     {
-        // Tüm kuryeler (form için)
-        $allCouriers = Courier::orderBy('name')->get();
+        $userId = auth()->id();
+
+        // SADECE KENDI KURYELERI (form için)
+        $allCouriers = Courier::where('user_id', $userId)->orderBy('name')->get();
 
         // Son bakiyeler için sadece işlem yapılmış kuryeler
-        $couriersWithTransactions = Courier::whereHas('cashTransactions')
+        $couriersWithTransactions = Courier::where('user_id', $userId)
+            ->whereHas('cashTransactions')
             ->with(['cashTransactions' => function($q) {
                 $q->latest()->take(5);
             }])
@@ -559,11 +595,14 @@ class BayiCourierController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Toplam nakit (tüm kuryelerin bakiyelerinin toplamı)
-        $totalCash = Courier::sum('cash_balance');
+        // Toplam nakit (SADECE KENDI kuryelerin bakiyelerinin toplamı)
+        $totalCash = Courier::where('user_id', $userId)->sum('cash_balance');
 
-        // Son işlemler
+        // Son işlemler (SADECE KENDI kuryelerinin işlemleri)
         $recentTransactions = \App\Models\CashTransaction::with(['courier', 'branch', 'creator'])
+            ->whereHas('courier', function($q) use ($userId) {
+                $q->where('user_id', $userId);
+            })
             ->latest()
             ->take(20)
             ->get();
@@ -622,6 +661,8 @@ class BayiCourierController extends Controller
 
     public function nakitOdemeHistory(Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         $transactions = $courier->cashTransactions()
             ->with(['branch', 'creator'])
             ->latest()

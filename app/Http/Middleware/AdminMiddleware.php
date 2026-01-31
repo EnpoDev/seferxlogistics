@@ -10,7 +10,7 @@ class AdminMiddleware
 {
     /**
      * Handle an incoming request.
-     * Sadece super_admin rolune sahip kullanicilar erisebilir.
+     * super_admin veya admin rolune sahip kullanicilar erisebilir.
      */
     public function handle(Request $request, Closure $next): Response
     {
@@ -20,8 +20,8 @@ class AdminMiddleware
 
         $user = auth()->user();
 
-        // Sadece super_admin rolu erisebilir
-        if (!$user->hasRole('super_admin')) {
+        // super_admin veya admin rolu erisebilir
+        if (!$user->hasRole('super_admin') && !$user->hasRole('admin')) {
             abort(403, 'Bu alana erisim yetkiniz bulunmamaktadir.');
         }
 

@@ -14,20 +14,53 @@ class FinansController extends Controller
     ) {}
 
     /**
+     * Kullanicinin erisebilecegi branch ID'lerini getir
+     */
+    private function getUserBranchIds(): array
+    {
+        $userId = auth()->id();
+        $userIds = \App\Models\User::where('id', $userId)
+            ->orWhere('parent_id', $userId)
+            ->pluck('id');
+
+        return \App\Models\Branch::whereIn('user_id', $userIds)->pluck('id')->toArray();
+    }
+
+    /**
+     * Branch ID'nin kullaniciya ait olup olmadigini kontrol et
+     */
+    private function validateBranchAccess(?int $branchId): ?int
+    {
+        if (!$branchId) {
+            return null;
+        }
+
+        $allowedBranchIds = $this->getUserBranchIds();
+        if (!in_array($branchId, $allowedBranchIds)) {
+            abort(403, 'Bu isletmeye erisim yetkiniz yok.');
+        }
+
+        return $branchId;
+    }
+
+    /**
      * Finansal dashboard
      */
     public function index(Request $request)
     {
         $period = $request->get('period', 'week');
-        $branchId = $request->get('branch_id');
+        $branchId = $this->validateBranchAccess($request->get('branch_id'));
+
+        // Kullanicinin branch'leri ile sinirla
+        $userBranchIds = $this->getUserBranchIds();
 
         [$startDate, $endDate] = $this->getPeriodDates($period);
 
-        $summary = $this->reportService->getFinancialSummary($startDate, $endDate, $branchId);
-        $dailyRevenue = $this->reportService->getDailyRevenueReport($startDate, $endDate, $branchId);
-        $hourlyDistribution = $this->reportService->getHourlyDistribution($startDate, $endDate, $branchId);
-        $weeklyComparison = $this->reportService->getWeeklyComparison($branchId);
-        $monthlyComparison = $this->reportService->getMonthlyComparison($branchId);
+        $summary = $this->reportService->getFinancialSummary($startDate, $endDate, $branchId, $userBranchIds);
+        $dailyRevenue = $this->reportService->getDailyRevenueReport($startDate, $endDate, $branchId, $userBranchIds);
+        $hourlyDistribution = $this->reportService->getHourlyDistribution($startDate, $endDate, $branchId, $userBranchIds);
+        $weeklyComparison = $this->reportService->getWeeklyComparison($branchId, $userBranchIds);
+        $monthlyComparison = $this->reportService->getMonthlyComparison($branchId, $userBranchIds);
 
         return view('bayi.finans.index', compact(
             'summary',
@@ -73,11 +106,12 @@ class FinansController extends Controller
     public function nakitAkis(Request $request)
     {
         $period = $request->get('period', 'month');
-        $branchId = $request->get('branch_id');
+        $branchId = $this->validateBranchAccess($request->get('branch_id'));
+        $userBranchIds = $this->getUserBranchIds();
         [$startDate, $endDate] = $this->getPeriodDates($period);
 
-        $cashFlow = $this->reportService->getCashFlowReport($startDate, $endDate, $branchId);
-        $dailyRevenue = $this->reportService->getDailyRevenueReport($startDate, $endDate, $branchId);
+        $cashFlow = $this->reportService->getCashFlowReport($startDate, $endDate, $branchId, $userBranchIds);
+        $dailyRevenue = $this->reportService->getDailyRevenueReport($startDate, $endDate, $branchId, $userBranchIds);
 
         return view('bayi.finans.nakit-akis', compact('cashFlow', 'dailyRevenue', 'period', 'startDate', 'endDate'));
     }
@@ -89,19 +123,20 @@ class FinansController extends Controller
     {
         $reportType = $request->get('type', 'summary');
         $period = $request->get('period', 'week');
-        $branchId = $request->get('branch_id');
+        $branchId = $this->validateBranchAccess($request->get('branch_id'));
+        $userBranchIds = $this->getUserBranchIds();
 
         [$startDate, $endDate] = $this->getPeriodDates($period);
 
         $data = match ($reportType) {
-            'summary' => $this->reportService->getFinancialSummary($startDate, $endDate, $branchId),
-            'daily' => $this->reportService->getDailyRevenueReport($startDate, $endDate, $branchId),
-            'courier' => $this->reportService->getCourierEarningsReport($startDate, $endDate, $branchId),
-            'branch' => $this->reportService->getBranchPerformanceReport($startDate, $endDate),
-            'hourly' => $this->reportService->getHourlyDistribution($startDate, $endDate, $branchId),
-            'weekly' => $this->reportService->getWeeklyComparison($branchId),
-            'monthly' => $this->reportService->getMonthlyComparison($branchId),
-            'cashflow' => $this->reportService->getCashFlowReport($startDate, $endDate, $branchId),
+            'summary' => $this->reportService->getFinancialSummary($startDate, $endDate, $branchId, $userBranchIds),
+            'daily' => $this->reportService->getDailyRevenueReport($startDate, $endDate, $branchId, $userBranchIds),
+            'courier' => $this->reportService->getCourierEarningsReport($startDate, $endDate, $branchId, $userBranchIds),
+            'branch' => $this->reportService->getBranchPerformanceReport($startDate, $endDate, $userBranchIds),
+            'hourly' => $this->reportService->getHourlyDistribution($startDate, $endDate, $branchId, $userBranchIds),
+            'weekly' => $this->reportService->getWeeklyComparison($branchId, $userBranchIds),
+            'monthly' => $this->reportService->getMonthlyComparison($branchId, $userBranchIds),
+            'cashflow' => $this->reportService->getCashFlowReport($startDate, $endDate, $branchId, $userBranchIds),
             default => [],
         };
 
@@ -123,11 +158,12 @@ class FinansController extends Controller
         $reportType = $request->get('type', 'summary');
         $period = $request->get('period', 'month');
         $format = $request->get('format', 'csv');
-        $branchId = $request->get('branch_id');
+        $branchId = $this->validateBranchAccess($request->get('branch_id'));
+        $userBranchIds = $this->getUserBranchIds();
 
         [$startDate, $endDate] = $this->getPeriodDates($period);
 
-        $exportData = $this->reportService->prepareExportData($reportType, $startDate, $endDate, $branchId);
+        $exportData = $this->reportService->prepareExportData($reportType, $startDate, $endDate, $branchId, $userBranchIds);
 
         if ($format === 'csv') {
             return $this->exportCsv($exportData);

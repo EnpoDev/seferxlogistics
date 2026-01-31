@@ -84,8 +84,11 @@ class BayiStatsController extends Controller
 
     public function istatistik()
     {
-        // Calculate real average delivery time
-        $deliveredOrders = Order::whereNotNull('delivered_at')
+        $userId = auth()->id();
+
+        // Calculate real average delivery time - SADECE KENDI SIPARISLERI
+        $deliveredOrders = Order::where('user_id', $userId)
+            ->whereNotNull('delivered_at')
             ->whereNotNull('created_at')
             ->whereDate('created_at', '>=', now()->subDays(30))
             ->get();
@@ -98,22 +101,24 @@ class BayiStatsController extends Controller
             $avgDeliveryTime = round($totalMinutes / $deliveredOrders->count());
         }
 
-        // Calculate completion rate
-        $totalOrders = Order::whereDate('created_at', '>=', now()->subDays(30))->count();
-        $completedOrders = Order::whereDate('created_at', '>=', now()->subDays(30))
+        // Calculate completion rate - SADECE KENDI SIPARISLERI
+        $totalOrders = Order::where('user_id', $userId)
+            ->whereDate('created_at', '>=', now()->subDays(30))->count();
+        $completedOrders = Order::where('user_id', $userId)
+            ->whereDate('created_at', '>=', now()->subDays(30))
             ->where('status', 'delivered')
             ->count();
         $completionRate = $totalOrders > 0 ? round(($completedOrders / $totalOrders) * 100, 1) : 0;
 
         $stats = [
-            'today_orders' => Order::whereDate('created_at', today())->count(),
-            'today_revenue' => Order::whereDate('created_at', today())
+            'today_orders' => Order::where('user_id', $userId)->whereDate('created_at', today())->count(),
+            'today_revenue' => Order::where('user_id', $userId)->whereDate('created_at', today())
                 ->where('status', 'delivered')->sum('total'),
-            'active_couriers' => Courier::whereIn('status', ['available', 'busy'])->count(),
+            'active_couriers' => Courier::where('user_id', $userId)->whereIn('status', ['available', 'busy'])->count(),
             'avg_delivery_time' => $avgDeliveryTime ?: 0,
             'completion_rate' => $completionRate,
-            'pending_orders' => Order::where('status', 'pending')->count(),
-            'on_delivery_orders' => Order::where('status', 'on_delivery')->count(),
+            'pending_orders' => Order::where('user_id', $userId)->where('status', 'pending')->count(),
+            'on_delivery_orders' => Order::where('user_id', $userId)->where('status', 'on_delivery')->count(),
         ];
 
         return view('bayi.istatistik', compact('stats'));

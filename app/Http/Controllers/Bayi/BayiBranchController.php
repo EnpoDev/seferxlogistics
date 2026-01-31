@@ -7,10 +7,41 @@ use Illuminate\Http\Request;
 
 class BayiBranchController extends Controller
 {
+    /**
+     * Branch sahiplik kontrolu
+     */
+    private function checkBranchOwnership(\App\Models\Branch $branch): void
+    {
+        // Bayi'nin kendi olusturdugu branch mi kontrol et
+        // Branch user_id veya parent branch'in user_id'si kontrol edilir
+        $userId = auth()->id();
+
+        // Direkt sahiplik
+        if ($branch->user_id === $userId) {
+            return;
+        }
+
+        // Bayi'nin olusturdugu isletmenin user'ina ait mi (isletme hesabi)
+        $branchUser = \App\Models\User::find($branch->user_id);
+        if ($branchUser && $branchUser->parent_id === $userId) {
+            return;
+        }
+
+        abort(403, 'Bu isletmeye erisim yetkiniz yok.');
+    }
+
     public function isletmelerim(Request $request)
     {
-        // Only show root branches (parent_id is null)
-        $query = \App\Models\Branch::whereNull('parent_id')
+        $userId = auth()->id();
+
+        // SADECE KENDI ISLETMELERINI GOSTER
+        // Bayi'nin kendi olusturdugu veya bayi'ye bagli kullanicilarin isletmeleri
+        $userIds = \App\Models\User::where('id', $userId)
+            ->orWhere('parent_id', $userId)
+            ->pluck('id');
+
+        $query = \App\Models\Branch::whereIn('user_id', $userIds)
+            ->whereNull('parent_id')
             ->orderBy('is_main', 'desc')
             ->orderBy('created_at', 'desc');
 
@@ -36,6 +67,9 @@ class BayiBranchController extends Controller
         $parent = null;
         if ($parent_id) {
             $parent = \App\Models\Branch::find($parent_id);
+            if ($parent) {
+                $this->checkBranchOwnership($parent);
+            }
         }
         return view('bayi.isletme-ekle', compact('parent'));
     }
@@ -87,12 +121,16 @@ class BayiBranchController extends Controller
 
     public function isletmeDetay(\App\Models\Branch $branch)
     {
+        $this->checkBranchOwnership($branch);
+
         $children = $branch->children()->orderBy('created_at', 'desc')->get();
         return view('bayi.isletme-detay', compact('branch', 'children'));
     }
 
     public function isletmeDuzenle(\App\Models\Branch $branch)
     {
+        $this->checkBranchOwnership($branch);
+
         // Ensure branch has settings
         if (!$branch->settings) {
             $branch->settings()->create([]);
@@ -106,6 +144,8 @@ class BayiBranchController extends Controller
 
     public function isletmeGuncelle(Request $request, \App\Models\Branch $branch)
     {
+        $this->checkBranchOwnership($branch);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'address' => 'required|string',
@@ -135,6 +175,8 @@ class BayiBranchController extends Controller
 
     public function isletmeSil(\App\Models\Branch $branch)
     {
+        $this->checkBranchOwnership($branch);
+
         $parentId = $branch->parent_id;
         $branch->delete();
 
@@ -147,6 +189,8 @@ class BayiBranchController extends Controller
 
     public function updateBranchSettings(Request $request, \App\Models\Branch $branch)
     {
+        $this->checkBranchOwnership($branch);
+
         $validated = $request->validate([
             'nickname' => 'nullable|string|max:255',
             'name' => 'required|string|max:255',
@@ -180,6 +224,8 @@ class BayiBranchController extends Controller
 
     public function addBranchBalance(Request $request, \App\Models\Branch $branch)
     {
+        $this->checkBranchOwnership($branch);
+
         $validated = $request->validate([
             'amount' => 'required|numeric|min:0.01',
         ]);
@@ -211,6 +257,8 @@ class BayiBranchController extends Controller
 
     public function getBranchOrders(Request $request, \App\Models\Branch $branch)
     {
+        $this->checkBranchOwnership($branch);
+
         $type = $request->get('type', 'past'); // past or cancelled
         $startDate = $request->get('start_date');
         $endDate = $request->get('end_date');
@@ -253,6 +301,8 @@ class BayiBranchController extends Controller
 
     public function getBranchStatistics(Request $request, \App\Models\Branch $branch)
     {
+        $this->checkBranchOwnership($branch);
+
         $startDate = $request->get('start_date');
         $endDate = $request->get('end_date');
 
@@ -298,6 +348,8 @@ class BayiBranchController extends Controller
 
     public function getBranchDetailedStatistics(Request $request, \App\Models\Branch $branch)
     {
+        $this->checkBranchOwnership($branch);
+
         $startDate = $request->get('start_date');
         $endDate = $request->get('end_date');
 
@@ -361,6 +413,8 @@ class BayiBranchController extends Controller
 
     public function storePricingPolicy(Request $request, \App\Models\Branch $branch)
     {
+        $this->checkBranchOwnership($branch);
+
         $validated = $request->validate([
             'type' => 'required|in:business,courier',
             'policy_type' => 'required|in:fixed,package_based,distance_based,periodic,unit_price,consecutive_discount',
@@ -386,6 +440,8 @@ class BayiBranchController extends Controller
 
     public function updatePricingPolicy(Request $request, \App\Models\Branch $branch, \App\Models\PricingPolicy $policy)
     {
+        $this->checkBranchOwnership($branch);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -407,6 +463,8 @@ class BayiBranchController extends Controller
 
     public function deletePricingPolicy(\App\Models\Branch $branch, \App\Models\PricingPolicy $policy)
     {
+        $this->checkBranchOwnership($branch);
+
         $policy->delete();
 
         return response()->json([
@@ -465,16 +523,26 @@ class BayiBranchController extends Controller
 
     public function isletmeOdemeleri()
     {
-        $branches = \App\Models\Branch::with(['orders' => function($q) {
-            $q->where('status', 'delivered')
-              ->whereMonth('created_at', now()->month);
-        }])->get();
+        $userId = auth()->id();
+
+        // SADECE KENDI ISLETMELERINI GOSTER
+        $userIds = \App\Models\User::where('id', $userId)
+            ->orWhere('parent_id', $userId)
+            ->pluck('id');
+
+        $branches = \App\Models\Branch::whereIn('user_id', $userIds)
+            ->with(['orders' => function($q) {
+                $q->where('status', 'delivered')
+                  ->whereMonth('created_at', now()->month);
+            }])->get();
 
         return view('bayi.odemeler.isletme', compact('branches'));
     }
 
     public function isletmeOdemeStore(Request $request, \App\Models\Branch $branch)
     {
+        $this->checkBranchOwnership($branch);
+
         $validated = $request->validate([
             'amount' => 'required|numeric|min:0.01',
             'notes' => 'nullable|string|max:500',
@@ -500,13 +568,20 @@ class BayiBranchController extends Controller
 
     public function isletmeOdemeRapor(Request $request)
     {
+        $userId = auth()->id();
         $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->get('end_date', now()->format('Y-m-d'));
 
-        $branches = \App\Models\Branch::with(['orders' => function($q) use ($startDate, $endDate) {
-            $q->where('status', 'delivered')
-              ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
-        }])->get();
+        // SADECE KENDI ISLETMELERININ RAPORU
+        $userIds = \App\Models\User::where('id', $userId)
+            ->orWhere('parent_id', $userId)
+            ->pluck('id');
+
+        $branches = \App\Models\Branch::whereIn('user_id', $userIds)
+            ->with(['orders' => function($q) use ($startDate, $endDate) {
+                $q->where('status', 'delivered')
+                  ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            }])->get();
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.isletme-odemeler-rapor', [
             'branches' => $branches,
