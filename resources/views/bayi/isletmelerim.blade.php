@@ -28,10 +28,9 @@
     </x-layout.page-header>
 
     {{-- İstatistik Kartları --}}
-    <x-layout.grid cols="1" mdCols="3" gap="4" class="mb-6">
-        <x-ui.stat-card title="Toplam Şube" :value="$branches->count()" color="blue" icon="building" />
-        <x-ui.stat-card title="Aktif Şube" :value="$branches->where('is_active', true)->count()" color="green" icon="success" />
-        <x-ui.stat-card title="Merkez Şube" :value="$branches->where('is_main', true)->count()" color="purple" icon="home" />
+    <x-layout.grid cols="1" mdCols="2" gap="4" class="mb-6">
+        <x-ui.stat-card title="Toplam İşletme" :value="$branches->count()" color="blue" icon="building" />
+        <x-ui.stat-card title="Aktif İşletme" :value="$branches->where('is_active', true)->count()" color="green" icon="success" />
     </x-layout.grid>
 
     {{-- Şube Listesi --}}
@@ -56,12 +55,7 @@
                                 {{ substr($branch->name, 0, 2) }}
                             </div>
                             <div>
-                                <div class="flex items-center gap-2">
-                                    <p class="text-sm font-medium text-black dark:text-white">{{ $branch->name }}</p>
-                                    @if($branch->is_main)
-                                        <x-ui.badge type="info" size="sm">Merkez</x-ui.badge>
-                                    @endif
-                                </div>
+                                <p class="text-sm font-medium text-black dark:text-white">{{ $branch->name }}</p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">ID: #{{ $branch->id }}</p>
                             </div>
                         </div>
