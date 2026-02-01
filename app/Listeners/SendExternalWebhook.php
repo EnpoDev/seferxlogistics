@@ -37,9 +37,15 @@ class SendExternalWebhook implements ShouldQueue
             default => null,
         };
 
-        // Check if courier was just assigned (status changed to on_delivery indicates courier assignment)
-        if ($order->courier_id && $order->status === 'on_delivery' && $oldStatus !== 'on_delivery') {
-            $this->webhookService->sendCourierAssigned($order);
+        // Check if courier was just assigned
+        // Courier can be assigned when status is 'ready' (waiting for pickup)
+        // or when status changes to 'on_delivery' (picked up)
+        if ($order->courier_id && $order->courier_assigned_at) {
+            // Only send if this is a new assignment (courier_assigned_at is recent)
+            $wasRecentlyAssigned = $order->courier_assigned_at->diffInSeconds(now()) < 60;
+            if ($wasRecentlyAssigned) {
+                $this->webhookService->sendCourierAssigned($order);
+            }
         }
     }
 

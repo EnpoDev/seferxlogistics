@@ -128,29 +128,29 @@ class OAuthController extends Controller
             ]);
         }
 
-        // Generate webhook secret
+        // Generate webhook secret (will be sent securely via token exchange, not in URL)
         $webhookSecret = $connection->generateWebhookSecret();
 
         // Generate authorization code
         $code = Str::random(40);
 
         // Store code temporarily (expires in 10 minutes)
+        // Include webhook_secret in code data to return it securely during token exchange
         cache()->put("oauth_code:{$code}", [
             'user_id' => $user->id,
             'client_id' => $authData['client_id'],
             'connection_id' => $connection->id,
             'redirect_uri' => $authData['redirect_uri'],
+            'webhook_secret' => $webhookSecret, // Securely pass via token exchange
         ], now()->addMinutes(10));
 
         // Clear session
         session()->forget('oauth_authorize');
 
-        // Build redirect URL
+        // Build redirect URL - DO NOT include webhook_secret in URL for security
         $redirectUrl = $authData['redirect_uri'] . '?' . http_build_query([
             'code' => $code,
             'state' => $authData['state'],
-            'connection_id' => $connection->id,
-            'webhook_secret' => $webhookSecret,
         ]);
 
         return redirect()->away($redirectUrl);
@@ -297,14 +297,22 @@ class OAuthController extends Controller
             'connection_id' => $connection->id,
         ]);
 
-        return response()->json([
+        // Include webhook_secret in token response (secure channel)
+        $responseData = [
             'access_token' => $accessToken,
             'token_type' => 'Bearer',
             'expires_in' => 31536000, // 1 year
             'refresh_token' => $refreshToken,
             'connection_id' => $connection->id,
             'user_id' => $user->id,
-        ]);
+        ];
+
+        // Add webhook_secret if available in code data (first-time authorization)
+        if (isset($codeData['webhook_secret'])) {
+            $responseData['webhook_secret'] = $codeData['webhook_secret'];
+        }
+
+        return response()->json($responseData);
     }
 
     protected function handleRefreshTokenGrant(Request $request, $client)

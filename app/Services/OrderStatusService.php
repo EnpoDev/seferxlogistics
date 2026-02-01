@@ -23,6 +23,8 @@ class OrderStatusService
     public function assignCourier(Order $order, Courier $courier): bool
     {
         try {
+            $oldStatus = $order->status;
+
             $order->update([
                 'courier_id' => $courier->id,
                 'courier_assigned_at' => now(),
@@ -31,7 +33,7 @@ class OrderStatusService
 
             $courier->incrementActiveOrders();
 
-            event(new OrderStatusUpdated($order));
+            event(new OrderStatusUpdated($order, $oldStatus));
 
             // Send notification to customer
             $this->notificationService->sendCourierAssignedNotification($order);
@@ -57,6 +59,7 @@ class OrderStatusService
      */
     public function unassignCourier(Order $order): bool
     {
+        $oldStatus = $order->status;
         $courier = $order->courier;
 
         $order->update([
@@ -68,7 +71,7 @@ class OrderStatusService
             $courier->decrementActiveOrders();
         }
 
-        event(new OrderStatusUpdated($order));
+        event(new OrderStatusUpdated($order, $oldStatus));
 
         return true;
     }
@@ -78,12 +81,14 @@ class OrderStatusService
      */
     public function markPickedUp(Order $order): bool
     {
+        $oldStatus = $order->status;
+
         $order->update([
             'status' => Order::STATUS_ON_DELIVERY,
             'picked_up_at' => now(),
         ]);
 
-        event(new OrderStatusUpdated($order));
+        event(new OrderStatusUpdated($order, $oldStatus));
 
         // Send notification to customer
         $this->notificationService->sendStatusNotification($order, 'picked_up');
@@ -96,11 +101,13 @@ class OrderStatusService
      */
     public function markOnWay(Order $order): bool
     {
+        $oldStatus = $order->status;
+
         $order->update([
             'on_way_at' => now(),
         ]);
 
-        event(new OrderStatusUpdated($order));
+        event(new OrderStatusUpdated($order, $oldStatus));
 
         // Send notification to customer
         $this->notificationService->sendStatusNotification($order, 'on_way');
@@ -114,6 +121,8 @@ class OrderStatusService
     public function markDelivered(Order $order): bool
     {
         try {
+            $oldStatus = $order->status;
+
             DB::transaction(function () use ($order) {
                 $order->update([
                     'status' => Order::STATUS_DELIVERED,
@@ -134,7 +143,7 @@ class OrderStatusService
                 }
             });
 
-            event(new OrderStatusUpdated($order));
+            event(new OrderStatusUpdated($order, $oldStatus));
 
             // Send notification to customer
             $this->notificationService->sendStatusNotification($order, 'delivered');
@@ -215,12 +224,14 @@ class OrderStatusService
      */
     public function markPreparing(Order $order): bool
     {
+        $oldStatus = $order->status;
+
         $order->update([
             'status' => Order::STATUS_PREPARING,
             'accepted_at' => now(),
         ]);
 
-        event(new OrderStatusUpdated($order));
+        event(new OrderStatusUpdated($order, $oldStatus));
 
         $this->notificationService->sendStatusNotification($order, 'preparing');
 
@@ -232,12 +243,14 @@ class OrderStatusService
      */
     public function markReady(Order $order): bool
     {
+        $oldStatus = $order->status;
+
         $order->update([
             'status' => Order::STATUS_READY,
             'prepared_at' => now(),
         ]);
 
-        event(new OrderStatusUpdated($order));
+        event(new OrderStatusUpdated($order, $oldStatus));
 
         $this->notificationService->sendStatusNotification($order, 'ready');
 
@@ -249,6 +262,8 @@ class OrderStatusService
      */
     public function markCancelled(Order $order, ?string $reason = null): bool
     {
+        $oldStatus = $order->status;
+
         // Release courier if assigned
         if ($order->courier) {
             $order->courier->decrementActiveOrders();
@@ -262,7 +277,7 @@ class OrderStatusService
             'pool_entered_at' => null,
         ]);
 
-        event(new OrderStatusUpdated($order));
+        event(new OrderStatusUpdated($order, $oldStatus));
 
         $this->notificationService->sendStatusNotification($order, 'cancelled');
 
