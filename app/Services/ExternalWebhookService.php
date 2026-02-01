@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
+use App\Jobs\SendWebhookJob;
 use App\Models\Order;
 use App\Models\RestaurantConnection;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class ExternalWebhookService
@@ -142,7 +142,7 @@ class ExternalWebhookService
     }
 
     /**
-     * Send webhook to external platform
+     * Send webhook to external platform via queue with retry logic
      */
     protected function sendWebhook(RestaurantConnection $connection, string $event, array $data): void
     {
@@ -154,50 +154,18 @@ class ExternalWebhookService
             'data' => $data,
         ];
 
-        $signature = $this->generateSignature($payload, $connection->webhook_secret);
+        // Dispatch webhook job with retry logic
+        SendWebhookJob::dispatch(
+            $connection->id,
+            $event,
+            $payload,
+            $connection->webhook_url,
+            $connection->webhook_secret
+        );
 
-        try {
-            $response = Http::timeout(10)
-                ->withHeaders([
-                    'Content-Type' => 'application/json',
-                    'X-Webhook-Signature' => $signature,
-                    'X-Webhook-Event' => $event,
-                    'X-Connection-Id' => (string) $connection->id,
-                ])
-                ->post($connection->webhook_url, $payload);
-
-            if ($response->failed()) {
-                Log::warning('External webhook failed', [
-                    'connection_id' => $connection->id,
-                    'event' => $event,
-                    'status' => $response->status(),
-                    'response' => $response->body(),
-                ]);
-            } else {
-                Log::info('External webhook sent', [
-                    'connection_id' => $connection->id,
-                    'event' => $event,
-                    'status' => $response->status(),
-                ]);
-            }
-        } catch (\Exception $e) {
-            Log::error('External webhook error', [
-                'connection_id' => $connection->id,
-                'event' => $event,
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
-
-    /**
-     * Generate HMAC signature for webhook payload
-     */
-    protected function generateSignature(array $payload, ?string $secret): string
-    {
-        if (!$secret) {
-            return '';
-        }
-
-        return hash_hmac('sha256', json_encode($payload), $secret);
+        Log::info('Webhook job dispatched', [
+            'connection_id' => $connection->id,
+            'event' => $event,
+        ]);
     }
 }

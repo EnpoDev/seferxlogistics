@@ -347,6 +347,65 @@ class ExternalOrderController extends Controller
     }
 
     /**
+     * Regenerate webhook secret for a connection
+     */
+    public function regenerateWebhookSecret(Request $request, int $connectionId)
+    {
+        $user = $request->user();
+
+        $connection = RestaurantConnection::where('id', $connectionId)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$connection) {
+            return response()->json([
+                'error' => 'connection_not_found',
+                'message' => 'Bağlantı bulunamadı.',
+            ], 404);
+        }
+
+        // Generate new webhook secret
+        $newSecret = $connection->generateWebhookSecret();
+
+        Log::info('Webhook secret regenerated', [
+            'connection_id' => $connection->id,
+            'user_id' => $user->id,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Webhook secret yenilendi.',
+            'webhook_secret' => $newSecret,
+            'connection_id' => $connection->id,
+        ]);
+    }
+
+    /**
+     * Get current webhook secret for a connection
+     */
+    public function getWebhookSecret(Request $request, int $connectionId)
+    {
+        $user = $request->user();
+
+        $connection = RestaurantConnection::where('id', $connectionId)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$connection) {
+            return response()->json([
+                'error' => 'connection_not_found',
+                'message' => 'Bağlantı bulunamadı.',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'webhook_secret' => $connection->webhook_secret,
+            'connection_id' => $connection->id,
+        ]);
+    }
+
+    /**
      * Format order for API response
      */
     protected function formatOrderResponse(Order $order): array

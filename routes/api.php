@@ -24,6 +24,10 @@ Route::prefix('external')->middleware(['auth:api', 'throttle:60,1'])->group(func
     // Restaurant Connections
     Route::get('/restaurants', [ExternalOrderController::class, 'restaurants']);
     Route::patch('/restaurants/{connectionId}/settings', [ExternalOrderController::class, 'updateRestaurantSettings']);
+
+    // Webhook Secret Management
+    Route::get('/restaurants/{connectionId}/webhook-secret', [ExternalOrderController::class, 'getWebhookSecret']);
+    Route::post('/restaurants/{connectionId}/webhook-secret/regenerate', [ExternalOrderController::class, 'regenerateWebhookSecret']);
 });
 
 /*
