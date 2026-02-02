@@ -63,7 +63,17 @@ class RestaurantConnection extends Model
         }
 
         $currentTime = $now->format('H:i');
-        return $currentTime >= ($hours['open'] ?? '00:00') && $currentTime <= ($hours['close'] ?? '23:59');
+        $openTime = $hours['open'] ?? '00:00';
+        $closeTime = $hours['close'] ?? '23:59';
+
+        // Handle overnight hours (e.g., 22:00 to 02:00)
+        if ($openTime > $closeTime) {
+            // Overnight: open if after opening time OR before closing time
+            return $currentTime >= $openTime || $currentTime <= $closeTime;
+        }
+
+        // Normal hours: open if between open and close times
+        return $currentTime >= $openTime && $currentTime <= $closeTime;
     }
 
     public function user(): BelongsTo

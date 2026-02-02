@@ -13,6 +13,8 @@ class SendExternalWebhook implements ShouldQueue
 
     public $queue = 'webhooks';
 
+    protected ?int $previousCourierId = null;
+
     public function __construct(
         protected ExternalWebhookService $webhookService
     ) {}
@@ -21,6 +23,7 @@ class SendExternalWebhook implements ShouldQueue
     {
         $order = $event->order;
         $oldStatus = $event->oldStatus;
+        $previousCourierId = $event->previousCourierId ?? null;
 
         // Only send webhooks for external orders
         if (!$order->restaurant_connection_id) {
@@ -37,15 +40,9 @@ class SendExternalWebhook implements ShouldQueue
             default => null,
         };
 
-        // Check if courier was just assigned
-        // Courier can be assigned when status is 'ready' (waiting for pickup)
-        // or when status changes to 'on_delivery' (picked up)
-        if ($order->courier_id && $order->courier_assigned_at) {
-            // Only send if this is a new assignment (courier_assigned_at is recent)
-            $wasRecentlyAssigned = $order->courier_assigned_at->diffInSeconds(now()) < 60;
-            if ($wasRecentlyAssigned) {
-                $this->webhookService->sendCourierAssigned($order);
-            }
+        // Check if courier was just assigned (wasn't assigned before, now it is)
+        if ($order->courier_id && $previousCourierId !== $order->courier_id) {
+            $this->webhookService->sendCourierAssigned($order);
         }
     }
 

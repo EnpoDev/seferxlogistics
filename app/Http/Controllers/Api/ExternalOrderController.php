@@ -84,14 +84,15 @@ class ExternalOrderController extends Controller
                     'order' => $this->formatOrderResponse($existingOrder),
                 ], 409);
             }
-            // Find or create customer
-            $customer = Customer::firstOrCreate(
+            // Find or create customer (use updateOrCreate for atomicity)
+            // If customer exists, update their info; if not, create new
+            $customer = Customer::updateOrCreate(
                 ['phone' => $validated['customer_phone']],
                 [
                     'name' => $validated['customer_name'],
                     'address' => $validated['customer_address'],
-                    'lat' => $validated['lat'],
-                    'lng' => $validated['lng'],
+                    'lat' => $validated['lat'] ?? null,
+                    'lng' => $validated['lng'] ?? null,
                 ]
             );
 
@@ -283,6 +284,15 @@ class ExternalOrderController extends Controller
             return response()->json([
                 'error' => 'cannot_cancel',
                 'message' => 'Bu sipariş iptal edilemez.',
+            ], 400);
+        }
+
+        // Orders in delivery cannot be cancelled by external platform
+        // (only by logistics system with proper courier handling)
+        if ($order->status === 'on_delivery') {
+            return response()->json([
+                'error' => 'order_in_delivery',
+                'message' => 'Sipariş yolda olduğu için iptal edilemez. Lütfen lojistik ile iletişime geçin.',
             ], 400);
         }
 

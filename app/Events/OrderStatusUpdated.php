@@ -17,14 +17,16 @@ class OrderStatusUpdated implements ShouldBroadcast
 
     public Order $order;
     public string $oldStatus;
+    public ?int $previousCourierId;
 
     /**
      * Create a new event instance.
      */
-    public function __construct(Order $order, string $oldStatus)
+    public function __construct(Order $order, string $oldStatus, ?int $previousCourierId = null)
     {
         $this->order = $order->load(['courier']);
         $this->oldStatus = $oldStatus;
+        $this->previousCourierId = $previousCourierId;
     }
 
     /**

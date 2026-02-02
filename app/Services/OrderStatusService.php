@@ -24,6 +24,7 @@ class OrderStatusService
     {
         try {
             $oldStatus = $order->status;
+            $previousCourierId = $order->courier_id;
 
             DB::transaction(function () use ($order, $courier) {
                 $order->update([
@@ -35,7 +36,7 @@ class OrderStatusService
                 $courier->incrementActiveOrders();
             });
 
-            event(new OrderStatusUpdated($order, $oldStatus));
+            event(new OrderStatusUpdated($order, $oldStatus, $previousCourierId));
 
             // Send notification to customer
             $this->notificationService->sendCourierAssignedNotification($order);

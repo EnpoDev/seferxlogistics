@@ -30,9 +30,12 @@ class SendWebhookJob implements ShouldQueue
 
     public function handle(): void
     {
-        $signature = $this->generateSignature($this->payload, $this->webhookSecret);
         // Generate unique webhook ID for deduplication (consistent across retries)
         $webhookId = $this->job?->uuid() ?? Str::uuid()->toString();
+
+        // Encode payload to JSON once - use same encoding as HTTP client for signature consistency
+        $jsonBody = json_encode($this->payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $signature = $this->generateSignature($jsonBody, $this->webhookSecret);
 
         try {
             $response = Http::timeout(15)
@@ -44,7 +47,8 @@ class SendWebhookJob implements ShouldQueue
                     'X-Webhook-Id' => $webhookId,
                     'X-Connection-Id' => (string) $this->connectionId,
                 ])
-                ->post($this->webhookUrl, $this->payload);
+                ->withBody($jsonBody, 'application/json')
+                ->post($this->webhookUrl);
 
             if ($response->successful()) {
                 Log::info('Webhook delivered successfully', [
@@ -133,12 +137,15 @@ class SendWebhookJob implements ShouldQueue
         }
     }
 
-    protected function generateSignature(array $payload, ?string $secret): string
+    protected function generateSignature(string $jsonBody, ?string $secret): string
     {
         if (!$secret) {
+            Log::warning('Webhook sent without signature - no secret configured', [
+                'connection_id' => $this->connectionId,
+            ]);
             return '';
         }
 
-        return hash_hmac('sha256', json_encode($payload), $secret);
+        return hash_hmac('sha256', $jsonBody, $secret);
     }
 }
