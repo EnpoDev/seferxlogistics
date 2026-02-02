@@ -9,6 +9,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class SendWebhookJob implements ShouldQueue
 {
@@ -30,6 +31,8 @@ class SendWebhookJob implements ShouldQueue
     public function handle(): void
     {
         $signature = $this->generateSignature($this->payload, $this->webhookSecret);
+        // Generate unique webhook ID for deduplication (consistent across retries)
+        $webhookId = $this->job?->uuid() ?? Str::uuid()->toString();
 
         try {
             $response = Http::timeout(15)
@@ -38,6 +41,7 @@ class SendWebhookJob implements ShouldQueue
                     'Content-Type' => 'application/json',
                     'X-Webhook-Signature' => $signature,
                     'X-Webhook-Event' => $this->event,
+                    'X-Webhook-Id' => $webhookId,
                     'X-Connection-Id' => (string) $this->connectionId,
                 ])
                 ->post($this->webhookUrl, $this->payload);
@@ -49,6 +53,18 @@ class SendWebhookJob implements ShouldQueue
                     'status' => $response->status(),
                     'attempt' => $this->attempts(),
                 ]);
+
+                // Reset failure count on successful delivery
+                $connection = RestaurantConnection::find($this->connectionId);
+                if ($connection) {
+                    $settings = $connection->settings ?? [];
+                    if (($settings['webhook_failure_count'] ?? 0) > 0) {
+                        $settings['webhook_failure_count'] = 0;
+                        $settings['last_webhook_success'] = now()->toIso8601String();
+                        $connection->update(['settings' => $settings]);
+                    }
+                }
+
                 return;
             }
 
@@ -86,13 +102,34 @@ class SendWebhookJob implements ShouldQueue
             'payload' => $this->payload,
         ]);
 
-        // Optionally: Mark connection as having delivery issues
+        // Mark connection as having delivery issues
         $connection = RestaurantConnection::find($this->connectionId);
         if ($connection) {
             $settings = $connection->settings ?? [];
             $settings['last_webhook_failure'] = now()->toIso8601String();
-            $settings['webhook_failure_count'] = ($settings['webhook_failure_count'] ?? 0) + 1;
+            $failureCount = ($settings['webhook_failure_count'] ?? 0) + 1;
+            $settings['webhook_failure_count'] = $failureCount;
             $connection->update(['settings' => $settings]);
+
+            // Alert after 3 consecutive failures
+            if ($failureCount >= 3) {
+                Log::channel('slack')->critical('Webhook delivery failing repeatedly', [
+                    'connection_id' => $this->connectionId,
+                    'external_restaurant_id' => $connection->external_restaurant_id,
+                    'external_restaurant_name' => $connection->external_restaurant_name,
+                    'webhook_url' => $this->webhookUrl,
+                    'failure_count' => $failureCount,
+                    'last_error' => $exception->getMessage(),
+                ]);
+
+                // Dispatch event for additional alerting mechanisms
+                event(new \App\Events\WebhookDeliveryFailed(
+                    $connection,
+                    $this->event,
+                    $failureCount,
+                    $exception->getMessage()
+                ));
+            }
         }
     }
 

@@ -55,21 +55,35 @@ class ExternalOrderController extends Controller
             ], 404);
         }
 
-        // Check if order already exists
-        $existingOrder = Order::where('external_order_id', $validated['external_order_id'])
-            ->where('platform', 'seferxyemek')
-            ->first();
-
-        if ($existingOrder) {
+        // Authorization check - ensure authenticated user owns this connection
+        if ($connection->user_id !== $request->user()->id) {
+            Log::warning('Unauthorized order creation attempt', [
+                'user_id' => $request->user()->id,
+                'connection_user_id' => $connection->user_id,
+                'external_restaurant_id' => $validated['external_restaurant_id'],
+            ]);
             return response()->json([
-                'error' => 'order_already_exists',
-                'message' => 'Bu sipariş zaten mevcut.',
-                'order' => $this->formatOrderResponse($existingOrder),
-            ], 409);
+                'error' => 'unauthorized',
+                'message' => 'Bu restoran için sipariş oluşturma yetkiniz yok.',
+            ], 403);
         }
 
         DB::beginTransaction();
         try {
+            // Check if order already exists (inside transaction with lock to prevent race condition)
+            $existingOrder = Order::where('external_order_id', $validated['external_order_id'])
+                ->where('platform', 'seferxyemek')
+                ->lockForUpdate()
+                ->first();
+
+            if ($existingOrder) {
+                DB::rollBack();
+                return response()->json([
+                    'error' => 'order_already_exists',
+                    'message' => 'Bu sipariş zaten mevcut.',
+                    'order' => $this->formatOrderResponse($existingOrder),
+                ], 409);
+            }
             // Find or create customer
             $customer = Customer::firstOrCreate(
                 ['phone' => $validated['customer_phone']],
@@ -117,12 +131,8 @@ class ExternalOrderController extends Controller
                 ]);
             }
 
-            // Restoran çalışma saatlerini güncelle
-            if (!empty($validated['restaurant_working_hours'])) {
-                $connection->update([
-                    'working_hours' => $validated['restaurant_working_hours'],
-                ]);
-            }
+            // Note: Working hours are NOT updated from external orders for security
+            // Restaurant owners should update working hours through the logistics panel directly
 
             // Update customer stats
             $customer->updateOrderStats();
@@ -165,8 +175,11 @@ class ExternalOrderController extends Controller
      */
     public function show(Request $request, string $externalOrderId)
     {
+        $user = $request->user();
+
         $order = Order::where('external_order_id', $externalOrderId)
             ->where('platform', 'seferxyemek')
+            ->where('user_id', $user->id) // Authorization: only own orders
             ->with(['items', 'courier:id,name,phone'])
             ->first();
 
@@ -193,8 +206,11 @@ class ExternalOrderController extends Controller
             'cancel_reason' => 'required_if:status,cancelled|nullable|string',
         ]);
 
+        $user = $request->user();
+
         $order = Order::where('external_order_id', $externalOrderId)
             ->where('platform', 'seferxyemek')
+            ->where('user_id', $user->id) // Authorization: only own orders
             ->first();
 
         if (!$order) {
@@ -248,8 +264,11 @@ class ExternalOrderController extends Controller
             'reason' => 'required|string|max:500',
         ]);
 
+        $user = $request->user();
+
         $order = Order::where('external_order_id', $externalOrderId)
             ->where('platform', 'seferxyemek')
+            ->where('user_id', $user->id) // Authorization: only own orders
             ->first();
 
         if (!$order) {

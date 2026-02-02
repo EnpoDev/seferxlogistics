@@ -25,13 +25,15 @@ class OrderStatusService
         try {
             $oldStatus = $order->status;
 
-            $order->update([
-                'courier_id' => $courier->id,
-                'courier_assigned_at' => now(),
-                'pool_entered_at' => null,
-            ]);
+            DB::transaction(function () use ($order, $courier) {
+                $order->update([
+                    'courier_id' => $courier->id,
+                    'courier_assigned_at' => now(),
+                    'pool_entered_at' => null,
+                ]);
 
-            $courier->incrementActiveOrders();
+                $courier->incrementActiveOrders();
+            });
 
             event(new OrderStatusUpdated($order, $oldStatus));
 
@@ -59,21 +61,31 @@ class OrderStatusService
      */
     public function unassignCourier(Order $order): bool
     {
-        $oldStatus = $order->status;
-        $courier = $order->courier;
+        try {
+            $oldStatus = $order->status;
+            $courier = $order->courier;
 
-        $order->update([
-            'courier_id' => null,
-            'courier_assigned_at' => null,
-        ]);
+            DB::transaction(function () use ($order, $courier) {
+                $order->update([
+                    'courier_id' => null,
+                    'courier_assigned_at' => null,
+                ]);
 
-        if ($courier) {
-            $courier->decrementActiveOrders();
+                if ($courier) {
+                    $courier->decrementActiveOrders();
+                }
+            });
+
+            event(new OrderStatusUpdated($order, $oldStatus));
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Failed to unassign courier from order', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
         }
-
-        event(new OrderStatusUpdated($order, $oldStatus));
-
-        return true;
     }
 
     /**
