@@ -206,23 +206,42 @@ class AdminController extends Controller
     // ===================================
     public function kullanicilar(Request $request)
     {
-        $query = User::query();
+        $search = $request->search;
+        $activeTab = $request->get('tab', 'adminler');
 
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
+        // Adminler (super_admin veya admin rolu olanlar)
+        $adminlerQuery = User::where(function ($q) {
+            $q->whereJsonContains('roles', 'super_admin')
+              ->orWhereJsonContains('roles', 'admin');
+        });
+        if ($search) {
+            $adminlerQuery->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
+                  ->orWhere('email', 'like', "%{$search}%");
             });
         }
+        $adminler = $adminlerQuery->orderBy('created_at', 'desc')->get();
 
-        if ($request->filled('role')) {
-            $query->whereJsonContains('roles', $request->role);
+        // Bayiler (bayi rolu olanlar, isletme haric)
+        $bayilerQuery = User::whereJsonContains('roles', 'bayi')
+            ->whereJsonDoesntContain('roles', 'super_admin')
+            ->whereJsonDoesntContain('roles', 'admin');
+        if ($search) {
+            $bayilerQuery->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
         }
+        $bayiler = $bayilerQuery->orderBy('created_at', 'desc')->get();
 
-        $kullanicilar = $query->orderBy('created_at', 'desc')->paginate(20);
+        // Her bayi icin isletmelerini yukle (parent_id uzerinden)
+        $bayiler->each(function ($bayi) {
+            $bayi->isletmeler = User::where('parent_id', $bayi->id)
+                ->whereJsonContains('roles', 'isletme')
+                ->get();
+        });
 
-        return view('admin.kullanicilar.index', compact('kullanicilar'));
+        return view('admin.kullanicilar.index', compact('adminler', 'bayiler', 'activeTab', 'search'));
     }
 
     public function kullaniciStore(Request $request)
@@ -366,7 +385,7 @@ class AdminController extends Controller
     // ===================================
     public function kuryeler(Request $request)
     {
-        $query = Courier::query();
+        $query = Courier::with('owner');
 
         if ($request->filled('search')) {
             $search = $request->search;

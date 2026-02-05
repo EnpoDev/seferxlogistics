@@ -36,6 +36,7 @@
                 <thead class="bg-gray-50 dark:bg-black">
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Kurye</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Bayi</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Durum</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Aktif Sipariş</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Toplam Teslimat</th>
@@ -67,6 +68,18 @@
                             </div>
                         </td>
                         <td class="px-6 py-4">
+                            @if($kurye->owner)
+                            <div class="flex items-center space-x-2">
+                                <div class="w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                                    <span class="text-blue-600 dark:text-blue-400 font-medium text-xs">{{ strtoupper(substr($kurye->owner->name, 0, 1)) }}</span>
+                                </div>
+                                <span class="text-sm text-black dark:text-white">{{ $kurye->owner->name }}</span>
+                            </div>
+                            @else
+                            <span class="text-sm text-gray-400">-</span>
+                            @endif
+                        </td>
+                        <td class="px-6 py-4">
                             <span class="px-2 py-1 rounded text-xs {{ $statusColors[$kurye->status] ?? 'bg-gray-100 text-gray-800' }}">
                                 {{ $statusLabels[$kurye->status] ?? $kurye->status }}
                             </span>
@@ -81,7 +94,7 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="6" class="px-6 py-12 text-center text-gray-500">Kurye bulunamadı</td></tr>
+                    <tr><td colspan="7" class="px-6 py-12 text-center text-gray-500">Kurye bulunamadı</td></tr>
                     @endforelse
                 </tbody>
             </table>
