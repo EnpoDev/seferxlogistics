@@ -239,7 +239,7 @@
 
             <!-- İşletme Adı -->
             <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-800">
-                <p class="text-sm font-medium text-black dark:text-white">{{ config('app.business_name', 'Irmak Fırın & Cafe') }}</p>
+                <p class="text-sm font-medium text-black dark:text-white">{{ auth()->user()->branch->name ?? auth()->user()->name }}</p>
                 <p class="text-xs text-gray-600 dark:text-gray-400">İşletme</p>
             </div>
 

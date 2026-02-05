@@ -4,8 +4,8 @@
 <div class="p-6 animate-fadeIn">
     {{-- Page Header --}}
     <x-layout.page-header
-        title="Kullanıcı Yönetimi"
-        subtitle="Sistem kullanıcılarını yönetin"
+        title="Bayi Kullanıcıları"
+        subtitle="Bayi kullanıcılarını yönetin"
     >
         <x-slot name="icon">
             <x-ui.icon name="users" class="w-7 h-7 text-black dark:text-white" />
@@ -51,9 +51,20 @@
                         <x-data.date-time :date="$user->created_at" />
                     </x-table.td>
                     <x-table.td align="right">
-                        <x-ui.button variant="ghost" size="sm" icon="edit" :href="route('bayi.kullanici-duzenle', $user)">
-                            Duzenle
-                        </x-ui.button>
+                        <div class="flex items-center justify-end gap-2">
+                            <x-ui.button variant="ghost" size="sm" icon="edit" :href="route('bayi.kullanici-duzenle', $user)">
+                                Duzenle
+                            </x-ui.button>
+                            @if($user->id !== auth()->id())
+                            <form action="{{ route('bayi.kullanici-sil', $user) }}" method="POST" class="inline" onsubmit="return confirm('Bu kullanıcıyı silmek istediğinize emin misiniz?')">
+                                @csrf
+                                @method('DELETE')
+                                <x-ui.button variant="ghost" size="sm" icon="trash" type="submit" class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
+                                    Sil
+                                </x-ui.button>
+                            </form>
+                            @endif
+                        </div>
                     </x-table.td>
                 </x-table.tr>
                 @empty

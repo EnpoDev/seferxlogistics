@@ -83,11 +83,21 @@
 
                     {{-- İşlemler --}}
                     <x-table.td align="right" nowrap onclick="event.stopPropagation()">
-                        <a href="{{ route('bayi.isletme-duzenle', $branch->id) }}"
-                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
-                            <x-ui.icon name="edit" class="w-4 h-4" />
-                            Düzenle
-                        </a>
+                        <div class="flex items-center justify-end gap-2">
+                            <form action="{{ route('bayi.isletme.giris', $branch->id) }}" method="POST" class="inline">
+                                @csrf
+                                <button type="submit"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 rounded-lg transition-colors">
+                                    <x-ui.icon name="login" class="w-4 h-4" />
+                                    Geçiş Yap
+                                </button>
+                            </form>
+                            <a href="{{ route('bayi.isletme-duzenle', $branch->id) }}"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                                <x-ui.icon name="edit" class="w-4 h-4" />
+                                Düzenle
+                            </a>
+                        </div>
                     </x-table.td>
                 </x-table.tr>
             @empty

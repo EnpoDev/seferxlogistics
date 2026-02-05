@@ -357,6 +357,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/kullanici-ekle', [BayiStatsController::class, 'kullaniciKaydet'])->name('kullanici-kaydet');
         Route::get('/kullanici/{user}/duzenle', [BayiStatsController::class, 'kullaniciDuzenle'])->name('kullanici-duzenle');
         Route::put('/kullanici/{user}', [BayiStatsController::class, 'kullaniciGuncelle'])->name('kullanici-guncelle');
+        Route::delete('/kullanici/{user}', [BayiStatsController::class, 'kullaniciSil'])->name('kullanici-sil');
         Route::get('/istatistik', [BayiStatsController::class, 'istatistik'])->name('istatistik');
         Route::get('/gelismis-istatistik', [BayiStatsController::class, 'gelismisIstatistik'])->name('gelismis-istatistik');
 

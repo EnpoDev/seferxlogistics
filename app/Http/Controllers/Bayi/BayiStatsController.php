@@ -82,6 +82,25 @@ class BayiStatsController extends Controller
             ->with('success', "{$user->name} başarıyla güncellendi.");
     }
 
+    public function kullaniciSil(\App\Models\User $user)
+    {
+        // Only allow deleting own staff
+        if ($user->parent_id !== auth()->id()) {
+            abort(403, 'Bu kullanıcıyı silme yetkiniz yok.');
+        }
+
+        // Cannot delete yourself
+        if ($user->id === auth()->id()) {
+            return back()->with('error', 'Kendi hesabınızı silemezsiniz.');
+        }
+
+        $userName = $user->name;
+        $user->delete();
+
+        return redirect()->route('bayi.kullanici-yonetimi')
+            ->with('success', "{$userName} başarıyla silindi.");
+    }
+
     public function istatistik()
     {
         $userId = auth()->id();

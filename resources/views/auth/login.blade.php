@@ -17,7 +17,8 @@
         <div class="w-full max-w-md">
             <!-- Logo / Header -->
             <div class="text-center mb-8 mx-auto">
-                <img src="{{ asset('logo-dark.png') }}" alt="SeferX Logo" class="h-24 w-auto mx-auto "> 
+                <img src="{{ asset('logo-dark.png') }}" alt="SeferX Logo" class="h-24 w-auto mx-auto dark:hidden">
+                <img src="{{ asset('logo-white.png') }}" alt="SeferX Logo" class="h-24 w-auto mx-auto hidden dark:block">
             </div>
 
             <!-- Login Form -->

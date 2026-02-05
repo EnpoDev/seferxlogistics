@@ -11,7 +11,13 @@
     </div>
 
     <!-- Platform Kartlari -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    @php
+        $seferxConnection = \App\Models\RestaurantConnection::where('user_id', auth()->id())
+            ->where('external_platform', 'seferxyemek')
+            ->where('is_active', true)
+            ->first();
+    @endphp
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
         <!-- Yemeksepeti (Yakinda) -->
         <div class="bg-white dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-gray-800 p-6 opacity-60">
             <div class="flex items-center justify-between mb-4">
@@ -89,6 +95,58 @@
                 <button @click="openConnectModal('trendyol', {{ json_encode($trendyol['credentials'] ?? []) }})" class="w-full px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors">
                     Baglan
                 </button>
+            @endif
+        </div>
+
+        <!-- Migros Yemek (Yakinda) -->
+        <div class="bg-white dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-gray-800 p-6 opacity-60">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
+                        <svg class="w-8 h-8 text-orange-600" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l4.59-4.58L18 11l-6 6z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-black dark:text-white">Migros Yemek</h3>
+                        <span class="px-2 py-0.5 text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-full">Yakinda</span>
+                    </div>
+                </div>
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Migros Yemek siparislerini otomatik olarak alin.</p>
+            <button disabled class="w-full px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg cursor-not-allowed">
+                Yakinda Aktif Olacak
+            </button>
+        </div>
+
+        <!-- SeferX Yemek -->
+        <div class="bg-white dark:bg-[#181818] rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                        <svg class="w-8 h-8 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-black dark:text-white">SeferX Yemek</h3>
+                        @if($seferxConnection)
+                            <span class="px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">Aktif</span>
+                        @else
+                            <span class="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-400 rounded-full">Aktif Degil</span>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">SeferX Yemek platformundan siparisleri otomatik alin.</p>
+            @if($seferxConnection)
+                <button disabled class="w-full px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg cursor-not-allowed">
+                    Entegrasyon Aktif
+                </button>
+            @else
+                <a href="https://seferxyemek.com/owner/logistics/settings" target="_blank" rel="noopener noreferrer" class="block w-full px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors text-center">
+                    Entegrasyonu Kur
+                </a>
             @endif
         </div>
     </div>
