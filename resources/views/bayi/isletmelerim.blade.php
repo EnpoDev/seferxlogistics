@@ -97,6 +97,11 @@
                                 <x-ui.icon name="edit" class="w-4 h-4" />
                                 Düzenle
                             </a>
+                            <button type="button"
+                                onclick="openDeleteModal({{ $branch->id }}, '{{ addslashes($branch->name) }}')"
+                                class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                                <x-ui.icon name="trash" class="w-4 h-4" />
+                            </button>
                         </div>
                     </x-table.td>
                 </x-table.tr>
@@ -116,4 +121,106 @@
         </x-table.tbody>
     </x-table.table>
 </div>
+
+{{-- Silme Onay Modalı --}}
+<div id="deleteModal" class="fixed inset-0 z-50 hidden">
+    {{-- Backdrop --}}
+    <div class="fixed inset-0 bg-black/50 backdrop-blur-sm" onclick="closeDeleteModal()"></div>
+
+    {{-- Modal Content --}}
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-md w-full p-6 relative">
+            {{-- Close Button --}}
+            <button type="button" onclick="closeDeleteModal()"
+                class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <x-ui.icon name="x" class="w-5 h-5" />
+            </button>
+
+            {{-- Icon --}}
+            <div class="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-4">
+                <x-ui.icon name="warning" class="w-6 h-6 text-red-600 dark:text-red-400" />
+            </div>
+
+            {{-- Title --}}
+            <h3 class="text-lg font-semibold text-center text-black dark:text-white mb-2">
+                İşletmeyi Sil
+            </h3>
+
+            {{-- Description --}}
+            <p class="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">
+                <span class="font-medium text-black dark:text-white" id="deleteBranchName"></span> işletmesini silmek üzeresiniz.
+                Bu işlem geri alınamaz ve tüm veriler silinecektir.
+            </p>
+
+            {{-- Confirmation Input --}}
+            <form id="deleteForm" method="POST">
+                @csrf
+                @method('DELETE')
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Onaylamak için işletme adını yazın
+                    </label>
+                    <input type="text"
+                        id="confirmName"
+                        name="confirm_name"
+                        autocomplete="off"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-black dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        placeholder="İşletme adını yazın..."
+                        oninput="validateDeleteInput()"
+                    />
+                </div>
+
+                {{-- Actions --}}
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeDeleteModal()"
+                        class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                        İptal
+                    </button>
+                    <button type="submit"
+                        id="deleteButton"
+                        disabled
+                        class="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        Kalıcı Olarak Sil
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentBranchId = null;
+    let currentBranchName = '';
+
+    function openDeleteModal(branchId, branchName) {
+        currentBranchId = branchId;
+        currentBranchName = branchName;
+
+        document.getElementById('deleteBranchName').textContent = branchName;
+        document.getElementById('deleteForm').action = '{{ url("bayi/isletmelerim") }}/' + branchId;
+        document.getElementById('confirmName').value = '';
+        document.getElementById('deleteButton').disabled = true;
+        document.getElementById('deleteModal').classList.remove('hidden');
+    }
+
+    function closeDeleteModal() {
+        document.getElementById('deleteModal').classList.add('hidden');
+        currentBranchId = null;
+        currentBranchName = '';
+    }
+
+    function validateDeleteInput() {
+        const input = document.getElementById('confirmName').value;
+        const deleteBtn = document.getElementById('deleteButton');
+        deleteBtn.disabled = input !== currentBranchName;
+    }
+
+    // Close modal on escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeDeleteModal();
+        }
+    });
+</script>
 @endsection

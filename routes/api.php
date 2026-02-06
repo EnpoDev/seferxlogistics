@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ExternalOrderController;
+use App\Http\Controllers\Api\CallerIdController;
 
 /*
 |--------------------------------------------------------------------------
@@ -56,4 +57,22 @@ Route::prefix('public')->middleware(['throttle:120,1'])->group(function () {
             'estimated_delivery' => $order->estimated_delivery_at,
         ]);
     });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Caller ID API Routes (API Key Protected)
+|--------------------------------------------------------------------------
+|
+| These routes are used by the SeferX Caller ID iOS app to lookup
+| customer information when receiving phone calls.
+|
+*/
+
+Route::prefix('caller-id')->middleware(['api.key', 'throttle:60,1'])->group(function () {
+    // Lookup customer by phone number
+    Route::get('/lookup', [CallerIdController::class, 'lookup']);
+
+    // Sync customers for offline storage
+    Route::get('/sync', [CallerIdController::class, 'sync']);
 });

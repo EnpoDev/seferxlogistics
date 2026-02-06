@@ -22,6 +22,7 @@ use App\Http\Requests\Order\UpdateOrderRequest;
 use App\Http\Requests\Order\UpdateOrderStatusRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use App\Models\User;
 
 class OrderController extends Controller
 {
@@ -31,6 +32,55 @@ class OrderController extends Controller
         private CustomerNotificationService $customerNotificationService,
         private OrderStatusService $orderStatusService
     ) {}
+
+    /**
+     * Get branch IDs that the authenticated user has access to
+     */
+    private function getUserBranchIds(): ?array
+    {
+        $user = auth()->user();
+
+        // Admin sees all
+        if ($user->isAdmin()) {
+            return null; // null means no filter
+        }
+
+        // Bayi sees their own branches and their işletme's branches
+        if ($user->isBayi()) {
+            // Get işletme users under this bayi
+            $isletmeUserIds = User::where('parent_id', $user->id)
+                ->whereJsonContains('roles', 'isletme')
+                ->pluck('id')
+                ->toArray();
+
+            // Get branches owned by bayi or their işletmeler
+            return Branch::whereIn('user_id', array_merge([$user->id], $isletmeUserIds))
+                ->pluck('id')
+                ->toArray();
+        }
+
+        // İşletme sees only their own branches
+        if ($user->isIsletme()) {
+            return Branch::where('user_id', $user->id)
+                ->pluck('id')
+                ->toArray();
+        }
+
+        // Default: no access
+        return [];
+    }
+
+    /**
+     * Apply branch filter to query if user is not admin
+     */
+    private function applyBranchFilter($query): void
+    {
+        $branchIds = $this->getUserBranchIds();
+
+        if ($branchIds !== null) {
+            $query->whereIn('branch_id', $branchIds);
+        }
+    }
 
     /**
      * Gecerli status gecislerini kontrol et
@@ -84,6 +134,9 @@ class OrderController extends Controller
         $query = Order::with(['courier', 'branch', 'items', 'customer', 'restaurant'])
             ->orderBy('created_at', 'desc');
 
+        // Filter by user's branches (işletme bazlı filtreleme)
+        $this->applyBranchFilter($query);
+
         // Filter by status
         if ($request->has('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
@@ -111,37 +164,55 @@ class OrderController extends Controller
 
     public function history()
     {
-        $orders = Order::with(['courier', 'branch', 'items', 'customer'])
+        $query = Order::with(['courier', 'branch', 'items', 'customer'])
             ->whereIn('status', ['delivered', 'cancelled'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+            ->orderBy('created_at', 'desc');
+
+        // Filter by user's branches (işletme bazlı filtreleme)
+        $this->applyBranchFilter($query);
+
+        $orders = $query->paginate(20);
 
         return view('pages.siparis.gecmis', compact('orders'));
     }
 
     public function cancelled()
     {
-        $cancelledOrders = Order::with(['courier', 'branch', 'items'])
+        $query = Order::with(['courier', 'branch', 'items'])
             ->where('status', 'cancelled')
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+            ->orderBy('created_at', 'desc');
+
+        // Filter by user's branches (işletme bazlı filtreleme)
+        $this->applyBranchFilter($query);
+
+        $cancelledOrders = $query->paginate(20);
 
         return view('pages.siparis.iptal', compact('cancelledOrders'));
     }
 
     public function statistics()
     {
+        $branchIds = $this->getUserBranchIds();
+
+        // Helper to apply branch filter
+        $applyFilter = function ($query) use ($branchIds) {
+            if ($branchIds !== null) {
+                return $query->whereIn('branch_id', $branchIds);
+            }
+            return $query;
+        };
+
         $stats = [
-            'total_orders' => Order::count(),
-            'pending_orders' => Order::where('status', 'pending')->count(),
-            'preparing_orders' => Order::where('status', 'preparing')->count(),
-            'on_delivery_orders' => Order::where('status', 'on_delivery')->count(),
-            'delivered_orders' => Order::where('status', 'delivered')->count(),
-            'cancelled_orders' => Order::where('status', 'cancelled')->count(),
-            'returned_orders' => Order::where('status', 'returned')->count(),
-            'total_revenue' => Order::where('status', 'delivered')->sum('total') ?? 0,
-            'today_orders' => Order::whereDate('created_at', today())->count(),
-            'today_revenue' => Order::whereDate('created_at', today())->where('status', 'delivered')->sum('total') ?? 0,
+            'total_orders' => $applyFilter(Order::query())->count(),
+            'pending_orders' => $applyFilter(Order::where('status', 'pending'))->count(),
+            'preparing_orders' => $applyFilter(Order::where('status', 'preparing'))->count(),
+            'on_delivery_orders' => $applyFilter(Order::where('status', 'on_delivery'))->count(),
+            'delivered_orders' => $applyFilter(Order::where('status', 'delivered'))->count(),
+            'cancelled_orders' => $applyFilter(Order::where('status', 'cancelled'))->count(),
+            'returned_orders' => $applyFilter(Order::where('status', 'returned'))->count(),
+            'total_revenue' => $applyFilter(Order::where('status', 'delivered'))->sum('total') ?? 0,
+            'today_orders' => $applyFilter(Order::whereDate('created_at', today()))->count(),
+            'today_revenue' => $applyFilter(Order::whereDate('created_at', today())->where('status', 'delivered'))->sum('total') ?? 0,
             'top_products' => [],
             'daily_labels' => ['Pzt', 'Sal', 'Car', 'Per', 'Cum', 'Cmt', 'Paz'],
             'daily_orders' => [0, 0, 0, 0, 0, 0, 0],
