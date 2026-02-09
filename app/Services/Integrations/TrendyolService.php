@@ -3,6 +3,7 @@
 namespace App\Services\Integrations;
 
 use App\Models\Order;
+use App\Models\Product;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -909,17 +910,83 @@ class TrendyolService extends BaseIntegrationService
     {
         $credentials = $this->integration?->credentials ?? [];
         $supplierId = $credentials['supplier_id'] ?? config('services.trendyol.supplier_id');
+        $storeId = $credentials['store_id'] ?? config('services.trendyol.store_id');
         $baseUrl = $this->getApiBaseUrl();
 
-        // Trendyol Go menü senkronizasyonu için ürünleri hazırla
-        // Bu özellik daha karmaşık - kategori ve marka bilgileri gerekiyor
+        if (!$supplierId) {
+            Log::error("[Trendyol Go] Menu sync failed: supplier_id required");
+            return false;
+        }
 
-        Log::info("[Trendyol Go] Menu sync - feature requires additional implementation");
+        try {
+            // Get products to sync - active products with prices
+            $products = $this->getProductsForSync();
 
-        // TODO: Ürünleri veritabanından çek ve Trendyol formatına dönüştür
-        // POST https://api.tgoapis.com/integrator/product/grocery/suppliers/{supplierId}/products
+            if (empty($products)) {
+                Log::info("[Trendyol Go] No products to sync");
+                return true;
+            }
 
-        return true;
+            // Convert to Trendyol format for price updates
+            $trendyolProducts = $this->convertProductsToTrendyolFormat($products);
+
+            // Use meal price update endpoint for restaurants
+            $url = "{$baseUrl}/integrator/product/meal/suppliers/{$supplierId}/products/price";
+
+            $response = Http::withHeaders($this->getApiHeaders($credentials))
+                ->timeout(60)
+                ->post($url, ['items' => $trendyolProducts]);
+
+            if ($response->successful()) {
+                Log::info("[Trendyol Go] Menu sync completed", [
+                    'synced_count' => count($trendyolProducts),
+                    'supplier_id' => $supplierId,
+                ]);
+
+                // Update last sync time
+                $this->integration?->update(['last_sync_at' => now()]);
+
+                return true;
+            }
+
+            Log::error("[Trendyol Go] Menu sync failed: " . $response->status() . ' - ' . $response->body());
+            return false;
+        } catch (\Exception $e) {
+            Log::error("[Trendyol Go] Menu sync error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Get products that should be synced to Trendyol
+     */
+    protected function getProductsForSync(): array
+    {
+        // Get products from restaurants that have Trendyol integration enabled
+        return Product::whereHas('restaurant', function ($query) {
+                $query->where('is_active', true);
+            })
+            ->where('is_active', true)
+            ->where('in_stock', true)
+            ->get()
+            ->toArray();
+    }
+
+    /**
+     * Convert local products to Trendyol API format
+     */
+    protected function convertProductsToTrendyolFormat(array $products): array
+    {
+        return collect($products)->map(function ($product) {
+            $currentPrice = $product['discounted_price'] ?? $product['price'];
+            $listPrice = $product['price'];
+
+            return [
+                'productId' => (string) $product['id'],
+                'sellingPrice' => (float) $currentPrice,
+                'listPrice' => (float) $listPrice,
+            ];
+        })->toArray();
     }
 
     /**

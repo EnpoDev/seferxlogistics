@@ -76,3 +76,22 @@ Route::prefix('caller-id')->middleware(['api.key', 'throttle:60,1'])->group(func
     // Sync customers for offline storage
     Route::get('/sync', [CallerIdController::class, 'sync']);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Caller ID Device Routes (Public - No Auth)
+|--------------------------------------------------------------------------
+|
+| These routes are used by physical Caller ID devices to send incoming
+| call information to the system. No authentication required as the
+| device cannot store API keys.
+|
+| URL format: /api/cagri/al/{restaurantId}?no={phoneNumber}
+| Optional params: &Detail=1&str1=CustomerCode&hat=LineNumber&tarih=DateTime
+|
+*/
+
+Route::prefix('cagri')->middleware(['throttle:120,1'])->group(function () {
+    // Receive incoming call from Caller ID device
+    Route::get('/al/{restaurantId}', [CallerIdController::class, 'receive']);
+});

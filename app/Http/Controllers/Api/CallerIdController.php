@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\Restaurant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -142,6 +143,104 @@ class CallerIdController extends Controller
                 'last_page' => $customers->lastPage(),
                 'has_more' => $customers->hasMorePages(),
             ],
+        ]);
+    }
+
+    /**
+     * Receive incoming call from Caller ID device
+     * Endpoint: GET /api/cagri/al/{restaurantId}?no={phoneNumber}
+     *
+     * @param Request $request
+     * @param int $restaurantId
+     * @return JsonResponse
+     */
+    public function receive(Request $request, int $restaurantId): JsonResponse
+    {
+        // Get phone number from query parameter
+        $phone = $request->query('no', '');
+
+        // Get restaurant
+        $restaurant = Restaurant::find($restaurantId);
+
+        if (!$restaurant) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Restoran bulunamadı',
+            ], 404);
+        }
+
+        // Normalize phone number (remove non-digits)
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+
+        // Handle Turkish phone formats
+        if (strlen($phone) === 12 && str_starts_with($phone, '90')) {
+            $phone = substr($phone, 2);
+        } elseif (strlen($phone) === 11 && str_starts_with($phone, '0')) {
+            $phone = substr($phone, 1);
+        }
+
+        // Find customer by phone
+        $customer = null;
+        if (!empty($phone)) {
+            $customer = Customer::where('phone', $phone)
+                ->orWhere('phone', '0' . $phone)
+                ->orWhere('phone', '90' . $phone)
+                ->orWhere('phone', '+90' . $phone)
+                ->first();
+        }
+
+        // Restaurant info
+        $restaurantInfo = [
+            'id' => $restaurant->id,
+            'name' => $restaurant->name,
+            'phone' => $restaurant->phone,
+            'address' => $restaurant->address,
+            'is_open' => $restaurant->isOpen(),
+        ];
+
+        // No customer found
+        if (!$customer) {
+            return response()->json([
+                'success' => true,
+                'restaurant' => $restaurantInfo,
+                'customer' => null,
+                'message' => 'Yeni müşteri',
+            ]);
+        }
+
+        // Load recent orders for this restaurant
+        $recentOrders = $customer->orders()
+            ->where('restaurant_id', $restaurantId)
+            ->with('items')
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get()
+            ->map(function ($order) {
+                return [
+                    'order_id' => $order->order_number,
+                    'date' => $order->created_at->format('d.m.Y H:i'),
+                    'total' => (float) $order->total,
+                    'items' => $order->items->map(fn($item) => $item->product_name)->toArray(),
+                    'status' => $this->translateStatus($order->status),
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'restaurant' => $restaurantInfo,
+            'customer' => [
+                'id' => $customer->id,
+                'name' => $customer->name,
+                'phone' => $customer->phone,
+                'address' => $customer->address,
+                'notes' => $customer->notes,
+                'type' => $customer->customer_type,
+                'total_orders' => $customer->total_orders,
+                'total_spent' => (float) $customer->total_spent,
+                'last_order' => $customer->last_order_at?->format('d.m.Y H:i'),
+            ],
+            'recent_orders' => $recentOrders,
+            'message' => 'Müşteri bulundu',
         ]);
     }
 

@@ -123,4 +123,17 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Support Contact Information
+    |--------------------------------------------------------------------------
+    |
+    | These values are used throughout the application for support contact
+    | information displayed to users.
+    |
+    */
+
+    'support_phone' => env('SUPPORT_PHONE', ''),
+    'support_email' => env('SUPPORT_EMAIL', 'destek@seferxlojistik.com'),
+
 ];

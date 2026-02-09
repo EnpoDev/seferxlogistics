@@ -227,7 +227,7 @@ class CustomerNotificationService
             '{courier_name}' => $order->courier?->name ?? 'Kurye',
             '{eta}' => $order->getEstimatedMinutesRemaining() ?? '~20',
             '{cancel_reason}' => $order->cancel_reason ?? 'Belirtilmedi',
-            '{support_phone}' => config('app.support_phone', '0850 XXX XX XX'),
+            '{support_phone}' => config('app.support_phone', ''),
             '{review_url}' => route('tracking.show', $order->tracking_token) . '?review=1',
         ];
 
