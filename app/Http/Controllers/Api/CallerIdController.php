@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Branch;
 use App\Models\CallerIdLog;
 use App\Models\Customer;
-use App\Models\Restaurant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -149,7 +149,7 @@ class CallerIdController extends Controller
 
     /**
      * Receive incoming call from Caller ID device
-     * Endpoint: GET /api/cagri/al/{restaurantId}?no={phoneNumber}
+     * Endpoint: GET /api/cagri/al/{branchId}?no={phoneNumber}
      *
      * Query Parameters (from device):
      * - no: Phone number
@@ -160,10 +160,10 @@ class CallerIdController extends Controller
      * - str1: Custom string 1 (customer code)
      *
      * @param Request $request
-     * @param int $restaurantId
+     * @param int $branchId
      * @return JsonResponse
      */
-    public function receive(Request $request, int $restaurantId): JsonResponse
+    public function receive(Request $request, int $branchId): JsonResponse
     {
         // Get all parameters from Caller ID device
         $rawPhone = $request->query('no', '');
@@ -173,13 +173,13 @@ class CallerIdController extends Controller
         $str0 = $request->query('str0', '');
         $str1 = $request->query('str1', '');
 
-        // Get restaurant
-        $restaurant = Restaurant::find($restaurantId);
+        // Get branch (işletme)
+        $branch = Branch::find($branchId);
 
-        if (!$restaurant) {
+        if (!$branch) {
             return response()->json([
                 'success' => false,
-                'message' => 'Restoran bulunamadı',
+                'message' => 'İşletme bulunamadı',
             ], 404);
         }
 
@@ -206,7 +206,7 @@ class CallerIdController extends Controller
         // Log the incoming call
         if (!empty($phone)) {
             CallerIdLog::create([
-                'restaurant_id' => $restaurantId,
+                'branch_id' => $branchId,
                 'customer_id' => $customer?->id,
                 'phone' => $phone,
                 'device_id' => $deviceId ?: null,
@@ -218,28 +218,28 @@ class CallerIdController extends Controller
             ]);
         }
 
-        // Restaurant info
-        $restaurantInfo = [
-            'id' => $restaurant->id,
-            'name' => $restaurant->name,
-            'phone' => $restaurant->phone,
-            'address' => $restaurant->address,
-            'is_open' => $restaurant->isOpen(),
+        // Branch (işletme) info
+        $branchInfo = [
+            'id' => $branch->id,
+            'name' => $branch->name,
+            'phone' => $branch->phone,
+            'address' => $branch->address,
+            'is_active' => $branch->is_active,
         ];
 
         // No customer found
         if (!$customer) {
             return response()->json([
                 'success' => true,
-                'restaurant' => $restaurantInfo,
+                'isletme' => $branchInfo,
                 'customer' => null,
                 'message' => 'Yeni müşteri',
             ]);
         }
 
-        // Load recent orders for this restaurant
+        // Load recent orders for this branch
         $recentOrders = $customer->orders()
-            ->where('restaurant_id', $restaurantId)
+            ->where('branch_id', $branchId)
             ->with('items')
             ->orderBy('created_at', 'desc')
             ->limit(5)
@@ -256,7 +256,7 @@ class CallerIdController extends Controller
 
         return response()->json([
             'success' => true,
-            'restaurant' => $restaurantInfo,
+            'isletme' => $branchInfo,
             'customer' => [
                 'id' => $customer->id,
                 'name' => $customer->name,

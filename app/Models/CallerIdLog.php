@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class CallerIdLog extends Model
 {
     protected $fillable = [
-        'restaurant_id',
+        'branch_id',
         'customer_id',
         'phone',
         'device_id',
@@ -19,9 +19,9 @@ class CallerIdLog extends Model
         'ip',
     ];
 
-    public function restaurant(): BelongsTo
+    public function branch(): BelongsTo
     {
-        return $this->belongsTo(Restaurant::class);
+        return $this->belongsTo(Branch::class);
     }
 
     public function customer(): BelongsTo
