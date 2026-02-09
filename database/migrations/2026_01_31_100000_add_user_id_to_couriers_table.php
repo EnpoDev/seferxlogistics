@@ -11,10 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('couriers', function (Blueprint $table) {
-            $table->foreignId('user_id')->nullable()->after('id')->constrained('users')->nullOnDelete();
-            $table->index('user_id');
-        });
+        if (!Schema::hasColumn('couriers', 'user_id')) {
+            Schema::table('couriers', function (Blueprint $table) {
+                $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            });
+        }
     }
 
     /**
@@ -23,9 +24,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('couriers', function (Blueprint $table) {
-            $table->dropForeign(['user_id']);
-            $table->dropIndex(['user_id']);
-            $table->dropColumn('user_id');
+            $table->dropConstrainedForeignId('user_id');
         });
     }
 };

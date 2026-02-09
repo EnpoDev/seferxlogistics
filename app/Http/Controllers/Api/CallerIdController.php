@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CallerIdLog;
 use App\Models\Customer;
 use App\Models\Restaurant;
 use Illuminate\Http\JsonResponse;
@@ -150,14 +151,27 @@ class CallerIdController extends Controller
      * Receive incoming call from Caller ID device
      * Endpoint: GET /api/cagri/al/{restaurantId}?no={phoneNumber}
      *
+     * Query Parameters (from device):
+     * - no: Phone number
+     * - DeviceID: Device serial number
+     * - DateTime: Call date/time from device
+     * - Line: Phone line number
+     * - str0: Custom string 0
+     * - str1: Custom string 1 (customer code)
+     *
      * @param Request $request
      * @param int $restaurantId
      * @return JsonResponse
      */
     public function receive(Request $request, int $restaurantId): JsonResponse
     {
-        // Get phone number from query parameter
-        $phone = $request->query('no', '');
+        // Get all parameters from Caller ID device
+        $rawPhone = $request->query('no', '');
+        $deviceId = $request->query('DeviceID', '');
+        $deviceDatetime = $request->query('DateTime', '');
+        $line = $request->query('Line', '');
+        $str0 = $request->query('str0', '');
+        $str1 = $request->query('str1', '');
 
         // Get restaurant
         $restaurant = Restaurant::find($restaurantId);
@@ -170,7 +184,7 @@ class CallerIdController extends Controller
         }
 
         // Normalize phone number (remove non-digits)
-        $phone = preg_replace('/[^0-9]/', '', $phone);
+        $phone = preg_replace('/[^0-9]/', '', $rawPhone);
 
         // Handle Turkish phone formats
         if (strlen($phone) === 12 && str_starts_with($phone, '90')) {
@@ -187,6 +201,21 @@ class CallerIdController extends Controller
                 ->orWhere('phone', '90' . $phone)
                 ->orWhere('phone', '+90' . $phone)
                 ->first();
+        }
+
+        // Log the incoming call
+        if (!empty($phone)) {
+            CallerIdLog::create([
+                'restaurant_id' => $restaurantId,
+                'customer_id' => $customer?->id,
+                'phone' => $phone,
+                'device_id' => $deviceId ?: null,
+                'line' => $line ?: null,
+                'device_datetime' => $deviceDatetime ?: null,
+                'str0' => $str0 ?: null,
+                'str1' => $str1 ?: null,
+                'ip' => $request->ip(),
+            ]);
         }
 
         // Restaurant info
