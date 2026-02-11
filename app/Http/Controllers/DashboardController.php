@@ -97,12 +97,12 @@ class DashboardController extends Controller
 
         // Top products
         $topProductsQuery = DB::table('order_items')
-            ->select('product_name', DB::raw('SUM(quantity) as total_sold'), DB::raw('SUM(total) as total_revenue'));
+            ->select('order_items.product_name', DB::raw('SUM(order_items.quantity) as total_sold'), DB::raw('SUM(order_items.total) as total_revenue'));
         if ($branchFilter) {
             $topProductsQuery->join('orders', 'order_items.order_id', '=', 'orders.id')
                 ->where('orders.branch_id', $branchFilter);
         }
-        $topProducts = $topProductsQuery->groupBy('product_name')->orderByDesc('total_sold')->take(5)->get();
+        $topProducts = $topProductsQuery->groupBy('order_items.product_name')->orderByDesc('total_sold')->take(5)->get();
 
         // Top customers
         if ($branchFilter) {
