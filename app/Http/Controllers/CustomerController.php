@@ -15,9 +15,19 @@ class CustomerController extends Controller
 {
     public function index(Request $request)
     {
+        $user = auth()->user();
+        $activeBranch = $user->getActiveBranch();
+
         $query = Customer::query()
             ->withCount('orders')
             ->orderBy('created_at', 'desc');
+
+        // İşletme kullanıcısı sadece kendi branch'inden sipariş veren müşterileri görsün
+        if ($user->isIsletme() && $activeBranch) {
+            $query->whereHas('orders', function ($q) use ($activeBranch) {
+                $q->where('branch_id', $activeBranch->id);
+            });
+        }
 
         if ($request->filled('search')) {
             $query->search($request->search);
@@ -39,19 +49,34 @@ class CustomerController extends Controller
 
     public function show(Customer $customer)
     {
-        $customer->load(['addresses', 'orders' => function ($query) {
+        $user = auth()->user();
+        $activeBranch = $user->getActiveBranch();
+
+        // İşletme kullanıcısı için yetki kontrolü
+        if ($user->isIsletme() && $activeBranch) {
+            $hasAccess = $customer->orders()->where('branch_id', $activeBranch->id)->exists();
+            if (!$hasAccess) {
+                abort(403, 'Bu müşteriye erişim yetkiniz yok.');
+            }
+        }
+
+        // Siparişleri aktif branch'e göre filtrele
+        $customer->load(['addresses', 'orders' => function ($query) use ($user, $activeBranch) {
             $query->with(['items', 'courier', 'restaurant'])
                   ->orderBy('created_at', 'desc');
+            if ($user->isIsletme() && $activeBranch) {
+                $query->where('branch_id', $activeBranch->id);
+            }
         }]);
 
         $stats = [
-            'total_orders' => $customer->total_orders,
-            'total_spent' => $customer->total_spent,
-            'average_order' => $customer->total_orders > 0 
-                ? $customer->total_spent / $customer->total_orders 
+            'total_orders' => $customer->orders->count(),
+            'total_spent' => $customer->orders->sum('total'),
+            'average_order' => $customer->orders->count() > 0
+                ? $customer->orders->sum('total') / $customer->orders->count()
                 : 0,
-            'last_order' => $customer->last_order_at,
-            'favorite_products' => $this->getFavoriteProducts($customer),
+            'last_order' => $customer->orders->first()?->created_at,
+            'favorite_products' => $this->getFavoriteProducts($customer, $activeBranch),
         ];
 
         return view('pages.musteri.show', compact('customer', 'stats'));
@@ -254,10 +279,26 @@ class CustomerController extends Controller
      */
     public function orderHistory(Customer $customer)
     {
-        $orders = $customer->orders()
+        $user = auth()->user();
+        $activeBranch = $user->getActiveBranch();
+
+        // İşletme kullanıcısı için yetki kontrolü
+        if ($user->isIsletme() && $activeBranch) {
+            $hasAccess = $customer->orders()->where('branch_id', $activeBranch->id)->exists();
+            if (!$hasAccess) {
+                abort(403, 'Bu müşteriye erişim yetkiniz yok.');
+            }
+        }
+
+        $query = $customer->orders()
             ->with(['items', 'courier', 'restaurant'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+            ->orderBy('created_at', 'desc');
+
+        if ($user->isIsletme() && $activeBranch) {
+            $query->where('branch_id', $activeBranch->id);
+        }
+
+        $orders = $query->paginate(20);
 
         return view('pages.musteri.orders', compact('customer', 'orders'));
     }
@@ -265,11 +306,15 @@ class CustomerController extends Controller
     /**
      * Get favorite products for a customer
      */
-    private function getFavoriteProducts(Customer $customer): array
+    private function getFavoriteProducts(Customer $customer, $activeBranch = null): array
     {
-        return $customer->orders()
-            ->with('items.product')
-            ->get()
+        $query = $customer->orders()->with('items.product');
+
+        if ($activeBranch) {
+            $query->where('branch_id', $activeBranch->id);
+        }
+
+        return $query->get()
             ->pluck('items')
             ->flatten()
             ->groupBy('product_id')
