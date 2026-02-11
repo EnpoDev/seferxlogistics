@@ -179,6 +179,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is a bayi
+     */
+    public function isBayi(): bool
+    {
+        return $this->hasRole('bayi');
+    }
+
+    /**
+     * Check if user is an isletme
+     */
+    public function isIsletme(): bool
+    {
+        return $this->hasRole('isletme');
+    }
+
+    /**
      * Check if user has access to a specific branch
      */
     public function hasAccessToBranch(int $branchId): bool
