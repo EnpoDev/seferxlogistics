@@ -263,7 +263,7 @@
                             @foreach($userBranches as $branch)
                                 <form method="POST" action="{{ route('branch.switch', $branch) }}">
                                     @csrf
-                                    <button type="submit" class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center justify-between {{ $activeBranch && $activeBranch->id === $branch->id ? 'bg-black/10 dark:bg-white/10' : 'hover:bg-gray-100 dark:hover:bg-white/5' }}">
+                                    <button type="submit" class="w-full text-left px-3 py-2 text-sm transition-colors flex items-center justify-between hover:opacity-80" style="{{ $activeBranch && $activeBranch->id === $branch->id ? 'background: rgba(255,255,255,0.1);' : '' }}">
                                         <span class="text-black dark:text-white">{{ $branch->name }}</span>
                                         @if($activeBranch && $activeBranch->id === $branch->id)
                                             <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
