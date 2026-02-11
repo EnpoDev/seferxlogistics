@@ -259,7 +259,9 @@
                         <div x-show="branchDropdownOpen"
                              @click.away="branchDropdownOpen = false"
                              x-transition
-                             class="absolute left-0 right-0 mt-1 bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                             class="absolute left-0 right-0 mt-1 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto"
+                             style="background: var(--dropdown-bg, #1f1f1f); border: 1px solid var(--dropdown-border, #374151);"
+                             :style="darkMode ? 'background: #1f1f1f; border-color: #374151;' : 'background: #ffffff; border-color: #e5e7eb;'">
                             @foreach($userBranches as $branch)
                                 <form method="POST" action="{{ route('branch.switch', $branch) }}">
                                     @csrf
