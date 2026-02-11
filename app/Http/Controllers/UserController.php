@@ -11,8 +11,24 @@ class UserController extends Controller
 {
     public function index()
     {
-        $users = User::orderBy('name')->paginate(20);
-        
+        $user = auth()->user();
+
+        // Admin/Super Admin tüm kullanıcıları görebilir
+        if ($user->isAdmin()) {
+            $users = User::orderBy('name')->paginate(20);
+        }
+        // Bayi sadece kendi oluşturduğu kullanıcıları görebilir
+        elseif ($user->isBayi()) {
+            $users = User::where('parent_id', $user->id)
+                ->orWhere('id', $user->id)
+                ->orderBy('name')
+                ->paginate(20);
+        }
+        // İşletme sadece kendini görebilir
+        else {
+            $users = User::where('id', $user->id)->paginate(20);
+        }
+
         return view('pages.isletmem.kullanicilar', compact('users'));
     }
 
@@ -34,6 +50,12 @@ class UserController extends Controller
         $validated['password'] = Hash::make($validated['password']);
         $validated['email_verified_at'] = now();
 
+        // Oluşturan kullanıcıyı parent olarak ata (admin değilse)
+        $authUser = auth()->user();
+        if (!$authUser->isAdmin()) {
+            $validated['parent_id'] = $authUser->id;
+        }
+
         $user = User::create($validated);
 
         return redirect()
@@ -43,11 +65,25 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
+        $authUser = auth()->user();
+
+        // Yetki kontrolü
+        if (!$authUser->isAdmin() && $user->parent_id !== $authUser->id && $user->id !== $authUser->id) {
+            abort(403, 'Bu kullanıcıyı düzenleme yetkiniz yok.');
+        }
+
         return view('pages.isletmem.users.edit', compact('user'));
     }
 
     public function update(Request $request, User $user)
     {
+        $authUser = auth()->user();
+
+        // Yetki kontrolü
+        if (!$authUser->isAdmin() && $user->parent_id !== $authUser->id && $user->id !== $authUser->id) {
+            abort(403, 'Bu kullanıcıyı düzenleme yetkiniz yok.');
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
@@ -72,11 +108,20 @@ class UserController extends Controller
 
     public function destroy(User $user)
     {
+        $authUser = auth()->user();
+
         // Prevent deleting yourself
-        if ($user->id === auth()->id()) {
+        if ($user->id === $authUser->id) {
             return redirect()
                 ->route('isletmem.kullanicilar')
                 ->with('error', 'Kendi hesabınızı silemezsiniz.');
+        }
+
+        // Yetki kontrolü
+        if (!$authUser->isAdmin() && $user->parent_id !== $authUser->id) {
+            return redirect()
+                ->route('isletmem.kullanicilar')
+                ->with('error', 'Bu kullanıcıyı silme yetkiniz yok.');
         }
 
         $user->delete();
