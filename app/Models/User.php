@@ -340,7 +340,7 @@ class User extends Authenticatable
      */
     public function getAllBranches()
     {
-        return $this->ownedBranches()->whereNull('parent_id')->get();
+        return $this->ownedBranches()->get();
     }
 
     /**
@@ -358,7 +358,7 @@ class User extends Authenticatable
         }
 
         // Return first owned branch as default
-        return $this->ownedBranches()->whereNull('parent_id')->first();
+        return $this->ownedBranches()->first();
     }
 
     /**
@@ -381,6 +381,6 @@ class User extends Authenticatable
      */
     public function hasMultipleBranches(): bool
     {
-        return $this->ownedBranches()->whereNull('parent_id')->count() > 1;
+        return $this->ownedBranches()->count() > 1;
     }
 }
