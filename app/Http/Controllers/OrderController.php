@@ -59,8 +59,13 @@ class OrderController extends Controller
                 ->toArray();
         }
 
-        // İşletme sees only their own branches
+        // İşletme sees only their active branch (or all if no active branch set)
         if ($user->isIsletme()) {
+            $activeBranch = $user->getActiveBranch();
+            if ($activeBranch) {
+                return [$activeBranch->id];
+            }
+            // Fallback to all owned branches
             return Branch::where('user_id', $user->id)
                 ->pluck('id')
                 ->toArray();
@@ -323,10 +328,13 @@ class OrderController extends Controller
             $courierId = $assignedCourier?->id;
         }
 
+        // Determine branch_id early for courier validation
+        $branchIdForValidation = $validated['branch_id'] ?? auth()->user()->getActiveBranch()?->id;
+
         // Validate courier ownership - ensure courier belongs to branch's bayi
-        if ($courierId && isset($validated['branch_id'])) {
+        if ($courierId && $branchIdForValidation) {
             $courierToValidate = Courier::find($courierId);
-            $branchToValidate = Branch::find($validated['branch_id']);
+            $branchToValidate = Branch::find($branchIdForValidation);
 
             if ($courierToValidate && $branchToValidate) {
                 $branchOwner = $branchToValidate->getOwnerUser();
@@ -344,13 +352,13 @@ class OrderController extends Controller
             }
         }
 
-        // Create order
+        // Create order (use branchIdForValidation determined earlier)
         $order = Order::create([
             'order_number' => $orderNumber,
             'user_id' => auth()->id(),
             'customer_id' => $customer->id,
             'courier_id' => $courierId,
-            'branch_id' => $validated['branch_id'] ?? null,
+            'branch_id' => $branchIdForValidation,
             'restaurant_id' => $validated['restaurant_id'] ?? null,
             'customer_name' => $validated['customer_name'],
             'customer_phone' => $phone,

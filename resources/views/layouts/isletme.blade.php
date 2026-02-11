@@ -237,10 +237,48 @@
                 </a>
             </div>
 
-            <!-- İşletme Adı -->
+            <!-- İşletme Adı / Branch Seçici -->
+            @php
+                $userBranches = auth()->user()->getAllBranches();
+                $activeBranch = auth()->user()->getActiveBranch();
+                $hasMultipleBranches = $userBranches->count() > 1;
+            @endphp
             <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-800">
-                <p class="text-sm font-medium text-black dark:text-white">{{ auth()->user()->branch->name ?? auth()->user()->name }}</p>
-                <p class="text-xs text-gray-600 dark:text-gray-400">İşletme</p>
+                @if($hasMultipleBranches)
+                    <div x-data="{ branchDropdownOpen: false }" class="relative">
+                        <button @click="branchDropdownOpen = !branchDropdownOpen"
+                                class="w-full flex items-center justify-between text-left hover:bg-gray-100 dark:hover:bg-gray-900 rounded-lg px-2 py-1 -mx-2 transition-colors">
+                            <div>
+                                <p class="text-sm font-medium text-black dark:text-white">{{ $activeBranch->name ?? auth()->user()->name }}</p>
+                                <p class="text-xs text-gray-600 dark:text-gray-400">İşletme Seç</p>
+                            </div>
+                            <svg class="w-4 h-4 text-gray-500 transition-transform" :class="{ 'rotate-180': branchDropdownOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div x-show="branchDropdownOpen"
+                             @click.away="branchDropdownOpen = false"
+                             x-transition
+                             class="absolute left-0 right-0 mt-1 bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                            @foreach($userBranches as $branch)
+                                <form method="POST" action="{{ route('branch.switch', $branch) }}">
+                                    @csrf
+                                    <button type="submit" class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-between {{ $activeBranch && $activeBranch->id === $branch->id ? 'bg-gray-100 dark:bg-gray-800' : '' }}">
+                                        <span class="text-black dark:text-white">{{ $branch->name }}</span>
+                                        @if($activeBranch && $activeBranch->id === $branch->id)
+                                            <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                            </svg>
+                                        @endif
+                                    </button>
+                                </form>
+                            @endforeach
+                        </div>
+                    </div>
+                @else
+                    <p class="text-sm font-medium text-black dark:text-white">{{ $activeBranch->name ?? auth()->user()->name }}</p>
+                    <p class="text-xs text-gray-600 dark:text-gray-400">İşletme</p>
+                @endif
             </div>
 
             <!-- Navigation -->

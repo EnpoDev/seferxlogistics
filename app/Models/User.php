@@ -334,4 +334,53 @@ class User extends Authenticatable
     {
         return $this->hasMany(RestaurantConnection::class)->where('is_active', true);
     }
+
+    /**
+     * Get all branches this user can access
+     */
+    public function getAllBranches()
+    {
+        return $this->ownedBranches()->whereNull('parent_id')->get();
+    }
+
+    /**
+     * Get the active branch from session or default
+     */
+    public function getActiveBranch(): ?Branch
+    {
+        $activeBranchId = session('active_branch_id');
+
+        if ($activeBranchId) {
+            $branch = Branch::find($activeBranchId);
+            if ($branch && $branch->user_id === $this->id) {
+                return $branch;
+            }
+        }
+
+        // Return first owned branch as default
+        return $this->ownedBranches()->whereNull('parent_id')->first();
+    }
+
+    /**
+     * Set the active branch in session
+     */
+    public function setActiveBranch(int $branchId): bool
+    {
+        $branch = Branch::find($branchId);
+
+        if ($branch && $branch->user_id === $this->id) {
+            session(['active_branch_id' => $branchId]);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if user has multiple branches
+     */
+    public function hasMultipleBranches(): bool
+    {
+        return $this->ownedBranches()->whereNull('parent_id')->count() > 1;
+    }
 }

@@ -78,6 +78,15 @@ Route::middleware('auth')->group(function () {
     // Logout
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
+    // Branch Switch (for users with multiple branches)
+    Route::post('/branch/switch/{branch}', function (\App\Models\Branch $branch) {
+        $user = auth()->user();
+        if ($user->setActiveBranch($branch->id)) {
+            return redirect()->back()->with('success', $branch->name . ' olarak değiştirildi.');
+        }
+        return redirect()->back()->with('error', 'Bu işletmeye erişim yetkiniz yok.');
+    })->name('branch.switch');
+
     // Panel Selection
     Route::get('/panel-secimi', [PanelController::class, 'showSelection'])->name('panel.selection');
     Route::get('/panel/{panel}', [PanelController::class, 'selectPanel'])->name('panel.select');
