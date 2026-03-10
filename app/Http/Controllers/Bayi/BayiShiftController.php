@@ -130,18 +130,32 @@ class BayiShiftController extends Controller
         $shiftsToUpdate = $request->shifts;
         $breaksToUpdate = $request->break_durations ?? [];
 
+        // NOTE: This bulk update does not have optimistic locking or concurrent modification control.
+        // If two admins update shifts simultaneously, the last write wins without conflict detection.
+        // Consider adding updated_at checks or locking mechanism if concurrent edits become an issue.
+
         $couriers = $query->get();
         foreach ($couriers as $courier) {
             $currentShifts = $courier->shifts ?? [];
             $currentBreaks = $courier->break_durations ?? [];
 
+            // Validate and update shifts (only accept day indexes 0-6)
             foreach ($shiftsToUpdate as $day => $time) {
+                if (!is_numeric($day) || $day < 0 || $day > 6) {
+                    \Log::warning('Invalid shift day index attempted', ['day' => $day, 'courier_id' => $courier->id]);
+                    continue;
+                }
                 if (!is_null($time) && $time !== '') {
                     $currentShifts[$day] = $time;
                 }
             }
 
+            // Validate and update breaks (only accept day indexes 0-6)
             foreach ($breaksToUpdate as $day => $breakData) {
+                if (!is_numeric($day) || $day < 0 || $day > 6) {
+                    \Log::warning('Invalid break day index attempted', ['day' => $day, 'courier_id' => $courier->id]);
+                    continue;
+                }
                 if (isset($breakData['duration']) && isset($breakData['parts'])) {
                     $currentBreaks[$day] = [
                         'duration' => $breakData['duration'],

@@ -28,6 +28,15 @@ abstract class BaseIntegrationService implements IntegrationInterface
     }
 
     /**
+     * Set the integration model (useful when you need to use a specific integration instance)
+     */
+    public function setIntegration(?Integration $integration): self
+    {
+        $this->integration = $integration;
+        return $this;
+    }
+
+    /**
      * Get or create integration record
      */
     protected function getOrCreateIntegration(array $data = []): Integration

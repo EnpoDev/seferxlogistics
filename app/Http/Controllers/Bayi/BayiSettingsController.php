@@ -613,15 +613,9 @@ class BayiSettingsController extends Controller
             return null;
         }
 
+        // Create service and use setter method instead of reflection
         $service = new \App\Services\Integrations\TrendyolService($integration->branch);
-
-        // Integration'ı service'e set et
-        $reflector = new \ReflectionClass($service);
-        if ($reflector->hasProperty('integration')) {
-            $property = $reflector->getProperty('integration');
-            $property->setAccessible(true);
-            $property->setValue($service, $integration);
-        }
+        $service->setIntegration($integration);
 
         return $service;
     }

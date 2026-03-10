@@ -234,8 +234,15 @@ function deliverApp() {
                 this.$refs.video.srcObject = this.stream;
             } catch (error) {
                 console.error('Camera error:', error);
-                this.error = 'Kamera erişimi sağlanamadı. Lütfen kamera izinlerini kontrol edin.';
-                setTimeout(() => this.error = null, 5000);
+                // Permanent error state - don't auto-hide for permission issues
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    this.error = 'Kamera izni reddedildi. Lütfen tarayıcı ayarlarından kamera erişimine izin verin ve sayfayı yenileyin.';
+                } else if (error.name === 'NotFoundError') {
+                    this.error = 'Kamera bulunamadı. Lütfen cihazınızın kamerası olduğundan emin olun.';
+                } else {
+                    this.error = 'Kamera erişimi sağlanamadı. Lütfen kamera izinlerini kontrol edin.';
+                }
+                // Error stays visible until user fixes permission or leaves page
             }
         },
 
