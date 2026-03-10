@@ -354,6 +354,11 @@ class BayiBranchController extends Controller
             'amount' => 'required|numeric|min:0.01',
         ]);
 
+        // Double-check: Ensure amount is positive (business logic layer)
+        if ($validated['amount'] <= 0) {
+            return back()->with('error', 'Eklenecek tutar pozitif olmalıdır.');
+        }
+
         if (!$branch->settings) {
             return back()->with('error', __('messages.error.branch_settings_not_found'));
         }
@@ -566,6 +571,11 @@ class BayiBranchController extends Controller
     {
         $this->checkBranchOwnership($branch);
 
+        // Verify policy belongs to this branch
+        if ($policy->branch_id !== $branch->id) {
+            abort(403, 'Bu fiyatlandırma politikası bu işletmeye ait değil.');
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -589,6 +599,11 @@ class BayiBranchController extends Controller
     {
         $this->checkBranchOwnership($branch);
 
+        // Verify policy belongs to this branch
+        if ($policy->branch_id !== $branch->id) {
+            abort(403, 'Bu fiyatlandırma politikası bu işletmeye ait değil.');
+        }
+
         $policy->delete();
 
         return response()->json([
@@ -606,6 +621,16 @@ class BayiBranchController extends Controller
             'percentage' => 'nullable|numeric|min:0|max:100',
             'order' => 'nullable|integer|min:0',
         ]);
+
+        // Validate min < max if both provided
+        if (isset($validated['min_value']) && isset($validated['max_value'])) {
+            if ($validated['min_value'] >= $validated['max_value']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Minimum değer maksimum değerden küçük olmalıdır.',
+                ], 422);
+            }
+        }
 
         $rule = $policy->rules()->create($validated);
 

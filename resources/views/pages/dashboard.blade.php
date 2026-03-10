@@ -96,49 +96,54 @@
             </x-ui.card>
         </div>
 
-        {{-- Courier Status --}}
-        <x-ui.card class="overflow-hidden">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-800">
-                <h3 class="font-semibold text-black dark:text-white">Kurye Durumu</h3>
-            </div>
-            <div class="p-4 space-y-4">
-                <x-layout.grid cols="2" gap="3">
-                    <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                        <p class="text-xs text-green-600">Müsait</p>
-                        <p class="text-xl font-bold text-green-700 dark:text-green-400">{{ $courierStats['available_couriers'] }}</p>
-                    </div>
-                    <div class="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                        <p class="text-xs text-orange-600">Meşgul</p>
-                        <p class="text-xl font-bold text-orange-700 dark:text-orange-400">{{ $courierStats['busy_couriers'] }}</p>
-                    </div>
-                    <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <p class="text-xs text-gray-600">Çevrimdışı</p>
-                        <p class="text-xl font-bold text-gray-700 dark:text-gray-400">{{ $courierStats['offline_couriers'] }}</p>
-                    </div>
-                    <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                        <p class="text-xs text-blue-600">Vardiyada</p>
-                        <p class="text-xl font-bold text-blue-700 dark:text-blue-400">{{ $courierStats['on_shift_couriers'] }}</p>
-                    </div>
-                </x-layout.grid>
-
-                <div>
-                    <p class="text-sm text-gray-500 mb-2">Müsait Kuryeler</p>
-                    <div class="space-y-2 max-h-48 overflow-y-auto">
-                        @forelse($availableCouriers as $courier)
-                        <div class="flex items-center space-x-3 p-2 bg-gray-50 dark:bg-black rounded-lg">
-                            <x-data.courier-avatar :courier="$courier" size="sm" />
-                            <div class="flex-1 min-w-0">
-                                <p class="text-sm font-medium text-black dark:text-white truncate">{{ $courier->name }}</p>
-                                <p class="text-xs text-gray-500">{{ $courier->active_orders_count }} aktif sipariş</p>
-                            </div>
+        <div class="space-y-6">
+            {{-- Courier Status --}}
+            <x-ui.card class="overflow-hidden">
+                <div class="p-4 border-b border-gray-200 dark:border-gray-800">
+                    <h3 class="font-semibold text-black dark:text-white">Kurye Durumu</h3>
+                </div>
+                <div class="p-4 space-y-4">
+                    <x-layout.grid cols="2" gap="3">
+                        <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                            <p class="text-xs text-green-600">Müsait</p>
+                            <p class="text-xl font-bold text-green-700 dark:text-green-400">{{ $courierStats['available_couriers'] }}</p>
                         </div>
-                        @empty
-                        <p class="text-sm text-gray-400 text-center py-4">Müsait kurye yok</p>
-                        @endforelse
+                        <div class="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                            <p class="text-xs text-orange-600">Meşgul</p>
+                            <p class="text-xl font-bold text-orange-700 dark:text-orange-400">{{ $courierStats['busy_couriers'] }}</p>
+                        </div>
+                        <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                            <p class="text-xs text-gray-600">Çevrimdışı</p>
+                            <p class="text-xl font-bold text-gray-700 dark:text-gray-400">{{ $courierStats['offline_couriers'] }}</p>
+                        </div>
+                        <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                            <p class="text-xs text-blue-600">Vardiyada</p>
+                            <p class="text-xl font-bold text-blue-700 dark:text-blue-400">{{ $courierStats['on_shift_couriers'] }}</p>
+                        </div>
+                    </x-layout.grid>
+
+                    <div>
+                        <p class="text-sm text-gray-500 mb-2">Müsait Kuryeler</p>
+                        <div class="space-y-2 max-h-48 overflow-y-auto">
+                            @forelse($availableCouriers as $courier)
+                            <div class="flex items-center space-x-3 p-2 bg-gray-50 dark:bg-black rounded-lg">
+                                <x-data.courier-avatar :courier="$courier" size="sm" />
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-black dark:text-white truncate">{{ $courier->name }}</p>
+                                    <p class="text-xs text-gray-500">{{ $courier->active_orders_count }} aktif sipariş</p>
+                                </div>
+                            </div>
+                            @empty
+                            <p class="text-sm text-gray-400 text-center py-4">Müsait kurye yok</p>
+                            @endforelse
+                        </div>
                     </div>
                 </div>
-            </div>
-        </x-ui.card>
+            </x-ui.card>
+
+            {{-- Recent Calls --}}
+            <x-dashboard.recent-calls-widget />
+        </div>
     </x-layout.grid>
 
     {{-- Bottom Section --}}

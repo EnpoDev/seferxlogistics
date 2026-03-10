@@ -311,7 +311,20 @@ class KuryeAppController extends Controller
                         ->first();
 
                     if ($order) {
-                        $order->update(['status' => $update['status']]);
+                        $newStatus = $update['status'];
+
+                        // Validate status transition
+                        if (!$this->isValidCourierStatusTransition($order->status, $newStatus)) {
+                            \Log::warning('Invalid status transition in bulk sync', [
+                                'order_id' => $order->id,
+                                'current_status' => $order->status,
+                                'new_status' => $newStatus,
+                            ]);
+                            $results['status_updates']['failed']++;
+                            continue;
+                        }
+
+                        $order->update(['status' => $newStatus]);
                         $results['status_updates']['success']++;
                     } else {
                         $results['status_updates']['failed']++;
@@ -672,6 +685,23 @@ class KuryeAppController extends Controller
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
 
         return round($earthRadius * $c, 2);
+    }
+
+    /**
+     * Validate courier status transitions (more limited than admin transitions)
+     */
+    private function isValidCourierStatusTransition(string $currentStatus, string $newStatus): bool
+    {
+        // Couriers can only update to specific statuses
+        $validTransitions = [
+            Order::STATUS_READY => [Order::STATUS_ON_DELIVERY],
+            Order::STATUS_ON_DELIVERY => [Order::STATUS_DELIVERED, Order::STATUS_RETURNED],
+            Order::STATUS_DELIVERED => [], // Terminal state
+            Order::STATUS_RETURNED => [],  // Terminal state
+        ];
+
+        return isset($validTransitions[$currentStatus]) &&
+               in_array($newStatus, $validTransitions[$currentStatus]);
     }
 }
 

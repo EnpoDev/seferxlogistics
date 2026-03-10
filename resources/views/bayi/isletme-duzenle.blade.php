@@ -74,6 +74,43 @@
                     </div>
                 </form>
 
+                {{-- Caller ID Ayarları Formu --}}
+                <form action="{{ route('bayi.isletme.caller-id-ayarlar', $branch->id) }}" method="POST" class="mt-6">
+                    @csrf
+                    <x-layout.section title="Caller ID Ayarları" description="Gelen arama bildirimi için CallerID cihaz ayarlarını yapın." border>
+                        <div class="space-y-4">
+                            <x-form.toggle
+                                name="caller_id_enabled"
+                                label="Caller ID Aktif"
+                                description="CallerID cihazından gelen aramaların kaydedilmesini aktif eder."
+                                :checked="$branch->settings?->caller_id_enabled ?? false"
+                            />
+
+                            <x-form.input
+                                name="caller_id_device_id"
+                                label="Cihaz ID (Device Serial)"
+                                hint="CallerID cihazınızın seri numarasını girin. Örnek: CID-12345-ABC veya DA6FE9126"
+                                :value="old('caller_id_device_id', $branch->settings?->caller_id_device_id)"
+                                placeholder="CID-12345-ABC"
+                            />
+
+                            <x-feedback.alert type="info" title="Caller ID Nasıl Çalışır?">
+                                <div class="text-sm space-y-2">
+                                    <p>1. CallerID cihazınızın seri numarasını yukarıdaki alana girin</p>
+                                    <p>2. "Caller ID Aktif" seçeneğini açın</p>
+                                    <p>3. Cihazınız gelen aramaları otomatik olarak sisteme kaydedecek</p>
+                                    <p>4. Dashboard'da son aramaları ve müşteri bilgilerini görebilirsiniz</p>
+                                    <p class="mt-3 font-medium">📞 Arama geçmişine <a href="{{ route('isletmem.aramalar') }}" class="text-blue-600 underline">buradan</a> ulaşabilirsiniz.</p>
+                                </div>
+                            </x-feedback.alert>
+                        </div>
+                    </x-layout.section>
+
+                    <div class="flex justify-end mt-4">
+                        <x-ui.button type="submit">Caller ID Ayarlarını Kaydet</x-ui.button>
+                    </div>
+                </form>
+
                 {{-- Bakiye Ekle Formu --}}
                 <form action="{{ route('bayi.isletme.bakiye-ekle', $branch->id) }}" method="POST" class="mt-6">
                     @csrf

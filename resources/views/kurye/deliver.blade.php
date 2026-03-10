@@ -77,6 +77,35 @@
                            class="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-green-500">
                 </div>
 
+                <!-- Address Validation -->
+                <div class="bg-white/10 backdrop-blur border border-white/20 rounded-xl p-4">
+                    <p class="text-white/90 text-sm font-semibold mb-3">Adres Doğru mu?</p>
+                    <div class="flex items-center space-x-3 mb-3">
+                        <label class="flex-1 flex items-center justify-center py-3 px-4 rounded-lg cursor-pointer transition-all"
+                               :class="addressCorrect ? 'bg-green-500' : 'bg-white/10'"
+                               @click="addressCorrect = true; correctedAddress = ''">
+                            <input type="radio" name="address_correct" value="1" x-model="addressCorrect" class="hidden">
+                            <svg class="w-5 h-5 text-white mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            <span class="text-white font-medium">Doğru</span>
+                        </label>
+                        <label class="flex-1 flex items-center justify-center py-3 px-4 rounded-lg cursor-pointer transition-all"
+                               :class="!addressCorrect && addressCorrect !== null ? 'bg-red-500' : 'bg-white/10'"
+                               @click="addressCorrect = false">
+                            <input type="radio" name="address_correct" value="0" x-model="addressCorrect" class="hidden">
+                            <svg class="w-5 h-5 text-white mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                            <span class="text-white font-medium">Yanlış</span>
+                        </label>
+                    </div>
+                    <div x-show="!addressCorrect && addressCorrect !== null" x-transition class="mt-3">
+                        <input type="text" x-model="correctedAddress" placeholder="Doğru adresi girin..."
+                               class="w-full px-4 py-3 bg-white/10 backdrop-blur border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-yellow-500 text-sm">
+                    </div>
+                </div>
+
                 <div class="flex items-center space-x-4">
                     <!-- Retake -->
                     <button @click="retakePhoto" class="flex-1 py-4 bg-white/20 backdrop-blur text-white rounded-xl font-semibold">
@@ -153,6 +182,8 @@ function deliverApp() {
         photo: null,
         photoBlob: null,
         note: '',
+        addressCorrect: true, // Default to correct
+        correctedAddress: '',
         uploading: false,
         showSuccess: false,
         error: null,
@@ -270,6 +301,12 @@ function deliverApp() {
 
             if (this.note) {
                 formData.append('note', this.note);
+            }
+
+            // Address validation
+            formData.append('address_correct', this.addressCorrect ? '1' : '0');
+            if (!this.addressCorrect && this.correctedAddress) {
+                formData.append('corrected_address', this.correctedAddress);
             }
 
             if (this.currentLocation) {

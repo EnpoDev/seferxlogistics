@@ -378,9 +378,11 @@ class BayiSettingsController extends Controller
         }
 
         $statuses = $request->input('statuses', ['Created', 'Picking', 'Invoiced', 'Shipped']);
+        $page = $request->input('page', 0);
+        $size = $request->input('size', 50); // Limit to 50 orders per page
 
         try {
-            $orders = $trendyolService->fetchOrdersByStatuses($statuses);
+            $orders = $trendyolService->fetchOrdersByStatuses($statuses, $page, $size);
 
             $parsedOrders = [];
             foreach ($orders as $order) {
