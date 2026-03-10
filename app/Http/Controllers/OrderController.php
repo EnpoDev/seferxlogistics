@@ -326,6 +326,14 @@ class OrderController extends Controller
                 $validated['lng'] ?? null
             );
             $courierId = $assignedCourier?->id;
+
+            if (!$courierId) {
+                \Log::warning('Auto-assign courier failed - no available courier found', [
+                    'lat' => $validated['lat'] ?? null,
+                    'lng' => $validated['lng'] ?? null,
+                    'branch_id' => $validated['branch_id'] ?? null,
+                ]);
+            }
         }
 
         // Determine branch_id early for courier validation
@@ -359,6 +367,7 @@ class OrderController extends Controller
             'customer_id' => $customer->id,
             'courier_id' => $courierId,
             'branch_id' => $branchIdForValidation,
+            'zone_id' => $validated['zone_id'] ?? null,
             'restaurant_id' => $validated['restaurant_id'] ?? null,
             'customer_name' => $validated['customer_name'],
             'customer_phone' => $phone,
@@ -385,6 +394,12 @@ class OrderController extends Controller
         if ($courierId) {
             $courier = Courier::find($courierId);
             $courier?->incrementActiveOrders();
+        }
+
+        // Increment zone order count if zone is set
+        if (isset($validated['zone_id'])) {
+            $zone = \App\Models\Zone::find($validated['zone_id']);
+            $zone?->incrementOrderCount();
         }
 
         // Broadcast order created event
@@ -490,46 +505,63 @@ class OrderController extends Controller
 
         // Atomic transaction ile kurye atama ve siparis guncelleme
         // Race condition'lari onlemek icin lockForUpdate kullaniyoruz
-        DB::transaction(function () use ($order, $validated, $subtotal, $total, $timestamps, $newItems, $oldCourierId, $newCourierId) {
-            // Siparisi kilitle
-            $order = Order::lockForUpdate()->find($order->id);
+        try {
+            DB::transaction(function () use ($order, $validated, $subtotal, $total, $timestamps, $newItems, $oldCourierId, $newCourierId) {
+                // Siparisi kilitle
+                $order = Order::lockForUpdate()->find($order->id);
 
-            // Update order
-            $order->update([
-                'customer_name' => $validated['customer_name'],
-                'customer_phone' => preg_replace('/[^0-9]/', '', $validated['customer_phone']),
-                'customer_address' => $validated['customer_address'],
-                'lat' => $validated['lat'] ?? null,
-                'lng' => $validated['lng'] ?? null,
-                'courier_id' => $newCourierId,
-                'branch_id' => $validated['branch_id'] ?? null,
-                'restaurant_id' => $validated['restaurant_id'] ?? null,
-                'subtotal' => $subtotal,
-                'delivery_fee' => $validated['delivery_fee'],
-                'total' => $total,
-                'payment_method' => $validated['payment_method'] ?? 'cash',
-                'status' => $validated['status'],
-                'notes' => $validated['notes'] ?? null,
-            ] + $timestamps);
+                // Update order
+                $order->update([
+                    'customer_name' => $validated['customer_name'],
+                    'customer_phone' => preg_replace('/[^0-9]/', '', $validated['customer_phone']),
+                    'customer_address' => $validated['customer_address'],
+                    'lat' => $validated['lat'] ?? null,
+                    'lng' => $validated['lng'] ?? null,
+                    'courier_id' => $newCourierId,
+                    'branch_id' => $validated['branch_id'] ?? null,
+                    'restaurant_id' => $validated['restaurant_id'] ?? null,
+                    'subtotal' => $subtotal,
+                    'delivery_fee' => $validated['delivery_fee'],
+                    'total' => $total,
+                    'payment_method' => $validated['payment_method'] ?? 'cash',
+                    'status' => $validated['status'],
+                    'notes' => $validated['notes'] ?? null,
+                ] + $timestamps);
 
-            // Handle courier change - atomic
-            if ($oldCourierId !== $newCourierId && !in_array($validated['status'], ['delivered', 'cancelled'])) {
-                if ($oldCourierId) {
-                    $oldCourier = Courier::lockForUpdate()->find($oldCourierId);
-                    $oldCourier?->decrementActiveOrders();
+                // Handle courier change - atomic
+                if ($oldCourierId !== $newCourierId && !in_array($validated['status'], ['delivered', 'cancelled'])) {
+                    if ($oldCourierId) {
+                        $oldCourier = Courier::lockForUpdate()->find($oldCourierId);
+                        $oldCourier?->decrementActiveOrders();
+                    }
+                    if ($newCourierId) {
+                        $newCourier = Courier::lockForUpdate()->find($newCourierId);
+                        $newCourier?->incrementActiveOrders();
+                    }
                 }
-                if ($newCourierId) {
-                    $newCourier = Courier::lockForUpdate()->find($newCourierId);
-                    $newCourier?->incrementActiveOrders();
+
+                // Update order items - delete old and create new
+                $order->items()->delete();
+                foreach ($newItems as $item) {
+                    $order->items()->create($item);
                 }
+            });
+        } catch (\Exception $e) {
+            \Log::error('Order update transaction failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sipariş güncellenirken bir hata oluştu. Lütfen tekrar deneyin.'
+                ], 500);
             }
 
-            // Update order items - delete old and create new
-            $order->items()->delete();
-            foreach ($newItems as $item) {
-                $order->items()->create($item);
-            }
-        });
+            return back()->withInput()->with('error', 'Sipariş güncellenirken bir hata oluştu. Lütfen tekrar deneyin.');
+        }
 
         // Add to pool if status is ready and no courier assigned
         if ($validated['status'] === 'ready' && !$newCourierId) {

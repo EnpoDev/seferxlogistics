@@ -15,12 +15,16 @@ class Zone extends Model
         'is_active',
         'delivery_fee',
         'estimated_delivery_minutes',
+        'daily_order_limit',
+        'current_order_count',
     ];
 
     protected $casts = [
         'coordinates' => 'array',
         'is_active' => 'boolean',
         'delivery_fee' => 'decimal:2',
+        'daily_order_limit' => 'integer',
+        'current_order_count' => 'integer',
     ];
 
     // Relationships
@@ -30,6 +34,9 @@ class Zone extends Model
             ->withPivot('is_primary')
             ->withTimestamps();
     }
+
+    // Note: Branch-Zone relationship removed as pivot table doesn't exist
+    // and the relationship was not being used anywhere in the codebase
 
     // Scopes
     public function scopeActive($query)
@@ -122,6 +129,74 @@ class Zone extends Model
     public function getFormattedDeliveryFeeAttribute(): string
     {
         return '₺' . number_format($this->delivery_fee, 2, ',', '.');
+    }
+
+    /**
+     * Check if zone can accept new orders
+     */
+    public function canAcceptOrders(): bool
+    {
+        // If zone is inactive, cannot accept orders
+        if (!$this->is_active) {
+            return false;
+        }
+
+        // If no limit set, can always accept
+        if ($this->daily_order_limit === null) {
+            return true;
+        }
+
+        // Check if current count is below limit
+        return $this->current_order_count < $this->daily_order_limit;
+    }
+
+    /**
+     * Increment order count for this zone
+     */
+    public function incrementOrderCount(): void
+    {
+        $this->increment('current_order_count');
+        $this->refresh(); // Refresh to get the updated value
+
+        // Auto-disable if limit reached
+        if ($this->daily_order_limit && $this->current_order_count >= $this->daily_order_limit) {
+            $this->update(['is_active' => false]);
+        }
+    }
+
+    /**
+     * Reset daily order count (should be run daily via scheduler)
+     */
+    public function resetDailyCount(): void
+    {
+        $this->update([
+            'current_order_count' => 0,
+            'is_active' => true, // Re-enable zone
+        ]);
+    }
+
+    /**
+     * Get remaining order capacity
+     */
+    public function getRemainingCapacity(): ?int
+    {
+        if ($this->daily_order_limit === null) {
+            return null; // Unlimited
+        }
+
+        return max(0, $this->daily_order_limit - $this->current_order_count);
+    }
+
+    /**
+     * Check if zone is at capacity
+     */
+    public function isAtCapacity(): bool
+    {
+        if ($this->daily_order_limit === null) {
+            return false;
+        }
+
+        return $this->current_order_count >= $this->daily_order_limit;
     }
 }
 

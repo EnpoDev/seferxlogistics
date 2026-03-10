@@ -715,4 +715,27 @@ class BayiBranchController extends Controller
 
         return $pdf->download('isletme-odemeler-rapor-' . now()->format('Y-m-d') . '.pdf');
     }
+
+    /**
+     * Update CallerID settings for a branch
+     */
+    public function updateBranchCallerIdSettings(Request $request, \App\Models\Branch $branch)
+    {
+        $this->checkBranchOwnership($branch);
+
+        $validated = $request->validate([
+            'caller_id_enabled' => 'nullable|boolean',
+            'caller_id_device_id' => 'nullable|string|max:50',
+        ]);
+
+        // Ensure settings exist
+        $settings = $branch->settings()->firstOrCreate(['branch_id' => $branch->id]);
+
+        $settings->update([
+            'caller_id_enabled' => $request->boolean('caller_id_enabled'),
+            'caller_id_device_id' => $validated['caller_id_device_id'] ?? null,
+        ]);
+
+        return back()->with('success', 'Caller ID ayarları güncellendi.');
+    }
 }

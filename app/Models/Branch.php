@@ -19,6 +19,13 @@ class Branch extends Model
         'is_active',
         'parent_id',
         'user_id',
+        // Payment Options
+        'payment_cash_enabled',
+        'payment_card_enabled',
+        'payment_online_enabled',
+        'payment_bank_transfer_enabled',
+        'payment_meal_cards_enabled',
+        'enabled_meal_cards',
     ];
 
     protected $casts = [
@@ -26,6 +33,13 @@ class Branch extends Model
         'lng' => 'decimal:7',
         'is_main' => 'boolean',
         'is_active' => 'boolean',
+        // Payment Options
+        'payment_cash_enabled' => 'boolean',
+        'payment_card_enabled' => 'boolean',
+        'payment_online_enabled' => 'boolean',
+        'payment_bank_transfer_enabled' => 'boolean',
+        'payment_meal_cards_enabled' => 'boolean',
+        'enabled_meal_cards' => 'array',
     ];
 
     // Relationships
@@ -59,10 +73,9 @@ class Branch extends Model
         return $this->hasMany(Transaction::class);
     }
 
-    public function zones()
+    public function callerIdLogs()
     {
-        return $this->belongsToMany(Zone::class)
-            ->withTimestamps();
+        return $this->hasMany(CallerIdLog::class);
     }
 
     /**

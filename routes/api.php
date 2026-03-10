@@ -95,3 +95,12 @@ Route::prefix('cagri')->middleware(['throttle:120,1'])->group(function () {
     // Receive incoming call from Caller ID device
     Route::get('/al/{branchId}', [CallerIdController::class, 'receive']);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Authenticated API Routes
+|--------------------------------------------------------------------------
+| Note: /isletmem/recent-calls moved to routes/web.php for proper
+| session-based authentication handling.
+|--------------------------------------------------------------------------
+*/

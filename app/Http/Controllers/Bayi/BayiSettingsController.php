@@ -172,6 +172,51 @@ class BayiSettingsController extends Controller
     }
 
     // ============================================
+    // ÖDEME YÖNTEMLERİ AYARLARI
+    // ============================================
+
+    public function ayarlarOdeme()
+    {
+        $branch = \App\Models\Branch::whereNull('parent_id')->first();
+
+        if (!$branch) {
+            return redirect()->route('bayi.dashboard')->with('error', __('messages.error.branch_not_found'));
+        }
+
+        return view('bayi.ayarlar.odeme', compact('branch'));
+    }
+
+    public function updateOdeme(Request $request)
+    {
+        $validated = $request->validate([
+            'payment_cash_enabled' => 'nullable|boolean',
+            'payment_card_enabled' => 'nullable|boolean',
+            'payment_online_enabled' => 'nullable|boolean',
+            'payment_bank_transfer_enabled' => 'nullable|boolean',
+            'payment_meal_cards_enabled' => 'nullable|boolean',
+            'enabled_meal_cards' => 'nullable|array',
+            'enabled_meal_cards.*' => 'string|in:sodexo,multinet,ticket,metropol,setcard,edenred,pluxee,tokenflex',
+        ]);
+
+        $branch = \App\Models\Branch::whereNull('parent_id')->first();
+
+        if (!$branch) {
+            return back()->with('error', __('messages.error.branch_not_found'));
+        }
+
+        $branch->update([
+            'payment_cash_enabled' => $request->boolean('payment_cash_enabled'),
+            'payment_card_enabled' => $request->boolean('payment_card_enabled'),
+            'payment_online_enabled' => $request->boolean('payment_online_enabled'),
+            'payment_bank_transfer_enabled' => $request->boolean('payment_bank_transfer_enabled'),
+            'payment_meal_cards_enabled' => $request->boolean('payment_meal_cards_enabled'),
+            'enabled_meal_cards' => $request->input('enabled_meal_cards', []),
+        ]);
+
+        return back()->with('success', __('messages.success.payment_settings_updated'));
+    }
+
+    // ============================================
     // TRENDYOL GO ENTEGRASYONU
     // ============================================
 

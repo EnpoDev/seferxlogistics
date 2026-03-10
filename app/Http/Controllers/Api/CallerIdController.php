@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\IncomingCallReceived;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\CallerIdLog;
@@ -204,8 +205,9 @@ class CallerIdController extends Controller
         }
 
         // Log the incoming call
+        $log = null;
         if (!empty($phone)) {
-            CallerIdLog::create([
+            $log = CallerIdLog::create([
                 'branch_id' => $branchId,
                 'customer_id' => $customer?->id,
                 'phone' => $phone,
@@ -216,6 +218,9 @@ class CallerIdController extends Controller
                 'str1' => $str1 ?: null,
                 'ip' => $request->ip(),
             ]);
+
+            // Broadcast event for real-time updates
+            event(new IncomingCallReceived($log));
         }
 
         // Branch (işletme) info

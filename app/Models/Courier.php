@@ -165,6 +165,16 @@ class Courier extends Authenticatable
         return $this->courierNotifications()->whereNull('read_at');
     }
 
+    public function mealShifts(): HasMany
+    {
+        return $this->hasMany(CourierMealShift::class);
+    }
+
+    public function mealBenefits(): HasMany
+    {
+        return $this->hasMany(CourierMealBenefit::class);
+    }
+
     // Scopes
     public function scopeAvailable($query)
     {
@@ -443,5 +453,86 @@ class Courier extends Authenticatable
         }
 
         return \Illuminate\Support\Facades\Storage::url($this->photo_path);
+    }
+
+    // ============================================
+    // MEAL ALLOWANCE & BENEFITS
+    // ============================================
+
+    /**
+     * Calculate meal allowance for a specific date based on work hours
+     * Policy: 1 meal allowance per 4+ hours worked
+     *
+     * @param string|null $date Date in Y-m-d format (defaults to today)
+     * @return float Meal allowance amount
+     */
+    public function calculateMealAllowance($date = null): float
+    {
+        $date = $date ?? now()->format('Y-m-d');
+
+        // Get all meal shifts for the date
+        $shifts = $this->mealShifts()
+            ->active()
+            ->forDate($date)
+            ->get();
+
+        if ($shifts->isEmpty()) {
+            return 0;
+        }
+
+        // Calculate total hours worked
+        $totalHours = $shifts->sum(function ($shift) {
+            return $shift->getDurationHours();
+        });
+
+        // Policy: 1 meal per 4+ hours worked
+        $mealCount = floor($totalHours / 4);
+
+        // Default meal allowance amount (can be made configurable)
+        $mealAllowanceAmount = config('courier.meal_allowance_amount', 50);
+
+        return $mealCount * $mealAllowanceAmount;
+    }
+
+    /**
+     * Get today's meal shifts
+     */
+    public function getTodayMealShifts()
+    {
+        return $this->mealShifts()
+            ->active()
+            ->forDate(now())
+            ->get();
+    }
+
+    /**
+     * Get unused meal benefits
+     */
+    public function getUnusedMealBenefits()
+    {
+        return $this->mealBenefits()
+            ->unused()
+            ->where('benefit_date', '>=', now()->startOfDay())
+            ->get();
+    }
+
+    /**
+     * Get meal benefit for today by meal type
+     */
+    public function getTodayMealBenefit($mealType)
+    {
+        return $this->mealBenefits()
+            ->forDate(now())
+            ->forMealType($mealType)
+            ->first();
+    }
+
+    /**
+     * Check if courier has a valid meal benefit for a specific meal type today
+     */
+    public function hasMealBenefitForToday($mealType): bool
+    {
+        $benefit = $this->getTodayMealBenefit($mealType);
+        return $benefit && $benefit->isValid();
     }
 }

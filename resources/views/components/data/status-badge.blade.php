@@ -7,11 +7,13 @@
     // Siparis durumlari
     $orderStatuses = [
         'pending' => ['label' => 'Beklemede', 'type' => 'warning'],
+        'accepted' => ['label' => 'Kabul Edildi', 'type' => 'info'],
         'preparing' => ['label' => 'Hazirlaniyor', 'type' => 'info'],
         'ready' => ['label' => 'Hazir', 'type' => 'purple'],
         'assigned' => ['label' => 'Atandi', 'type' => 'info'],
         'picked_up' => ['label' => 'Alindi', 'type' => 'info'],
         'on_way' => ['label' => 'Yolda', 'type' => 'info'],
+        'on_the_way' => ['label' => 'Yolda', 'type' => 'info'],
         'on_delivery' => ['label' => 'Teslimat Yolunda', 'type' => 'info'],
         'delivered' => ['label' => 'Teslim Edildi', 'type' => 'success'],
         'cancelled' => ['label' => 'Iptal', 'type' => 'danger'],

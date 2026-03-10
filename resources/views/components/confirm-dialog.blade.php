@@ -128,6 +128,13 @@
                 window.closeConfirmDialog();
             }
         });
+
+        // Listen for open-confirm custom event (Alpine.js compatibility)
+        window.addEventListener('open-confirm', function(e) {
+            if (e.detail) {
+                window.showConfirmDialog(e.detail);
+            }
+        });
     }
 
     // Run after everything is loaded to ensure we override any other definitions

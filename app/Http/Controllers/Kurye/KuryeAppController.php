@@ -562,6 +562,8 @@ class KuryeAppController extends Controller
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
             'note' => ['nullable', 'string', 'max:500'],
+            'address_correct' => ['nullable', 'boolean'],
+            'corrected_address' => ['nullable', 'string', 'max:500'],
         ]);
 
         $location = null;
@@ -573,6 +575,13 @@ class KuryeAppController extends Controller
         }
 
         try {
+            // Save address validation data
+            $order->address_was_correct = $request->input('address_correct', true);
+            if ($request->filled('corrected_address')) {
+                $order->courier_corrected_address = $request->corrected_address;
+            }
+            $order->save();
+
             $podService = new ProofOfDeliveryService();
             $result = $podService->uploadPhoto(
                 $order,

@@ -45,6 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'webhook.validate' => \App\Http\Middleware\ValidateWebhookSignature::class,
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'api.key' => \App\Http\Middleware\ValidateApiKey::class,
+            'role' => \App\Http\Middleware\CheckRole::class,
         ]);
 
         // Kurye guard için özel yönlendirme

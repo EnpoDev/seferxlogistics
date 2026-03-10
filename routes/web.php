@@ -171,6 +171,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/api/orders/search', [ApiController::class, 'searchOrders'])->name('api.orders.search');
         Route::get('/api/couriers/{courier}', [ApiController::class, 'showCourier'])->name('api.couriers.show');
         Route::get('/api/map-data', [ApiController::class, 'mapData'])->name('api.map-data');
+        Route::get('/api/isletmem/recent-calls', [\App\Http\Controllers\CallerIdLogController::class, 'getRecentCalls'])->name('api.isletmem.recent-calls');
     });
     
     // Dashboard
@@ -213,6 +214,9 @@ Route::middleware('auth')->group(function () {
     
     // Eski müşteri route'u
     Route::get('/isletmem/musteriler', [CustomerController::class, 'index'])->name('isletmem.musteriler');
+
+    // Caller ID / Arama Geçmişi
+    Route::get('/isletmem/aramalar', [\App\Http\Controllers\CallerIdLogController::class, 'index'])->name('isletmem.aramalar');
 
     // Hesap Ayarları
     Route::get('/ayarlar/genel', [SettingsController::class, 'general'])->name('ayarlar.genel');
@@ -257,7 +261,7 @@ Route::middleware('auth')->group(function () {
     // ============================================
     // BAYI PANEL ROUTES
     // ============================================
-    Route::prefix('bayi')->name('bayi.')->group(function () {
+    Route::prefix('bayi')->name('bayi.')->middleware('role:bayi')->group(function () {
         Route::get('/harita', [\App\Http\Controllers\Bayi\BayiMapController::class, 'harita'])->name('harita');
 
         // Kurye Routes - BayiCourierController
@@ -293,6 +297,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/isletmelerim/{branch}', [BayiBranchController::class, 'isletmeSil'])->name('isletme-sil');
         Route::post('/isletmelerim/{branch}/giris', [BayiBranchController::class, 'isletmeOlarakGiris'])->name('isletme.giris');
         Route::post('/isletmelerim/{branch}/ayarlar', [BayiBranchController::class, 'updateBranchSettings'])->name('isletme.ayarlar');
+        Route::post('/isletmelerim/{branch}/caller-id-ayarlar', [BayiBranchController::class, 'updateBranchCallerIdSettings'])->name('isletme.caller-id-ayarlar');
         Route::post('/isletmelerim/{branch}/bakiye-ekle', [BayiBranchController::class, 'addBranchBalance'])->name('isletme.bakiye-ekle');
         Route::get('/isletmelerim/{branch}/siparisler', [BayiBranchController::class, 'getBranchOrders'])->name('isletme.siparisler');
         Route::get('/isletmelerim/{branch}/istatistikler', [BayiBranchController::class, 'getBranchStatistics'])->name('isletme.istatistikler');
@@ -344,6 +349,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/ayarlar/havuz', [BayiSettingsController::class, 'updateHavuz'])->name('ayarlar.havuz.update');
         Route::get('/ayarlar/bildirim', [BayiSettingsController::class, 'ayarlarBildirim'])->name('ayarlar.bildirim');
         Route::post('/ayarlar/bildirim', [BayiSettingsController::class, 'updateBildirim'])->name('ayarlar.bildirim.update');
+        Route::get('/ayarlar/odeme-yontemleri', [BayiSettingsController::class, 'ayarlarOdeme'])->name('ayarlar.odeme-yontemleri');
+        Route::post('/ayarlar/odeme-yontemleri', [BayiSettingsController::class, 'updateOdeme'])->name('ayarlar.odeme-yontemleri.update');
         Route::get('/tema', [BayiSettingsController::class, 'tema'])->name('tema');
         Route::post('/tema', [BayiSettingsController::class, 'updateTheme'])->name('tema.update');
         Route::get('/ayarlar/trendyol', [BayiSettingsController::class, 'ayarlarTrendyol'])->name('ayarlar.trendyol');

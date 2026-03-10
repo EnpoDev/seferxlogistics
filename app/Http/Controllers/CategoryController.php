@@ -36,10 +36,12 @@ class CategoryController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorize('create', Category::class);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'image' => ['nullable', 'image', 'max:2048'],
+            'image' => ['nullable', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
             'icon' => ['nullable', 'string', 'max:50'],
             'color' => ['nullable', 'string', 'max:20'],
             'order' => ['nullable', 'integer', 'min:0'],
@@ -84,6 +86,8 @@ class CategoryController extends Controller
 
     public function update(Request $request, Category $category)
     {
+        $this->authorize('update', $category);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
@@ -91,13 +95,16 @@ class CategoryController extends Controller
             'icon' => ['nullable', 'string', 'max:50'],
             'color' => ['nullable', 'string', 'max:20'],
             'order' => ['nullable', 'integer', 'min:0'],
-            'is_active' => ['boolean'],
+            'is_active' => ['nullable', 'boolean'],
         ]);
+
+        // Handle is_active checkbox (defaults to false if not checked)
+        $validated['is_active'] = $request->has('is_active') ? true : false;
 
         // Update slug if name changed
         if ($validated['name'] !== $category->name) {
             $validated['slug'] = Str::slug($validated['name']);
-            
+
             // Check if slug exists (excluding current category)
             $originalSlug = $validated['slug'];
             $counter = 1;
@@ -109,26 +116,51 @@ class CategoryController extends Controller
 
         // Handle image upload
         if ($request->hasFile('image')) {
+            // Delete old image if exists
+            if ($category->image) {
+                \Storage::disk('public')->delete($category->image);
+            }
             $validated['image'] = $request->file('image')->store('categories', 'public');
         }
 
-        $category->update($validated);
+        try {
+            $category->update($validated);
 
-        if ($request->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'category' => $category->fresh(),
-                'message' => 'Kategori başarıyla güncellendi.'
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'category' => $category->fresh(),
+                    'message' => 'Kategori başarıyla güncellendi.'
+                ]);
+            }
+
+            return redirect()
+                ->route('isletmem.menu')
+                ->with('success', 'Kategori başarıyla güncellendi.');
+        } catch (\Exception $e) {
+            \Log::error('Category update error: ' . $e->getMessage(), [
+                'category_id' => $category->id,
+                'validated_data' => $validated,
+                'exception' => $e
             ]);
-        }
 
-        return redirect()
-            ->route('isletmem.menu')
-            ->with('success', 'Kategori başarıyla güncellendi.');
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kategori güncellenirken bir hata oluştu: ' . $e->getMessage()
+                ], 500);
+            }
+
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Kategori güncellenirken bir hata oluştu: ' . $e->getMessage());
+        }
     }
 
     public function destroy(Category $category)
     {
+        $this->authorize('delete', $category);
+
         // Check if category has products
         if ($category->products()->count() > 0) {
             if (request()->expectsJson()) {
@@ -137,7 +169,7 @@ class CategoryController extends Controller
                     'message' => 'Bu kategoriye ait ürünler var. Önce ürünleri silmelisiniz.'
                 ], 400);
             }
-            
+
             return redirect()
                 ->route('isletmem.menu')
                 ->with('error', 'Bu kategoriye ait ürünler var. Önce ürünleri silmelisiniz.');

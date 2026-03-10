@@ -7,6 +7,9 @@
     $sidebarWidth = $themeSettings?->sidebar_width ?? 'normal';
     $initialDarkMode = $themeMode === 'dark' ? 'true' : ($themeMode === 'light' ? 'false' : "window.matchMedia('(prefers-color-scheme: dark)').matches");
 
+    // Get active branch for WebSocket and API calls
+    $activeBranch = session('active_branch') ?? auth()->user()?->branch_id ?? null;
+
     // Server-side dark mode class determination for FOUC prevention
     $serverDarkClass = '';
     if ($themeMode === 'dark') {
@@ -34,6 +37,20 @@
             if (isDark) document.documentElement.classList.add('dark');
             else document.documentElement.classList.remove('dark');
         })();
+
+        // Set active branch ID for WebSocket and API calls
+        @if($activeBranch)
+            window.activeBranchId = {{ $activeBranch }};
+        @endif
+
+        // Safe CSRF token getter with null check
+        window.getCsrfToken = function() {
+            const token = document.querySelector('meta[name="csrf-token"]')?.content;
+            if (!token) {
+                console.error('CSRF token not found');
+            }
+            return token;
+        };
     </script>
     <script>
         function themeManager() {
@@ -101,7 +118,12 @@
             transition-duration: 0s !important;
             transition-delay: 0s !important;
         }
-        
+
+        /* Alpine.js x-cloak - Prevent FOUC */
+        [x-cloak] {
+            display: none !important;
+        }
+
         /* Custom Animations */
         @keyframes fadeIn {
             from { opacity: 0; }

@@ -46,6 +46,9 @@ class BranchSetting extends Model
         'geofence_radius',
         'geofence_auto_arrival',
         'geofence_arrival_message',
+        // Caller ID settings
+        'caller_id_device_id',
+        'caller_id_enabled',
     ];
 
     protected $casts = [
@@ -84,6 +87,8 @@ class BranchSetting extends Model
         // Geofencing settings
         'geofence_radius' => 'integer',
         'geofence_auto_arrival' => 'boolean',
+        // Caller ID settings
+        'caller_id_enabled' => 'boolean',
     ];
 
     public function branch(): BelongsTo

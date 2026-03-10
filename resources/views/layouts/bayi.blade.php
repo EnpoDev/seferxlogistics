@@ -34,6 +34,15 @@
             if (isDark) document.documentElement.classList.add('dark');
             else document.documentElement.classList.remove('dark');
         })();
+
+        // Safe CSRF token getter with null check
+        window.getCsrfToken = function() {
+            const token = document.querySelector('meta[name="csrf-token"]')?.content;
+            if (!token) {
+                console.error('CSRF token not found');
+            }
+            return token;
+        };
     </script>
     <script>
         function themeManagerBayi() {
@@ -110,7 +119,12 @@
             transition-duration: 0s !important;
             transition-delay: 0s !important;
         }
-        
+
+        /* Alpine.js x-cloak - Prevent FOUC */
+        [x-cloak] {
+            display: none !important;
+        }
+
         /* Custom Animations */
         @keyframes fadeIn {
             from { opacity: 0; }

@@ -20,6 +20,7 @@ class Order extends Model
         'customer_id',
         'courier_id',
         'branch_id',
+        'zone_id',
         'restaurant_id',
         'customer_name',
         'customer_phone',
@@ -30,6 +31,7 @@ class Order extends Model
         'delivery_fee',
         'total',
         'payment_method',
+        'payment_methods', // Split payment support (JSON array)
         'is_paid',
         'status',
         'notes',
@@ -50,6 +52,8 @@ class Order extends Model
         'pod_timestamp',
         'pod_location',
         'pod_note',
+        'address_was_correct',
+        'courier_corrected_address',
         'scheduled_at',
         'settlement_id',
     ];
@@ -74,7 +78,39 @@ class Order extends Model
         'pod_timestamp' => 'datetime',
         'pod_location' => 'array',
         'scheduled_at' => 'datetime',
+        'payment_methods' => 'array', // Cast JSON to array
+        'address_was_correct' => 'boolean',
     ];
+
+    /**
+     * Check if order uses split payment
+     */
+    public function hasSplitPayment(): bool
+    {
+        return !empty($this->payment_methods) && count($this->payment_methods) > 1;
+    }
+
+    /**
+     * Get total amount from split payment methods
+     */
+    public function getSplitPaymentTotal(): float
+    {
+        if (!$this->payment_methods) {
+            return 0;
+        }
+        return collect($this->payment_methods)->sum('amount');
+    }
+
+    /**
+     * Get amount for specific payment method in split payment
+     */
+    public function getPaymentMethodAmount(string $method): float
+    {
+        if (!$this->payment_methods) {
+            return 0;
+        }
+        return collect($this->payment_methods)->where('method', $method)->sum('amount');
+    }
 
     public const STATUS_PENDING = 'pending';
     public const STATUS_PREPARING = 'preparing';
@@ -113,6 +149,11 @@ class Order extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function zone(): BelongsTo
+    {
+        return $this->belongsTo(Zone::class);
     }
 
     public function restaurant(): BelongsTo
@@ -505,8 +546,15 @@ class Order extends Model
         parent::boot();
 
         static::creating(function ($order) {
-            if (empty($order->tracking_token)) {
-                $order->tracking_token = self::generateTrackingToken();
+            try {
+                if (empty($order->tracking_token)) {
+                    $order->tracking_token = self::generateTrackingToken();
+                }
+            } catch (\Exception $e) {
+                \Log::error('Failed to generate tracking token for order', [
+                    'error' => $e->getMessage(),
+                ]);
+                // Continue without tracking token - it's not critical
             }
         });
     }

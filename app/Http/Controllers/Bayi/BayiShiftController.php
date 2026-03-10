@@ -4,13 +4,32 @@ namespace App\Http\Controllers\Bayi;
 
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class BayiShiftController extends Controller
 {
+    /**
+     * Get bayi and all child işletme user IDs for courier filtering
+     */
+    private function getBayiAndChildUserIds()
+    {
+        $user = auth()->user();
+        $userIds = [$user->id];
+
+        // If user is a bayi, include all child işletme IDs
+        if ($user->parent_id === null) { // This is a bayi (parent dealer)
+            $childIds = User::where('parent_id', $user->id)->pluck('id');
+            $userIds = array_merge($userIds, $childIds->toArray());
+        }
+
+        return $userIds;
+    }
+
     public function vardiyaSaatleri(Request $request)
     {
-        $query = Courier::orderBy('name');
+        $query = Courier::whereIn('user_id', $this->getBayiAndChildUserIds())
+            ->orderBy('name');
 
         if ($request->has('search')) {
             $search = $request->get('search');
@@ -97,10 +116,10 @@ class BayiShiftController extends Controller
             'apply_to_all' => 'boolean'
         ]);
 
-        $query = Courier::query();
+        $query = Courier::whereIn('user_id', $this->getBayiAndChildUserIds());
 
         if ($request->apply_to_all) {
-            // Apply to all couriers
+            // Apply to all couriers (already filtered by user_id)
         } else {
              if (empty($request->courier_ids)) {
                  return back()->with('error', __('messages.error.select_at_least_one_courier'));
