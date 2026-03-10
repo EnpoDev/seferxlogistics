@@ -63,6 +63,7 @@ return [
         'app_settings_updated' => 'Uygulama ayarları başarıyla güncellendi.',
         'pool_settings_updated' => 'Havuz ayarları başarıyla güncellendi.',
         'notification_settings_updated' => 'Bildirim ayarları başarıyla güncellendi.',
+        'payment_settings_updated' => 'Ödeme yöntemi ayarları başarıyla güncellendi.',
         'request_approved' => 'İstek onaylandı.',
         'request_rejected' => 'İstek reddedildi.',
 

@@ -499,6 +499,15 @@ class Order extends Model
         if ($courier) {
             // Kuryenin nakit bakiyesini artır (toplanan nakit)
             $courier->increment('cash_balance', $this->total);
+
+            // TODO: Create transaction log for cash balance update
+            // This should be logged in transactions table with type CASH_COLLECTED
+            \Log::info('Courier cash balance updated', [
+                'order_id' => $this->id,
+                'courier_id' => $courier->id,
+                'amount' => $this->total,
+                'payment_method' => $this->payment_method,
+            ]);
         }
     }
 
