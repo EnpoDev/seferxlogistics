@@ -564,6 +564,10 @@ class AdminController extends Controller
             'is_featured' => ['boolean'],
         ]);
 
+        // Checkboxes don't send values when unchecked, so default to false
+        $validated['is_active'] = $request->has('is_active');
+        $validated['is_featured'] = $request->has('is_featured');
+
         Plan::create($validated);
 
         return redirect()
@@ -586,6 +590,10 @@ class AdminController extends Controller
             'is_active' => ['boolean'],
             'is_featured' => ['boolean'],
         ]);
+
+        // Checkboxes don't send values when unchecked, so default to false
+        $validated['is_active'] = $request->has('is_active');
+        $validated['is_featured'] = $request->has('is_featured');
 
         $plan->update($validated);
 

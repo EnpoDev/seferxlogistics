@@ -13,7 +13,7 @@ return new class extends Migration
     {
         if (!Schema::hasColumn('couriers', 'user_id')) {
             Schema::table('couriers', function (Blueprint $table) {
-                $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+                $table->unsignedBigInteger('user_id')->nullable();
             });
         }
     }

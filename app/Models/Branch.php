@@ -78,6 +78,16 @@ class Branch extends Model
         return $this->hasMany(CallerIdLog::class);
     }
 
+    public function restaurants()
+    {
+        return $this->hasMany(Restaurant::class);
+    }
+
+    public function integrations()
+    {
+        return $this->hasMany(Integration::class);
+    }
+
     /**
      * Get the owner (bayi) of this branch
      */

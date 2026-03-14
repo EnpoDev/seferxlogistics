@@ -19,11 +19,14 @@ class BayiPoolController extends Controller
         $poolStats = $this->poolService->getPoolStats();
         $poolOrders = $this->poolService->getPoolOrders();
 
-        // Müsait kuryeler
-        $availableCouriers = Courier::where('status', Courier::STATUS_AVAILABLE)
-            ->orWhere(function ($q) {
-                $q->where('status', Courier::STATUS_BUSY)
-                  ->where('active_orders_count', '<', Courier::MAX_ACTIVE_ORDERS);
+        // Müsait kuryeler - sadece kendi kuryeleri
+        $availableCouriers = Courier::where('user_id', auth()->id())
+            ->where(function ($q) {
+                $q->where('status', Courier::STATUS_AVAILABLE)
+                  ->orWhere(function ($q2) {
+                      $q2->where('status', Courier::STATUS_BUSY)
+                        ->where('active_orders_count', '<', Courier::MAX_ACTIVE_ORDERS);
+                  });
             })
             ->get()
             ->filter(fn($c) => $c->isOnShift());
@@ -206,11 +209,14 @@ class BayiPoolController extends Controller
         $poolStats = $this->poolService->getPoolStats();
         $poolOrders = $this->poolService->getPoolOrders();
 
-        // Müsait kuryeler
-        $availableCouriers = Courier::where('status', Courier::STATUS_AVAILABLE)
-            ->orWhere(function ($q) {
-                $q->where('status', Courier::STATUS_BUSY)
-                  ->where('active_orders_count', '<', Courier::MAX_ACTIVE_ORDERS);
+        // Müsait kuryeler - sadece kendi kuryeleri
+        $availableCouriers = Courier::where('user_id', auth()->id())
+            ->where(function ($q) {
+                $q->where('status', Courier::STATUS_AVAILABLE)
+                  ->orWhere(function ($q2) {
+                      $q2->where('status', Courier::STATUS_BUSY)
+                        ->where('active_orders_count', '<', Courier::MAX_ACTIVE_ORDERS);
+                  });
             })
             ->get()
             ->filter(fn($c) => $c->isOnShift());

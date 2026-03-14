@@ -127,6 +127,9 @@ class YonetimController extends Controller
     public function urunDestroy(Product $product)
     {
         if ($product->orderItems()->count() > 0) {
+            if (request()->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Bu ürün siparişlerde kullanılıyor, silemezsiniz.'], 400);
+            }
             return redirect()->back()->with('error', 'Bu ürün siparişlerde kullanılıyor, silemezsiniz.');
         }
 
@@ -135,6 +138,10 @@ class YonetimController extends Controller
         }
 
         $product->delete();
+
+        if (request()->expectsJson()) {
+            return response()->json(['success' => true, 'message' => 'Ürün başarıyla silindi.']);
+        }
 
         return redirect()->route('yonetim.urunler')->with('success', 'Ürün başarıyla silindi.');
     }

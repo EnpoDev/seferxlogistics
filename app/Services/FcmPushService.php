@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Courier;
 use App\Models\Order;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -110,9 +111,18 @@ class FcmPushService
 
     /**
      * Notify all available couriers about a new pool order
+     * Rate limited: ayni siparis icin 5 dakikada bir kez bildirim gonderilir
      */
     public function notifyPoolOrder(Order $order): array
     {
+        // Rate limiting: ayni siparis icin tekrar bildirim spam'ini onle
+        $cacheKey = "pool_notification_{$order->id}";
+        if (Cache::has($cacheKey)) {
+            Log::info('Pool notification rate limited', ['order_id' => $order->id]);
+            return ['success' => true, 'sent' => 0, 'message' => 'Rate limited - notification already sent recently'];
+        }
+        Cache::put($cacheKey, true, now()->addMinutes(5));
+
         // Get available couriers who are on shift and have device tokens
         $couriers = Courier::where('notification_enabled', true)
             ->whereNotNull('device_token')

@@ -300,6 +300,7 @@
                                             <x-ui.badge type="info" x-text="policy.type === 'business' ? 'İşletme' : 'Kurye'" />
                                             <span class="text-xs text-gray-600 dark:text-gray-400" x-text="getPolicyTypeLabel(policy.policy_type)"></span>
                                             <x-ui.badge :type="'success'" x-bind:class="policy.is_active ? '' : 'bg-gray-100 text-gray-600'" x-text="policy.is_active ? 'Aktif' : 'Pasif'" />
+                                            <span class="text-xs text-gray-500 dark:text-gray-400" x-show="policy.rules && policy.rules.length > 0" x-text="policy.rules.length + ' kural'"></span>
                                         </div>
                                     </div>
                                     <x-ui.button variant="danger" size="sm" @click="deletePolicy(policy.id)">Sil</x-ui.button>
@@ -339,13 +340,65 @@
     </x-ui.card>
 
     {{-- Pricing Policy Modal --}}
-    <x-ui.modal name="policyModal" title="Yeni Politika Oluştur" size="md">
+    <x-ui.modal name="policyModal" title="Yeni Politika Oluştur" size="lg">
         <div x-show="showPolicyModal">
             <form @submit.prevent="createPolicy" class="space-y-4">
                 <x-form.select name="policy_type" label="Politika Tipi" x-model="policyForm.type" :options="['business' => 'İşletme', 'courier' => 'Kurye']" required />
                 <x-form.input name="policy_name" label="Politika Adı" x-model="policyForm.name" required />
                 <x-form.textarea name="policy_description" label="Açıklama" x-model="policyForm.description" :rows="3" />
                 <x-form.checkbox name="policy_is_active" label="Aktif" x-model="policyForm.is_active" />
+
+                {{-- Rule Configuration based on policy type --}}
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+                    <h4 class="text-sm font-semibold text-black dark:text-white mb-3">Kural Ayarları</h4>
+
+                    {{-- Fixed: price and/or percentage --}}
+                    <template x-if="selectedPolicyType === 'fixed'">
+                        <div class="space-y-3">
+                            <x-form.input type="number" name="rule_price" label="Sabit Fiyat (TL)" x-model="policyForm.rule_price" step="0.01" min="0" placeholder="0.00" />
+                            <x-form.input type="number" name="rule_percentage" label="Yüzde (%)" x-model="policyForm.rule_percentage" step="0.01" min="0" max="100" placeholder="0" />
+                        </div>
+                    </template>
+
+                    {{-- Unit Price: per km --}}
+                    <template x-if="selectedPolicyType === 'unit_price'">
+                        <div class="space-y-3">
+                            <x-form.input type="number" name="rule_price" label="Birim Fiyat (TL/km)" x-model="policyForm.rule_price" step="0.01" min="0" placeholder="0.00" />
+                        </div>
+                    </template>
+
+                    {{-- Range-based: multiple rules --}}
+                    <template x-if="['package_based', 'distance_based', 'periodic', 'consecutive_discount'].includes(selectedPolicyType)">
+                        <div class="space-y-3">
+                            <template x-for="(rule, index) in policyForm.rules" :key="index">
+                                <div class="flex items-end gap-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                                    <div class="flex-1">
+                                        <label class="text-xs text-gray-600 dark:text-gray-400">Min</label>
+                                        <input type="number" x-model="rule.min_value" step="0.01" min="0" class="w-full mt-1 px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" placeholder="0">
+                                    </div>
+                                    <div class="flex-1">
+                                        <label class="text-xs text-gray-600 dark:text-gray-400">Max</label>
+                                        <input type="number" x-model="rule.max_value" step="0.01" min="0" class="w-full mt-1 px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" placeholder="999999">
+                                    </div>
+                                    <div class="flex-1">
+                                        <label class="text-xs text-gray-600 dark:text-gray-400">Fiyat (TL)</label>
+                                        <input type="number" x-model="rule.price" step="0.01" min="0" class="w-full mt-1 px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" placeholder="0">
+                                    </div>
+                                    <div class="flex-1">
+                                        <label class="text-xs text-gray-600 dark:text-gray-400">Yüzde (%)</label>
+                                        <input type="number" x-model="rule.percentage" step="0.01" min="0" max="100" class="w-full mt-1 px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" placeholder="0">
+                                    </div>
+                                    <button type="button" @click="policyForm.rules.splice(index, 1)" class="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg">
+                                        <x-ui.icon name="trash" class="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </template>
+                            <button type="button" @click="policyForm.rules.push({min_value: '', max_value: '', price: '', percentage: ''})" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                                + Kural Ekle
+                            </button>
+                        </div>
+                    </template>
+                </div>
 
                 <div class="flex gap-3 pt-4">
                     <x-ui.button type="button" variant="secondary" @click="showPolicyModal = false" class="flex-1">İptal</x-ui.button>
@@ -379,7 +432,7 @@ function branchEditApp() {
         existingPolicies: @json($branch->pricingPolicies ?? []),
         showPolicyModal: false,
         selectedPolicyType: '',
-        policyForm: { type: 'business', policy_type: '', name: '', description: '', is_active: true },
+        policyForm: { type: 'business', policy_type: '', name: '', description: '', is_active: true, rule_price: '', rule_percentage: '', rules: [{min_value: '', max_value: '', price: '', percentage: ''}] },
 
         async loadPastOrders() {
             try {
@@ -413,6 +466,9 @@ function branchEditApp() {
             this.selectedPolicyType = policyType;
             this.policyForm.policy_type = policyType;
             this.policyForm.name = this.getPolicyTypeLabel(policyType);
+            this.policyForm.rule_price = '';
+            this.policyForm.rule_percentage = '';
+            this.policyForm.rules = [{min_value: '', max_value: '', price: '', percentage: ''}];
             this.showPolicyModal = true;
         },
 

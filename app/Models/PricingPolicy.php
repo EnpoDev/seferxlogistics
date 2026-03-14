@@ -77,13 +77,14 @@ class PricingPolicy extends Model
     /**
      * Get pricing configuration for a specific branch
      */
-    public static function getPricingForBranch(?int $branchId): array
+    public static function getPricingForBranch(?int $branchId, string $type = 'business'): array
     {
         if (!$branchId) {
             return self::getDefaultPricing();
         }
 
         $policy = self::where('branch_id', $branchId)
+            ->where('type', $type)
             ->where('is_active', true)
             ->with('rules')
             ->first();

@@ -33,7 +33,7 @@
         <x-ui.stat-card title="Aktif İşletme" :value="$branches->where('is_active', true)->count()" color="green" icon="success" />
     </x-layout.grid>
 
-    {{-- Şube Listesi --}}
+    {{-- İşletme Listesi --}}
     <x-table.table hoverable>
         <x-table.thead>
             <x-table.tr :hoverable="false">

@@ -61,7 +61,7 @@
 
             <x-table.tbody>
                 @forelse($orders as $order)
-                <x-table.tr>
+                <x-table.tr data-order-id="{{ $order->id }}" data-order-status="{{ $order->status }}">
                     <x-table.td>
                         <span class="text-sm font-mono font-semibold text-black dark:text-white">{{ $order->order_number }}</span>
                     </x-table.td>
@@ -75,7 +75,9 @@
                         <x-data.money :amount="$order->total" class="font-bold" />
                     </x-table.td>
                     <x-table.td>
-                        <x-data.status-badge :status="$order->status" entity="order" />
+                        <span class="{{ in_array($order->status, ['preparing', 'pending']) ? 'animate-pulse' : '' }}">
+                            <x-data.status-badge :status="$order->status" entity="order" />
+                        </span>
                     </x-table.td>
                     <x-table.td>
                         @if($order->courier)
@@ -180,8 +182,201 @@
     </div>
 </div>
 
+@push('styles')
+<style>
+    /* Dynamic status badge styles for real-time inserted rows */
+    .status-badge-pending { background-color: rgb(254, 243, 199); color: rgb(146, 64, 14); }
+    .dark .status-badge-pending { background-color: rgba(245, 158, 11, 0.2); color: rgb(252, 211, 77); }
+    .status-badge-preparing { background-color: rgb(219, 234, 254); color: rgb(30, 64, 175); }
+    .dark .status-badge-preparing { background-color: rgba(59, 130, 246, 0.2); color: rgb(147, 197, 253); }
+    .status-badge-ready { background-color: rgb(220, 252, 231); color: rgb(22, 101, 52); }
+    .dark .status-badge-ready { background-color: rgba(34, 197, 94, 0.2); color: rgb(134, 239, 172); }
+    .status-badge-on_delivery { background-color: rgb(207, 250, 254); color: rgb(21, 94, 117); }
+    .dark .status-badge-on_delivery { background-color: rgba(6, 182, 212, 0.2); color: rgb(103, 232, 249); }
+    .status-badge-delivered { background-color: rgb(220, 252, 231); color: rgb(22, 101, 52); }
+    .dark .status-badge-delivered { background-color: rgba(34, 197, 94, 0.2); color: rgb(134, 239, 172); }
+    .status-badge-cancelled { background-color: rgb(254, 226, 226); color: rgb(153, 27, 27); }
+    .dark .status-badge-cancelled { background-color: rgba(239, 68, 68, 0.2); color: rgb(252, 165, 165); }
+</style>
+@endpush
+
 @push('scripts')
+<script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
 <script>
+// =============================================
+// Real-time Order Updates via Pusher
+// =============================================
+(function() {
+    const pusher = new Pusher('{{ config("broadcasting.connections.pusher.key") }}', {
+        cluster: '{{ config("broadcasting.connections.pusher.options.cluster") }}',
+        forceTLS: true
+    });
+
+    const channel = pusher.subscribe('orders');
+    let knownOrderIds = new Set();
+
+    // Collect existing order IDs
+    document.querySelectorAll('[data-order-id]').forEach(row => {
+        knownOrderIds.add(parseInt(row.dataset.orderId));
+    });
+
+    // New order created
+    channel.bind('order.created', function(data) {
+        if (knownOrderIds.has(data.id)) return;
+        knownOrderIds.add(data.id);
+
+        // Play notification sound
+        playNotificationSound();
+
+        // Show toast
+        if (typeof showToast === 'function') {
+            showToast('Yeni siparis: #' + data.order_number + ' - ' + data.customer_name, 'info');
+        }
+
+        // Add row to table (prepend to tbody)
+        const tbody = document.querySelector('table tbody');
+        if (tbody) {
+            const newRow = createOrderRow(data);
+            const firstRow = tbody.querySelector('tr');
+            if (firstRow) {
+                tbody.insertBefore(newRow, firstRow);
+            } else {
+                tbody.appendChild(newRow);
+            }
+            // Flash animation
+            newRow.classList.add('animate-pulse', 'bg-green-50', 'dark:bg-green-900/10');
+            setTimeout(() => {
+                newRow.classList.remove('animate-pulse', 'bg-green-50', 'dark:bg-green-900/10');
+            }, 5000);
+        }
+    });
+
+    // Order status updated
+    channel.bind('order.status.updated', function(data) {
+        const row = document.querySelector(`[data-order-id="${data.id}"]`);
+        if (!row) return;
+
+        // Update status attribute
+        row.dataset.orderStatus = data.new_status;
+
+        // Find and update status badge cell (4th td)
+        const cells = row.querySelectorAll('td');
+        if (cells[3]) {
+            const isPulsing = ['preparing', 'pending'].includes(data.new_status);
+            cells[3].innerHTML = `<span class="${isPulsing ? 'animate-pulse' : ''}"><span class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full status-badge-${data.new_status}">${data.status_label}</span></span>`;
+        }
+
+        // Update courier cell (5th td) if courier info changed
+        if (data.courier && cells[4]) {
+            cells[4].innerHTML = `<span class="text-sm text-black dark:text-white">${data.courier.name}</span>`;
+        }
+
+        // Flash row to indicate update
+        row.classList.add('bg-blue-50', 'dark:bg-blue-900/10');
+        setTimeout(() => {
+            row.classList.remove('bg-blue-50', 'dark:bg-blue-900/10');
+        }, 3000);
+
+        // Play sound for important status changes
+        if (['delivered', 'cancelled'].includes(data.new_status)) {
+            playNotificationSound();
+        }
+    });
+
+    // Connection status logging
+    pusher.connection.bind('connected', () => console.log('Pusher connected (orders)'));
+    pusher.connection.bind('error', (err) => console.error('Pusher error:', err));
+
+    function createOrderRow(data) {
+        const tr = document.createElement('tr');
+        tr.dataset.orderId = data.id;
+        tr.dataset.orderStatus = data.status;
+        tr.className = 'border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors';
+
+        const timeAgo = getTimeAgo(new Date(data.created_at));
+        const courierHtml = data.courier ? `<span class="text-sm text-black dark:text-white">${data.courier.name}</span>` : '<span class="text-sm text-gray-400">-</span>';
+
+        tr.innerHTML = `
+            <td class="px-4 py-3"><span class="text-sm font-mono font-semibold text-black dark:text-white">${data.order_number}</span></td>
+            <td class="px-4 py-3"><div><p class="text-sm font-medium text-black dark:text-white">${escapeHtml(data.customer_name)}</p><span class="text-xs text-gray-500">${data.customer_phone}</span></div></td>
+            <td class="px-4 py-3"><span class="font-bold text-black dark:text-white">${parseFloat(data.total).toFixed(2)} TL</span></td>
+            <td class="px-4 py-3"><span class="animate-pulse"><span class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full status-badge-${data.status}">${data.status_label}</span></span></td>
+            <td class="px-4 py-3">${courierHtml}</td>
+            <td class="px-4 py-3"><span class="text-sm text-gray-400">-</span></td>
+            <td class="px-4 py-3"><span class="text-sm text-gray-500">${timeAgo}</span></td>
+            <td class="px-4 py-3 text-right"><a href="/siparis/${data.id}/edit" class="text-sm text-gray-500 hover:text-black dark:hover:text-white">Duzenle</a></td>
+        `;
+        return tr;
+    }
+
+    function getTimeAgo(date) {
+        const seconds = Math.floor((new Date() - date) / 1000);
+        if (seconds < 60) return 'Az once';
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return minutes + ' dk once';
+        const hours = Math.floor(minutes / 60);
+        return hours + ' saat once';
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+})();
+
+// =============================================
+// Sound Notification
+// =============================================
+let notificationSoundEnabled = false;
+
+function playNotificationSound() {
+    if (!notificationSoundEnabled) return;
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.5);
+    } catch (e) {
+        console.log('Sound notification failed:', e);
+    }
+}
+
+// Request notification permission and enable sound on first interaction
+document.addEventListener('click', function enableSound() {
+    notificationSoundEnabled = true;
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+    document.removeEventListener('click', enableSound);
+}, { once: true });
+
+// =============================================
+// Filter Persistence (URL query string)
+// =============================================
+(function() {
+    const form = document.querySelector('form[action*="siparis"]');
+    if (!form) return;
+
+    // On filter change, update URL without page reload (for select/date inputs)
+    form.querySelectorAll('select, input[type="date"]').forEach(input => {
+        input.addEventListener('change', function() {
+            // Auto-submit on filter change
+            form.submit();
+        });
+    });
+})();
+
+// =============================================
+// Existing Functions
+// =============================================
 function confirmDelete(orderId) {
     showConfirmDialog({
         title: 'Siparişi Sil?',
@@ -257,12 +452,48 @@ function closePodModal(event) {
     document.body.style.overflow = '';
 }
 
-// ESC tuşu ile modal kapatma
+// ESC tusu ile modal kapatma
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closePodModal();
     }
 });
+
+// Print mode handling after order creation
+(function() {
+    const printMode = @json(session('print_mode'));
+    const printOrderId = @json(session('print_order_id'));
+
+    if (!printOrderId || !printMode) return;
+
+    if (printMode === 'auto') {
+        // Auto print: open print dialog for the order
+        const printUrl = '/siparis/' + printOrderId + '/print';
+        const printWindow = window.open(printUrl, '_blank', 'width=400,height=600');
+        if (printWindow) {
+            printWindow.addEventListener('load', function() {
+                printWindow.print();
+            });
+        }
+    } else if (printMode === 'manual') {
+        // Manual print: show print button in success toast
+        const toastEl = document.querySelector('.toast-success, [data-toast="success"]');
+        if (toastEl) {
+            const printBtn = document.createElement('a');
+            printBtn.href = '/siparis/' + printOrderId + '/print';
+            printBtn.target = '_blank';
+            printBtn.className = 'inline-block mt-2 px-3 py-1 bg-white text-black rounded text-sm font-medium';
+            printBtn.textContent = 'Yazdir';
+            printBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const pw = window.open(printBtn.href, '_blank', 'width=400,height=600');
+                if (pw) pw.addEventListener('load', function() { pw.print(); });
+            });
+            toastEl.appendChild(printBtn);
+        }
+    }
+    // printMode === 'none' -> do nothing
+})();
 </script>
 @endpush
 @endsection

@@ -61,6 +61,11 @@ class Product extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    public function optionGroups(): HasMany
+    {
+        return $this->hasMany(ProductOptionGroup::class)->orderBy('order');
+    }
+
     // Scopes
     public function scopeActive($query)
     {

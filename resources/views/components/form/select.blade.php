@@ -84,6 +84,9 @@
                 </option>
             @endif
         @endforeach
+
+        {{-- Render slot content (e.g., manually passed <option> tags) --}}
+        {{ $slot }}
     </select>
 
     @if($error)

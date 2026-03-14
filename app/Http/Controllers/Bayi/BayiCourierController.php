@@ -256,10 +256,21 @@ class BayiCourierController extends Controller
             ->get();
 
         $totalOrders = $orders->count();
-        $delivered = $orders->where('status', 'delivered')->count();
+        $deliveredOrders = $orders->where('status', 'delivered');
+        $delivered = $deliveredOrders->count();
         $cancelled = $orders->where('status', 'cancelled')->count();
         $successRate = $totalOrders > 0 ? round(($delivered / $totalOrders) * 100, 1) : 0;
-        $totalEarnings = $orders->where('status', 'delivered')->sum('total');
+        $totalEarnings = $deliveredOrders->sum('total');
+
+        // Ortalama teslimat süresi (dakika)
+        $deliveryTimes = $deliveredOrders->map(function ($order) {
+            if ($order->picked_up_at && $order->delivered_at) {
+                return $order->picked_up_at->diffInMinutes($order->delivered_at);
+            }
+            return null;
+        })->filter()->values();
+
+        $avgDeliveryTime = $deliveryTimes->isNotEmpty() ? round($deliveryTimes->avg(), 1) : 0;
 
         // Saatlik dağılım
         $hourlyDistribution = array_fill(0, 24, 0);
@@ -305,6 +316,7 @@ class BayiCourierController extends Controller
                 'cancelled' => $cancelled,
                 'success_rate' => $successRate,
                 'total_earnings' => number_format($totalEarnings, 2),
+                'avg_delivery_time' => $avgDeliveryTime,
             ],
             'hourly_distribution' => $hourlyDistribution,
             'daily_stats' => $dailyStats,
@@ -432,6 +444,7 @@ class BayiCourierController extends Controller
         ]);
 
         $courier = Courier::findOrFail($validated['courier_id']);
+        $this->checkCourierOwnership($courier);
 
         // Create cash transaction (avans verilen)
         $transaction = \App\Models\CashTransaction::create([

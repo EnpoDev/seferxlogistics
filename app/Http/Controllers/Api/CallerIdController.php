@@ -184,6 +184,23 @@ class CallerIdController extends Controller
             ], 404);
         }
 
+        // Caller ID cihaz dogrulama: branch ayarlarindaki device token ile kontrol
+        $branchDeviceToken = $branch->settings['caller_id_token'] ?? null;
+        if ($branchDeviceToken) {
+            $requestToken = $request->query('token', '');
+            if (!hash_equals($branchDeviceToken, $requestToken)) {
+                \Log::warning('Unauthorized Caller ID request', [
+                    'branch_id' => $branchId,
+                    'ip' => $request->ip(),
+                    'device_id' => $deviceId,
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Yetkisiz erisim',
+                ], 401);
+            }
+        }
+
         // Normalize phone number (remove non-digits)
         $phone = preg_replace('/[^0-9]/', '', $rawPhone);
 

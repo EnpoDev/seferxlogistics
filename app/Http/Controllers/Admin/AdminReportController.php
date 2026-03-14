@@ -19,6 +19,11 @@ class AdminReportController extends Controller
     public function bayiRaporlari(Request $request)
     {
         // Tarih aralığı - validation ile
+        $request->validate([
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
+        ]);
+
         try {
             $startDate = $request->filled('start_date')
                 ? Carbon::parse($request->start_date)->startOfDay()
@@ -86,23 +91,25 @@ class AdminReportController extends Controller
             }
         }
 
-        // Siparis istatistiklerini tek sorguda al
+        // Siparis istatistiklerini tek sorguda al (parameterized queries ile SQL injection onlemi)
         $orderStatsQuery = Order::whereIn('branch_id', $allBranchIds)
-            ->select(
-                'branch_id',
-                DB::raw('COUNT(*) as total_count'),
-                DB::raw('SUM(total) as total_sum'),
-                DB::raw('SUM(CASE WHEN status = "delivered" THEN 1 ELSE 0 END) as delivered_count'),
-                DB::raw('SUM(CASE WHEN created_at BETWEEN "' . $thisMonthStart->toDateTimeString() . '" AND "' . $thisMonthEnd->toDateTimeString() . '" THEN 1 ELSE 0 END) as this_month_count'),
-                DB::raw('SUM(CASE WHEN created_at BETWEEN "' . $thisMonthStart->toDateTimeString() . '" AND "' . $thisMonthEnd->toDateTimeString() . '" THEN total ELSE 0 END) as this_month_sum'),
-                DB::raw('SUM(CASE WHEN created_at BETWEEN "' . $lastMonthStart->toDateTimeString() . '" AND "' . $lastMonthEnd->toDateTimeString() . '" THEN 1 ELSE 0 END) as last_month_count'),
-                DB::raw('SUM(CASE WHEN created_at BETWEEN "' . $lastMonthStart->toDateTimeString() . '" AND "' . $lastMonthEnd->toDateTimeString() . '" THEN total ELSE 0 END) as last_month_sum')
-            );
+            ->select('branch_id')
+            ->selectRaw('COUNT(*) as total_count')
+            ->selectRaw('SUM(total) as total_sum')
+            ->selectRaw('SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as delivered_count', ['delivered'])
+            ->selectRaw('SUM(CASE WHEN created_at BETWEEN ? AND ? THEN 1 ELSE 0 END) as this_month_count', [$thisMonthStart->toDateTimeString(), $thisMonthEnd->toDateTimeString()])
+            ->selectRaw('SUM(CASE WHEN created_at BETWEEN ? AND ? THEN total ELSE 0 END) as this_month_sum', [$thisMonthStart->toDateTimeString(), $thisMonthEnd->toDateTimeString()])
+            ->selectRaw('SUM(CASE WHEN created_at BETWEEN ? AND ? THEN 1 ELSE 0 END) as last_month_count', [$lastMonthStart->toDateTimeString(), $lastMonthEnd->toDateTimeString()])
+            ->selectRaw('SUM(CASE WHEN created_at BETWEEN ? AND ? THEN total ELSE 0 END) as last_month_sum', [$lastMonthStart->toDateTimeString(), $lastMonthEnd->toDateTimeString()]);
 
         if ($startDate && $endDate) {
-            $orderStatsQuery->addSelect(
-                DB::raw('SUM(CASE WHEN created_at BETWEEN "' . $startDate->toDateTimeString() . '" AND "' . $endDate->toDateTimeString() . '" THEN 1 ELSE 0 END) as filtered_count'),
-                DB::raw('SUM(CASE WHEN created_at BETWEEN "' . $startDate->toDateTimeString() . '" AND "' . $endDate->toDateTimeString() . '" THEN total ELSE 0 END) as filtered_sum')
+            $orderStatsQuery->selectRaw(
+                'SUM(CASE WHEN created_at BETWEEN ? AND ? THEN 1 ELSE 0 END) as filtered_count',
+                [$startDate->toDateTimeString(), $endDate->toDateTimeString()]
+            );
+            $orderStatsQuery->selectRaw(
+                'SUM(CASE WHEN created_at BETWEEN ? AND ? THEN total ELSE 0 END) as filtered_sum',
+                [$startDate->toDateTimeString(), $endDate->toDateTimeString()]
             );
         }
 

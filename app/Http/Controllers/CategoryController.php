@@ -11,21 +11,36 @@ class CategoryController extends Controller
 {
     public function index(Request $request)
     {
-        $categories = Category::with(['restaurants' => function ($query) {
-                $query->where('is_active', true);
-            }])
-            ->withCount(['products', 'restaurants'])
+        $branchId = auth()->user()->getActiveBranchId();
+
+        $categoriesQuery = Category::withCount(['products', 'restaurants'])
             ->orderBy('order')
-            ->orderBy('name')
-            ->get();
-        
-        $restaurants = Restaurant::active()->orderBy('name')->get();
-        
+            ->orderBy('name');
+
+        if ($branchId) {
+            $categoriesQuery->whereHas('restaurants', function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            });
+            $categoriesQuery->with(['restaurants' => function ($query) use ($branchId) {
+                $query->where('branch_id', $branchId)->where('is_active', true);
+            }]);
+        } else {
+            $categoriesQuery->with(['restaurants' => function ($query) {
+                $query->where('is_active', true);
+            }]);
+        }
+
+        $categories = $categoriesQuery->get();
+
+        $restaurants = $branchId
+            ? Restaurant::active()->where('branch_id', $branchId)->orderBy('name')->get()
+            : Restaurant::active()->orderBy('name')->get();
+
         // Check if it's a request for the new category management page
         if ($request->routeIs('kategori.index')) {
             return view('pages.kategori.index', compact('categories', 'restaurants'));
         }
-        
+
         return view('pages.isletmem.categories.index', compact('categories'));
     }
 
@@ -41,7 +56,7 @@ class CategoryController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'image' => ['nullable', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
             'icon' => ['nullable', 'string', 'max:50'],
             'color' => ['nullable', 'string', 'max:20'],
             'order' => ['nullable', 'integer', 'min:0'],
@@ -75,13 +90,19 @@ class CategoryController extends Controller
         }
 
         return redirect()
-            ->route('isletmem.menu')
+            ->route('kategori.index')
             ->with('success', 'Kategori başarıyla oluşturuldu.');
     }
 
     public function edit(Category $category)
     {
-        return view('pages.isletmem.categories.edit', compact('category'));
+        if (request()->expectsJson()) {
+            return response()->json([
+                'category' => $category,
+            ]);
+        }
+
+        return redirect()->route('kategori.index');
     }
 
     public function update(Request $request, Category $category)
@@ -91,7 +112,7 @@ class CategoryController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'image' => ['nullable', 'image', 'max:2048'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
             'icon' => ['nullable', 'string', 'max:50'],
             'color' => ['nullable', 'string', 'max:20'],
             'order' => ['nullable', 'integer', 'min:0'],
@@ -135,7 +156,7 @@ class CategoryController extends Controller
             }
 
             return redirect()
-                ->route('isletmem.menu')
+                ->route('kategori.index')
                 ->with('success', 'Kategori başarıyla güncellendi.');
         } catch (\Exception $e) {
             \Log::error('Category update error: ' . $e->getMessage(), [
@@ -171,7 +192,7 @@ class CategoryController extends Controller
             }
 
             return redirect()
-                ->route('isletmem.menu')
+                ->route('kategori.index')
                 ->with('error', 'Bu kategoriye ait ürünler var. Önce ürünleri silmelisiniz.');
         }
 
@@ -186,7 +207,7 @@ class CategoryController extends Controller
         }
 
         return redirect()
-            ->route('isletmem.menu')
+            ->route('kategori.index')
             ->with('success', 'Kategori başarıyla silindi.');
     }
 

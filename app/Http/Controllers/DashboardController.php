@@ -114,9 +114,14 @@ class DashboardController extends Controller
             $topCustomers = Customer::orderByDesc('total_spent')->take(5)->get();
         }
 
-        // Available couriers
-        $availableCouriers = Courier::where('status', 'available')
-            ->get()
+        // Available couriers - filter by bayi ownership
+        $courierQuery = Courier::where('status', 'available');
+        if ($user->isBayi()) {
+            $courierQuery->where('user_id', $user->id);
+        } elseif ($user->isIsletme()) {
+            $courierQuery->where('user_id', $user->parent_id);
+        }
+        $availableCouriers = $courierQuery->get()
             ->filter(fn($c) => $c->isOnShift());
 
         return view('pages.dashboard', compact(

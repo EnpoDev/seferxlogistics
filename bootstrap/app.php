@@ -46,6 +46,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'api.key' => \App\Http\Middleware\ValidateApiKey::class,
             'role' => \App\Http\Middleware\CheckRole::class,
+            'ensure.branch' => \App\Http\Middleware\EnsureBranchExists::class,
         ]);
 
         // Kurye guard için özel yönlendirme

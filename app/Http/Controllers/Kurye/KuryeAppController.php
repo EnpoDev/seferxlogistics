@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Kurye;
 
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
+use App\Models\CourierMealBenefit;
+use App\Models\CourierMealShift;
 use App\Models\Order;
 use App\Services\CustomerNotificationService;
 use App\Services\ProofOfDeliveryService;
@@ -183,6 +185,48 @@ class KuryeAppController extends Controller
             ->paginate(20);
         
         return view('kurye.history', compact('courier', 'orders'));
+    }
+
+    public function weeklySchedule(Request $request)
+    {
+        $courier = $this->courier();
+
+        // Determine the week to display (default: current week)
+        $weekOffset = (int) $request->query('week', 0);
+        $startOfWeek = now()->startOfWeek()->addWeeks($weekOffset);
+        $endOfWeek = $startOfWeek->copy()->endOfWeek();
+
+        // Get meal shifts for the week
+        $mealShifts = CourierMealShift::where('courier_id', $courier->id)
+            ->active()
+            ->with('restaurant')
+            ->whereBetween('date', [$startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')])
+            ->orderBy('date')
+            ->orderBy('start_time')
+            ->get()
+            ->groupBy(fn($shift) => $shift->date->format('Y-m-d'));
+
+        // Get meal benefits for the week
+        $mealBenefits = CourierMealBenefit::where('courier_id', $courier->id)
+            ->whereBetween('benefit_date', [$startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')])
+            ->with('branch')
+            ->orderBy('benefit_date')
+            ->get()
+            ->groupBy(fn($benefit) => $benefit->benefit_date->format('Y-m-d'));
+
+        // Build week days array
+        $weekDays = [];
+        for ($i = 0; $i < 7; $i++) {
+            $date = $startOfWeek->copy()->addDays($i);
+            $dateKey = $date->format('Y-m-d');
+            $weekDays[] = [
+                'date' => $date,
+                'shifts' => $mealShifts->get($dateKey, collect()),
+                'benefits' => $mealBenefits->get($dateKey, collect()),
+            ];
+        }
+
+        return view('kurye.schedule', compact('courier', 'weekDays', 'startOfWeek', 'endOfWeek', 'weekOffset'));
     }
 
     public function profile()

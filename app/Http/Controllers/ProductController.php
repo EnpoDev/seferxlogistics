@@ -12,20 +12,35 @@ class ProductController extends Controller
 {
     public function index()
     {
-        $products = Product::with('category')
-            ->orderBy('name')
-            ->paginate(20);
-        
+        $branchId = auth()->user()->getActiveBranchId();
+
+        $query = Product::with('category')->orderBy('name');
+
+        if ($branchId) {
+            $query->whereHas('restaurant', function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            });
+        }
+
+        $products = $query->paginate(20);
+
         return view('pages.isletmem.products.index', compact('products'));
     }
 
     public function create()
     {
-        $categories = Category::where('is_active', true)
-            ->orderBy('order')
-            ->orderBy('name')
-            ->get();
-        
+        $branchId = auth()->user()->getActiveBranchId();
+
+        $query = Category::where('is_active', true)->orderBy('order')->orderBy('name');
+
+        if ($branchId) {
+            $query->whereHas('restaurants', function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            });
+        }
+
+        $categories = $query->get();
+
         return view('pages.isletmem.products.create', compact('categories'));
     }
 
@@ -60,17 +75,24 @@ class ProductController extends Controller
         $product = Product::create($validated);
 
         return redirect()
-            ->route('isletmem.menu', ['category_id' => $product->category_id])
+            ->route('kategori.index')
             ->with('success', 'Ürün başarıyla oluşturuldu.');
     }
 
     public function edit(Product $product)
     {
-        $categories = Category::where('is_active', true)
-            ->orderBy('order')
-            ->orderBy('name')
-            ->get();
-        
+        $branchId = auth()->user()->getActiveBranchId();
+
+        $query = Category::where('is_active', true)->orderBy('order')->orderBy('name');
+
+        if ($branchId) {
+            $query->whereHas('restaurants', function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            });
+        }
+
+        $categories = $query->get();
+
         return view('pages.isletmem.products.edit', compact('product', 'categories'));
     }
 
@@ -111,7 +133,7 @@ class ProductController extends Controller
         $product->update($validated);
 
         return redirect()
-            ->route('isletmem.menu', ['category_id' => $product->category_id])
+            ->route('kategori.index')
             ->with('success', 'Ürün başarıyla güncellendi.');
     }
 
@@ -119,6 +141,13 @@ class ProductController extends Controller
     {
         // Check if product has orders
         if ($product->orderItems()->count() > 0) {
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu ürün siparişlerde kullanılıyor. Silemezsiniz.'
+                ], 400);
+            }
+
             return redirect()
                 ->back()
                 ->with('error', 'Bu ürün siparişlerde kullanılıyor. Silemezsiniz.');
@@ -129,12 +158,81 @@ class ProductController extends Controller
             Storage::disk('public')->delete($product->image);
         }
 
-        $categoryId = $product->category_id;
         $product->delete();
 
+        if (request()->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Ürün başarıyla silindi.'
+            ]);
+        }
+
         return redirect()
-            ->route('isletmem.menu', ['category_id' => $categoryId])
+            ->route('kategori.index')
             ->with('success', 'Ürün başarıyla silindi.');
+    }
+
+    /**
+     * Store product option groups and options (JSON payload)
+     */
+    public function storeOptionGroups(Request $request, Product $product)
+    {
+        $validated = $request->validate([
+            'groups' => ['required', 'array'],
+            'groups.*.name' => ['required', 'string', 'max:255'],
+            'groups.*.type' => ['required', 'in:radio,checkbox'],
+            'groups.*.required' => ['boolean'],
+            'groups.*.min_selections' => ['nullable', 'integer', 'min:0'],
+            'groups.*.max_selections' => ['nullable', 'integer', 'min:1'],
+            'groups.*.order' => ['nullable', 'integer'],
+            'groups.*.options' => ['required', 'array', 'min:1'],
+            'groups.*.options.*.name' => ['required', 'string', 'max:255'],
+            'groups.*.options.*.price_modifier' => ['nullable', 'numeric'],
+            'groups.*.options.*.is_default' => ['boolean'],
+            'groups.*.options.*.is_available' => ['boolean'],
+            'groups.*.options.*.order' => ['nullable', 'integer'],
+        ]);
+
+        // Delete existing groups and recreate (full replace approach)
+        $product->optionGroups()->delete();
+
+        foreach ($validated['groups'] as $groupIndex => $groupData) {
+            $group = $product->optionGroups()->create([
+                'name' => $groupData['name'],
+                'type' => $groupData['type'],
+                'required' => $groupData['required'] ?? false,
+                'min_selections' => $groupData['min_selections'] ?? 0,
+                'max_selections' => $groupData['max_selections'] ?? null,
+                'order' => $groupData['order'] ?? $groupIndex,
+            ]);
+
+            foreach ($groupData['options'] as $optionIndex => $optionData) {
+                $group->options()->create([
+                    'name' => $optionData['name'],
+                    'price_modifier' => $optionData['price_modifier'] ?? 0,
+                    'is_default' => $optionData['is_default'] ?? false,
+                    'is_available' => $optionData['is_available'] ?? true,
+                    'order' => $optionData['order'] ?? $optionIndex,
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Varyasyon grupları başarıyla kaydedildi.',
+            'groups' => $product->optionGroups()->with('options')->get(),
+        ]);
+    }
+
+    /**
+     * Get product option groups (for edit modal)
+     */
+    public function getOptionGroups(Product $product)
+    {
+        return response()->json([
+            'success' => true,
+            'groups' => $product->optionGroups()->with('options')->get(),
+        ]);
     }
 }
 

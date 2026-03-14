@@ -52,7 +52,11 @@ class MenuController extends Controller
 
     public function couriers()
     {
-        $couriers = \App\Models\Courier::orderBy('name')->get();
+        $user = auth()->user();
+        $bayiUserId = $user->isIsletme() ? $user->parent_id : $user->id;
+        $couriers = \App\Models\Courier::where('user_id', $bayiUserId)
+            ->orderBy('name')
+            ->get();
         return view('pages.isletmem.kuryeler', compact('couriers'));
     }
 

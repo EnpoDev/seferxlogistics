@@ -86,6 +86,27 @@ return [
         'base_url' => env('TRENDYOL_API_URL', 'https://api.tgoapis.com'),
         'agent_name' => env('TRENDYOL_AGENT_NAME', 'SeferXLojistik'),
         'executor_email' => env('TRENDYOL_EXECUTOR_EMAIL'),
+        'webhook_secret' => env('WEBHOOK_SECRET_TRENDYOL'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Getir Integration
+    |--------------------------------------------------------------------------
+    */
+
+    'getir' => [
+        'webhook_secret' => env('WEBHOOK_SECRET_GETIR'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Yemeksepeti Integration
+    |--------------------------------------------------------------------------
+    */
+
+    'yemeksepeti' => [
+        'webhook_secret' => env('WEBHOOK_SECRET_YEMEKSEPETI'),
     ],
 
     /*

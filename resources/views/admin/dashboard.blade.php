@@ -41,11 +41,11 @@
             </div>
         </div>
 
-        <!-- Toplam Sube -->
+        <!-- Toplam İşletme -->
         <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-purple-100 text-sm">Toplam Sube</p>
+                    <p class="text-purple-100 text-sm">Toplam İşletme</p>
                     <p class="text-3xl font-bold">{{ $stats['total_subeler'] }}</p>
                 </div>
                 <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">

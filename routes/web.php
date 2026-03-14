@@ -36,11 +36,15 @@ Route::get('/tracking/{token}/data', [TrackingController::class, 'data'])->name(
 // ============================================
 // WEBHOOK ROUTES (No Auth Required)
 // ============================================
-Route::post('/webhooks/{platform}/{token}', [\App\Http\Controllers\IntegrationController::class, 'webhook'])->name('webhooks.handle');
+Route::post('/webhooks/{platform}/{token}', [\App\Http\Controllers\IntegrationController::class, 'webhook'])
+    ->middleware(['webhook.validate:platform', 'throttle:30,1'])
+    ->name('webhooks.handle');
 
-// VOIP Webhooks
-Route::post('/voip/webhook', [\App\Http\Controllers\CallController::class, 'webhook'])->name('voip.webhook');
-Route::post('/voip/connect/{callLogId}', [\App\Http\Controllers\CallController::class, 'connectWebhook'])->name('voip.webhook.connect');
+// VOIP Webhooks (rate limited + IP validation in controller)
+Route::middleware(['throttle:60,1'])->group(function () {
+    Route::post('/voip/webhook', [\App\Http\Controllers\CallController::class, 'webhook'])->name('voip.webhook');
+    Route::post('/voip/connect/{callLogId}', [\App\Http\Controllers\CallController::class, 'connectWebhook'])->name('voip.webhook.connect');
+});
 
 // ============================================
 // CUSTOMER PORTAL ROUTES (OTP Authentication)
@@ -108,14 +112,14 @@ Route::middleware('auth')->group(function () {
     // Harita & Kurye Takip
     Route::get('/harita', Harita::class)->name('harita');
 
-    // Sipariş Yönetimi
+    // Sipariş Yönetimi (Rate limited: 30 form submissions/minute)
     Route::get('/siparis', [OrderController::class, 'index'])->name('siparis.liste');
     Route::get('/siparis/create', [OrderController::class, 'create'])->name('siparis.create');
-    Route::post('/siparis', [OrderController::class, 'store'])->name('siparis.store');
+    Route::post('/siparis', [OrderController::class, 'store'])->middleware('throttle:30,1')->name('siparis.store');
     Route::get('/siparis/{order}/edit', [OrderController::class, 'edit'])->name('siparis.edit');
-    Route::put('/siparis/{order}', [OrderController::class, 'update'])->name('siparis.update');
-    Route::delete('/siparis/{order}', [OrderController::class, 'destroy'])->name('siparis.destroy');
-    Route::patch('/siparis/{order}/status', [OrderController::class, 'updateStatus'])->name('siparis.updateStatus');
+    Route::put('/siparis/{order}', [OrderController::class, 'update'])->middleware('throttle:30,1')->name('siparis.update');
+    Route::delete('/siparis/{order}', [OrderController::class, 'destroy'])->middleware('throttle:30,1')->name('siparis.destroy');
+    Route::patch('/siparis/{order}/status', [OrderController::class, 'updateStatus'])->middleware('throttle:60,1')->name('siparis.updateStatus');
     Route::get('/siparis/gecmis', [OrderController::class, 'history'])->name('siparis.gecmis');
     Route::get('/siparis/iptal', [OrderController::class, 'cancelled'])->name('siparis.iptal');
     Route::get('/siparis/istatistik', [OrderController::class, 'statistics'])->name('siparis.istatistik');
@@ -150,7 +154,9 @@ Route::middleware('auth')->group(function () {
     // İşletmem - Categories & Products
     Route::resource('categories', CategoryController::class)->except(['show']);
     Route::resource('products', ProductController::class)->except(['show']);
-    
+    Route::get('/urunler/{product}/varyasyonlar', [ProductController::class, 'getOptionGroups'])->name('urun.varyasyonlar');
+    Route::post('/urunler/{product}/varyasyonlar', [ProductController::class, 'storeOptionGroups'])->name('urun.varyasyonlar.kaydet');
+
     // İşletmem - Couriers
     Route::get('/isletmem/kuryeler', [CourierController::class, 'index'])->name('isletmem.kuryeler');
     Route::post('/isletmem/kuryeler', [CourierController::class, 'store'])->name('couriers.store');
@@ -185,17 +191,17 @@ Route::middleware('auth')->group(function () {
     Route::put('/isletmem/kullanicilar/{user}', [UserController::class, 'update'])->name('users.update');
     Route::delete('/isletmem/kullanicilar/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     
-    // Müşteri Yönetimi
+    // Müşteri Yönetimi (Rate limited: 30 form submissions/minute)
     Route::get('/musteri', [CustomerController::class, 'index'])->name('musteri.index');
-    Route::post('/musteri', [CustomerController::class, 'store'])->name('musteri.store');
+    Route::post('/musteri', [CustomerController::class, 'store'])->middleware('throttle:30,1')->name('musteri.store');
     Route::get('/musteri/{customer}', [CustomerController::class, 'show'])->name('musteri.show');
-    Route::put('/musteri/{customer}', [CustomerController::class, 'update'])->name('musteri.update');
-    Route::delete('/musteri/{customer}', [CustomerController::class, 'destroy'])->name('musteri.destroy');
-    Route::post('/musteri/search-phone', [CustomerController::class, 'searchByPhone'])->name('musteri.search-phone');
-    Route::post('/musteri/quick-store', [CustomerController::class, 'quickStore'])->name('musteri.quick-store');
-    Route::post('/musteri/{customer}/address', [CustomerController::class, 'addAddress'])->name('musteri.address.store');
-    Route::put('/musteri/address/{address}', [CustomerController::class, 'updateAddress'])->name('musteri.address.update');
-    Route::delete('/musteri/address/{address}', [CustomerController::class, 'deleteAddress'])->name('musteri.address.destroy');
+    Route::put('/musteri/{customer}', [CustomerController::class, 'update'])->middleware('throttle:30,1')->name('musteri.update');
+    Route::delete('/musteri/{customer}', [CustomerController::class, 'destroy'])->middleware('throttle:30,1')->name('musteri.destroy');
+    Route::post('/musteri/search-phone', [CustomerController::class, 'searchByPhone'])->middleware('throttle:60,1')->name('musteri.search-phone');
+    Route::post('/musteri/quick-store', [CustomerController::class, 'quickStore'])->middleware('throttle:30,1')->name('musteri.quick-store');
+    Route::post('/musteri/{customer}/address', [CustomerController::class, 'addAddress'])->middleware('throttle:30,1')->name('musteri.address.store');
+    Route::put('/musteri/address/{address}', [CustomerController::class, 'updateAddress'])->middleware('throttle:30,1')->name('musteri.address.update');
+    Route::delete('/musteri/address/{address}', [CustomerController::class, 'deleteAddress'])->middleware('throttle:30,1')->name('musteri.address.destroy');
     
     // Restoran Yönetimi
     Route::get('/restoran', [RestaurantController::class, 'index'])->name('restoran.index');
@@ -210,6 +216,9 @@ Route::middleware('auth')->group(function () {
     
     // Kategori Yönetimi (Güncellendi)
     Route::get('/kategori', [CategoryController::class, 'index'])->name('kategori.index');
+    Route::post('/kategori', [CategoryController::class, 'store'])->name('kategori.store');
+    Route::put('/kategori/{category}', [CategoryController::class, 'update'])->name('kategori.update');
+    Route::delete('/kategori/{category}', [CategoryController::class, 'destroy'])->name('kategori.destroy');
     Route::post('/kategori/{category}/restaurants', [CategoryController::class, 'syncRestaurants'])->name('kategori.sync-restaurants');
     
     // Eski müşteri route'u
@@ -261,7 +270,7 @@ Route::middleware('auth')->group(function () {
     // ============================================
     // BAYI PANEL ROUTES
     // ============================================
-    Route::prefix('bayi')->name('bayi.')->middleware('role:bayi')->group(function () {
+    Route::prefix('bayi')->name('bayi.')->middleware(['role:bayi', 'ensure.branch'])->group(function () {
         Route::get('/harita', [\App\Http\Controllers\Bayi\BayiMapController::class, 'harita'])->name('harita');
 
         // Kurye Routes - BayiCourierController
@@ -320,6 +329,13 @@ Route::middleware('auth')->group(function () {
         Route::delete('/vardiya-saatleri/{courier}/sil', [BayiShiftController::class, 'vardiyaSil'])->name('vardiya-saatleri.sil');
         Route::post('/vardiya-saatleri/{courier}/kopyala', [BayiShiftController::class, 'vardiyaKopyala'])->name('vardiya-saatleri.kopyala');
         Route::post('/vardiya-saatleri/{courier}/sablon-uygula', [BayiShiftController::class, 'vardiyaSablonUygula'])->name('vardiya-saatleri.sablon-uygula');
+
+        // Meal Shift (Yemek Vardiyası) Routes - BayiShiftController
+        Route::get('/yemek-vardiyalari', [BayiShiftController::class, 'mealShifts'])->name('yemek-vardiyalari');
+        Route::post('/yemek-vardiyalari', [BayiShiftController::class, 'mealShiftStore'])->name('yemek-vardiyalari.store');
+        Route::put('/yemek-vardiyalari/{mealShift}', [BayiShiftController::class, 'mealShiftUpdate'])->name('yemek-vardiyalari.update');
+        Route::delete('/yemek-vardiyalari/{mealShift}', [BayiShiftController::class, 'mealShiftDestroy'])->name('yemek-vardiyalari.destroy');
+        Route::get('/yemek-maliyet-raporu', [BayiShiftController::class, 'getMealCostReport'])->name('bayi.yemek.maliyet');
 
         // Zone/Bölgelendirme Routes - BayiZoneController
         Route::get('/bolgelendirme', [BayiZoneController::class, 'bolgelendirme'])->name('bolgelendirme');
@@ -398,6 +414,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/finans/sube-performans', [\App\Http\Controllers\Bayi\FinansController::class, 'subePerformans'])->name('finans.sube-performans');
         Route::get('/finans/nakit-akis', [\App\Http\Controllers\Bayi\FinansController::class, 'nakitAkis'])->name('finans.nakit-akis');
         Route::get('/finans/api', [\App\Http\Controllers\Bayi\FinansController::class, 'apiData'])->name('finans.api');
+        Route::get('/finans/yemek-maliyet', [\App\Http\Controllers\Bayi\FinansController::class, 'mealCostReport'])->name('finans.yemek-maliyet');
         Route::get('/finans/export', [\App\Http\Controllers\Bayi\FinansController::class, 'export'])->name('finans.export');
 
         // Gelismis Vardiya Yonetimi
@@ -466,6 +483,9 @@ Route::prefix('kurye')->name('kurye.')->group(function () {
         // History
         Route::get('/gecmis', [\App\Http\Controllers\Kurye\KuryeAppController::class, 'history'])->name('history');
         
+        // Weekly Schedule
+        Route::get('/takvim', [\App\Http\Controllers\Kurye\KuryeAppController::class, 'weeklySchedule'])->name('schedule');
+
         // Profile
         Route::get('/profil', [\App\Http\Controllers\Kurye\KuryeAppController::class, 'profile'])->name('profile');
         

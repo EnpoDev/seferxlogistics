@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Rules\NoPrivateIpRule;
 
 class ExternalOrderController extends Controller
 {
@@ -35,7 +36,7 @@ class ExternalOrderController extends Controller
             'subtotal' => 'required|numeric|min:0',
             'delivery_fee' => 'nullable|numeric|min:0',
             'total' => 'required|numeric|min:0',
-            'payment_method' => 'required|string',
+            'payment_method' => 'required|string|in:cash,card,online,pluxee,edenred,multinet,metropol,tokenflex,setcard',
             'is_paid' => 'required|boolean',
             'notes' => 'nullable|string',
             'scheduled_at' => 'nullable|date',
@@ -166,7 +167,7 @@ class ExternalOrderController extends Controller
 
             return response()->json([
                 'error' => 'order_creation_failed',
-                'message' => 'Sipariş oluşturulamadı: ' . $e->getMessage(),
+                'message' => 'Sipariş oluşturulamadı. Lütfen tekrar deneyin.',
             ], 500);
         }
     }
@@ -208,52 +209,104 @@ class ExternalOrderController extends Controller
         ]);
 
         $user = $request->user();
+        $newStatus = $validated['status'];
 
-        $order = Order::where('external_order_id', $externalOrderId)
-            ->where('platform', 'seferxyemek')
-            ->where('user_id', $user->id) // Authorization: only own orders
-            ->first();
+        try {
+            $result = DB::transaction(function () use ($externalOrderId, $user, $validated, $newStatus) {
+                // lockForUpdate ile race condition onleme
+                $order = Order::where('external_order_id', $externalOrderId)
+                    ->where('platform', 'seferxyemek')
+                    ->where('user_id', $user->id)
+                    ->lockForUpdate()
+                    ->first();
 
-        if (!$order) {
+                if (!$order) {
+                    return ['error' => 'order_not_found', 'status' => 404];
+                }
+
+                $oldStatus = $order->status;
+
+                // Status gecis validasyonu
+                if (!$this->isValidStatusTransition($oldStatus, $newStatus)) {
+                    return [
+                        'error' => 'invalid_transition',
+                        'message' => "Gecersiz status gecisi: {$oldStatus} -> {$newStatus}",
+                        'status' => 422,
+                    ];
+                }
+
+                $order->status = $newStatus;
+
+                if ($newStatus === 'cancelled') {
+                    $order->cancel_reason = $validated['cancel_reason'];
+                }
+
+                // Update timestamps based on status
+                switch ($newStatus) {
+                    case 'preparing':
+                        $order->accepted_at = $order->accepted_at ?? now();
+                        break;
+                    case 'ready':
+                        $order->prepared_at = $order->prepared_at ?? now();
+                        break;
+                    case 'on_delivery':
+                        $order->picked_up_at = $order->picked_up_at ?? now();
+                        break;
+                    case 'delivered':
+                        $order->delivered_at = $order->delivered_at ?? now();
+                        break;
+                }
+
+                $order->save();
+
+                return ['order' => $order, 'oldStatus' => $oldStatus];
+            });
+
+            // Error durumunda
+            if (isset($result['error'])) {
+                return response()->json([
+                    'error' => $result['error'],
+                    'message' => $result['message'] ?? 'Sipariş bulunamadı.',
+                ], $result['status']);
+            }
+
+            // Dispatch event (transaction disinda)
+            event(new \App\Events\OrderStatusUpdated($result['order'], $result['oldStatus']));
+
             return response()->json([
-                'error' => 'order_not_found',
-                'message' => 'Sipariş bulunamadı.',
-            ], 404);
+                'success' => true,
+                'message' => 'Sipariş durumu güncellendi.',
+                'order' => $this->formatOrderResponse($result['order']),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('External order status update failed', [
+                'external_order_id' => $externalOrderId,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'error' => 'update_failed',
+                'message' => 'Sipariş durumu güncellenemedi.',
+            ], 500);
         }
+    }
 
-        $oldStatus = $order->status;
-        $order->status = $validated['status'];
+    /**
+     * Gecerli status gecislerini kontrol et
+     */
+    private function isValidStatusTransition(string $currentStatus, string $newStatus): bool
+    {
+        $validTransitions = [
+            'pending' => ['preparing', 'cancelled'],
+            'preparing' => ['ready', 'cancelled'],
+            'ready' => ['on_delivery', 'cancelled'],
+            'on_delivery' => ['delivered', 'cancelled', 'returned'],
+            'delivered' => [],
+            'cancelled' => [],
+            'returned' => [],
+        ];
 
-        if ($validated['status'] === 'cancelled') {
-            $order->cancel_reason = $validated['cancel_reason'];
-        }
-
-        // Update timestamps based on status
-        switch ($validated['status']) {
-            case 'preparing':
-                $order->accepted_at = now();
-                break;
-            case 'ready':
-                $order->prepared_at = now();
-                break;
-            case 'on_delivery':
-                $order->picked_up_at = now();
-                break;
-            case 'delivered':
-                $order->delivered_at = now();
-                break;
-        }
-
-        $order->save();
-
-        // Dispatch event
-        event(new \App\Events\OrderStatusUpdated($order, $oldStatus));
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Sipariş durumu güncellendi.',
-            'order' => $this->formatOrderResponse($order),
-        ]);
+        return isset($validTransitions[$currentStatus]) &&
+               in_array($newStatus, $validTransitions[$currentStatus]);
     }
 
     /**
@@ -343,8 +396,10 @@ class ExternalOrderController extends Controller
     {
         $validated = $request->validate([
             'auto_accept' => 'sometimes|boolean',
-            'webhook_url' => 'sometimes|nullable|url',
+            'webhook_url' => ['sometimes', 'nullable', 'url', new NoPrivateIpRule()],
             'settings' => 'sometimes|array',
+            'settings.auto_print' => 'sometimes|boolean',
+            'settings.notification_sound' => 'sometimes|boolean',
         ]);
 
         $user = $request->user();

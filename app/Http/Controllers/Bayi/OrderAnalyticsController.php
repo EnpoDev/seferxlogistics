@@ -18,12 +18,42 @@ class OrderAnalyticsController extends Controller
     }
 
     /**
+     * Kullanicinin erisebilecegi branch ID'lerini getir
+     */
+    private function getUserBranchIds(): array
+    {
+        $userId = auth()->id();
+        $userIds = \App\Models\User::where('id', $userId)
+            ->orWhere('parent_id', $userId)
+            ->pluck('id');
+
+        return \App\Models\Branch::whereIn('user_id', $userIds)->pluck('id')->toArray();
+    }
+
+    /**
+     * Branch ID'nin kullaniciya ait olup olmadigini kontrol et
+     */
+    private function validateBranchAccess(?int $branchId): ?int
+    {
+        if (!$branchId) {
+            return null;
+        }
+
+        $allowedBranchIds = $this->getUserBranchIds();
+        if (!in_array($branchId, $allowedBranchIds)) {
+            abort(403, 'Bu isletmeye erisim yetkiniz yok.');
+        }
+
+        return $branchId;
+    }
+
+    /**
      * Ana analitik dashboard
      */
     public function index(Request $request)
     {
         $period = $request->get('period', 'week');
-        $branchId = $request->get('branch_id');
+        $branchId = $this->validateBranchAccess($request->integer('branch_id') ?: null);
 
         [$startDate, $endDate] = $this->getDateRange($period);
 
@@ -36,7 +66,7 @@ class OrderAnalyticsController extends Controller
         $courierPerformance = $this->analyticsService->getCourierPerformance($startDate, $endDate, 10, $branchId);
         $realTimeStats = $this->analyticsService->getRealTimeStats($branchId);
 
-        $branches = \App\Models\Branch::all();
+        $branches = \App\Models\Branch::whereIn('id', $this->getUserBranchIds())->get();
 
         return view('bayi.analytics.index', compact(
             'overviewStats',
@@ -60,9 +90,9 @@ class OrderAnalyticsController extends Controller
      */
     public function weeklyComparison(Request $request)
     {
-        $branchId = $request->get('branch_id');
+        $branchId = $this->validateBranchAccess($request->integer('branch_id') ?: null);
         $comparison = $this->analyticsService->getWeeklyComparison($branchId);
-        $branches = \App\Models\Branch::all();
+        $branches = \App\Models\Branch::whereIn('id', $this->getUserBranchIds())->get();
 
         return view('bayi.analytics.weekly', compact('comparison', 'branches', 'branchId'));
     }
@@ -75,7 +105,8 @@ class OrderAnalyticsController extends Controller
         $period = $request->get('period', 'month');
         [$startDate, $endDate] = $this->getDateRange($period);
 
-        $branchComparison = $this->analyticsService->getBranchComparison($startDate, $endDate);
+        $allowedBranchIds = $this->getUserBranchIds();
+        $branchComparison = $this->analyticsService->getBranchComparison($startDate, $endDate, $allowedBranchIds);
 
         return view('bayi.analytics.branches', compact('branchComparison', 'period', 'startDate', 'endDate'));
     }
@@ -86,11 +117,11 @@ class OrderAnalyticsController extends Controller
     public function heatmap(Request $request)
     {
         $period = $request->get('period', 'month');
-        $branchId = $request->get('branch_id');
+        $branchId = $this->validateBranchAccess($request->integer('branch_id') ?: null);
         [$startDate, $endDate] = $this->getDateRange($period);
 
         $heatmapData = $this->analyticsService->getOrderHeatmap($startDate, $endDate, $branchId);
-        $branches = \App\Models\Branch::all();
+        $branches = \App\Models\Branch::whereIn('id', $this->getUserBranchIds())->get();
 
         return view('bayi.analytics.heatmap', compact('heatmapData', 'branches', 'period', 'branchId', 'startDate', 'endDate'));
     }
@@ -100,7 +131,7 @@ class OrderAnalyticsController extends Controller
      */
     public function realTimeApi(Request $request): JsonResponse
     {
-        $branchId = $request->get('branch_id');
+        $branchId = $this->validateBranchAccess($request->integer('branch_id') ?: null);
         $stats = $this->analyticsService->getRealTimeStats($branchId);
 
         return response()->json([
@@ -116,7 +147,7 @@ class OrderAnalyticsController extends Controller
     public function hourlyApi(Request $request): JsonResponse
     {
         $period = $request->get('period', 'week');
-        $branchId = $request->get('branch_id');
+        $branchId = $this->validateBranchAccess($request->integer('branch_id') ?: null);
         [$startDate, $endDate] = $this->getDateRange($period);
 
         $data = $this->analyticsService->getHourlyDistribution($startDate, $endDate, $branchId);
@@ -133,7 +164,7 @@ class OrderAnalyticsController extends Controller
     public function dailyTrendApi(Request $request): JsonResponse
     {
         $period = $request->get('period', 'week');
-        $branchId = $request->get('branch_id');
+        $branchId = $this->validateBranchAccess($request->integer('branch_id') ?: null);
         [$startDate, $endDate] = $this->getDateRange($period);
 
         $data = $this->analyticsService->getDailyTrend($startDate, $endDate, $branchId);
@@ -150,8 +181,8 @@ class OrderAnalyticsController extends Controller
     public function courierPerformanceApi(Request $request): JsonResponse
     {
         $period = $request->get('period', 'week');
-        $branchId = $request->get('branch_id');
-        $limit = $request->get('limit', 10);
+        $branchId = $this->validateBranchAccess($request->integer('branch_id') ?: null);
+        $limit = min(max((int) $request->get('limit', 10), 1), 100);
         [$startDate, $endDate] = $this->getDateRange($period);
 
         $data = $this->analyticsService->getCourierPerformance($startDate, $endDate, $limit, $branchId);
@@ -168,7 +199,7 @@ class OrderAnalyticsController extends Controller
     public function heatmapApi(Request $request): JsonResponse
     {
         $period = $request->get('period', 'month');
-        $branchId = $request->get('branch_id');
+        $branchId = $this->validateBranchAccess($request->integer('branch_id') ?: null);
         [$startDate, $endDate] = $this->getDateRange($period);
 
         $data = $this->analyticsService->getOrderHeatmap($startDate, $endDate, $branchId);

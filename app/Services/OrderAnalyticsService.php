@@ -347,11 +347,17 @@ class OrderAnalyticsService
     /**
      * Sube performans karsilastirmasi
      */
-    public function getBranchComparison(Carbon $startDate, Carbon $endDate): array
+    public function getBranchComparison(Carbon $startDate, Carbon $endDate, array $branchIds = []): array
     {
-        $branches = Branch::with(['orders' => function ($query) use ($startDate, $endDate) {
+        $query = Branch::with(['orders' => function ($query) use ($startDate, $endDate) {
             $query->whereBetween('created_at', [$startDate, $endDate]);
-        }])->get();
+        }]);
+
+        if (!empty($branchIds)) {
+            $query->whereIn('id', $branchIds);
+        }
+
+        $branches = $query->get();
 
         $result = [];
         foreach ($branches as $branch) {

@@ -23,6 +23,49 @@
         <x-ui.stat-card title="İptal Edilen" :value="$cancelledOrders" color="red" icon="x" />
     </x-layout.grid>
 
+    {{-- Teslimat Suresi Detay Karti --}}
+    <div class="mb-6">
+        <div class="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-blue-700 dark:text-blue-400">Ort. Teslimat Suresi</p>
+                        <p class="text-3xl font-bold text-blue-900 dark:text-blue-200">{{ number_format($avgDeliveryTime ?? $courier->average_delivery_time ?? 0, 0) }} dk</p>
+                        <p class="text-xs text-blue-600 dark:text-blue-500 mt-0.5">Min: {{ number_format($minDeliveryTime ?? 0, 0) }} dk / Max: {{ number_format($maxDeliveryTime ?? 0, 0) }} dk</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    @php
+                        $deliveryTrend = $deliveryTimeTrend ?? 0;
+                        $trendIsPositive = $deliveryTrend <= 0; // negative means faster = good
+                    @endphp
+                    @if($deliveryTrend != 0)
+                    <div class="flex items-center gap-1 {{ $trendIsPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
+                        @if($trendIsPositive)
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
+                        </svg>
+                        @else
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
+                        @endif
+                        <span class="text-sm font-semibold">{{ abs($deliveryTrend) }} dk</span>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Gecen haftaya gore</p>
+                    @else
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Trend verisi yok</p>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Tabs Container --}}
     <x-ui.card :padding="false">
         {{-- Tab Navigation --}}

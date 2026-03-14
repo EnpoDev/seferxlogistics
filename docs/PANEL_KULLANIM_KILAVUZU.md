@@ -4,6 +4,13 @@
 
 SeferX Lojistik, restoran ve isletmeler icin gelistirilmis kapsamli bir teslimat yonetim sistemidir. Sistem 4 ana panelden olusur ve her panel farkli kullanici rollerine hitap eder.
 
+**Ilgili Dokumanlar:**
+- [API Endpoint Referansi](api-reference.md) - Tum API endpoint'lerinin teknik dokumantasyonu
+- [Guvenlik Denetim Bulgulari](security-findings-2026-03-14.md) - Guvenlik denetim raporu
+- [Guvenlik ve KVKK Revizyonu](revised-security-audit.md) - KVKK uyumluluk raporu
+- [Kurye Yemek Sistemi](kurye-yemek-sistemi.md) - Kurye yemek restoranlari is kurallari ve kullanim kilavuzu
+- [Degisiklik Gunlugu](../CHANGELOG.md) - Versiyon bazli degisiklik gecmisi
+
 ---
 
 ## Siparis Akisi (Order Flow)
@@ -98,10 +105,12 @@ Restoran ve kafe gibi isletmelerin gunluk operasyonlarini yonettigi paneldir. Si
 **Siparis Olusturma Akisi:**
 1. "Yeni Siparis" butonuna tiklanir
 2. Musteri bilgileri girilir (ad, telefon, adres)
-3. Urunler secilir ve miktarlar belirlenir
-4. Odeme yontemi secilir (Nakit/Kart/Online)
-5. Kurye atanir (opsiyonel - sonra da atanabilir)
-6. Siparis kaydedilir
+3. Mahalle/Zone secilir (teslimat ucreti otomatik hesaplanir)
+4. Urunler secilir, varyasyonlar belirlenir (porsiyon, ekstra malzeme)
+5. Odeme yontemi secilir (Nakit/Kart/Online/Pluxee/Edenred/Multinet/Metropol/Tokenflex/Setcard)
+6. Bolunmus odeme yapilabilir (opsiyonel)
+7. Kurye atanir (opsiyonel - sonra da atanabilir)
+8. Siparis kaydedilir
 
 #### 1.3.2 Siparis Gecmisi
 **Sayfa:** `/siparis/gecmis`
@@ -152,7 +161,9 @@ Restoran ve kafe gibi isletmelerin gunluk operasyonlarini yonettigi paneldir. Si
 2. API bilgileri girilir (Supplier ID, API Key, vb.)
 3. Baglanti test edilir
 4. Aktif edilir
-5. Siparisler otomatik olarak sisteme akar
+5. Siparisler otomatik olarak sisteme akar (AutoSync)
+
+**Trendyol AutoSync:** Manuel sync tusuna gerek kalmadan siparisler periyodik olarak otomatik cekilir ve durum degisiklikleri Trendyol'a geri bildirilir.
 
 ### 1.6 Yonetim
 
@@ -177,6 +188,7 @@ Restoran ve kafe gibi isletmelerin gunluk operasyonlarini yonettigi paneldir. Si
 - Stok durumu
 - Kategori atama
 - Urun gorseli
+- **Varyasyon tanimlama:** Porsiyon (kucuk/orta/buyuk), ekstra malzeme ekleme/cikarma, varyasyon bazli fiyatlandirma
 
 #### 1.6.4 Kayitli Kartlarim
 **Sayfa:** `/yonetim/kartlar`
@@ -265,7 +277,17 @@ Birden fazla isletme ve kuryeyi yoneten bayiler icin tasarlanmis paneldir. Genis
 - Kurye bazli atama
 - Mesai planlama
 
-### 2.5 Kullanici Yonetimi
+### 2.5 Kurye Yemek Restoranlari
+**Sayfa:** `/bayi/yemek-vardiyalari`
+**Amac:** Kuryelerin yemek yiyebilecegi restoranlari yonetme
+**API:** [Bayi Yemek Vardiyalari](api-reference.md#76-yemek-vardiyalari-yeni)
+
+- Anlasmalari restoran tanimlama
+- Haftalik yemek plani olusturma
+- Kurye bazli yemek hakki atama
+- Yemek kullanim raporlari
+
+### 2.6 Kullanici Yonetimi
 **Sayfa:** `/bayi/kullanici-yonetimi`
 **Amac:** Panel kullanicilarini yonetme
 
@@ -273,7 +295,7 @@ Birden fazla isletme ve kuryeyi yoneten bayiler icin tasarlanmis paneldir. Genis
 - Rol ve yetki atama
 - Erisim kontrolu
 
-### 2.6 Istatistik
+### 2.7 Istatistik
 **Sayfa:** `/bayi/istatistik`
 **Amac:** Temel performans metrikleri
 
@@ -282,7 +304,7 @@ Birden fazla isletme ve kuryeyi yoneten bayiler icin tasarlanmis paneldir. Genis
 - Kurye performanslari
 - Gelir analizi
 
-### 2.7 Gelismis Istatistik
+### 2.8 Gelismis Istatistik
 **Sayfa:** `/bayi/gelismis-istatistik`
 **Amac:** Detayli analiz ve raporlar
 
@@ -291,7 +313,7 @@ Birden fazla isletme ve kuryeyi yoneten bayiler icin tasarlanmis paneldir. Genis
 - Karsilastirmali raporlar
 - Tahminleme
 
-### 2.8 Bolgelendirme
+### 2.9 Bolgelendirme
 **Sayfa:** `/bayi/bolgelendirme`
 **Amac:** Teslimat bolgelerini tanimlama
 
@@ -301,6 +323,9 @@ Birden fazla isletme ve kuryeyi yoneten bayiler icin tasarlanmis paneldir. Genis
 - Bolge bazli teslimat ucreti belirleme
 - Tahmini teslimat suresi
 - Drag & drop ile kurye-bolge eslestirme
+- **Zone bazli siparis limitleri:** Her bolge icin maksimum siparis sayisi tanimlanabilir
+- **Mahalle/Zone secimi:** Siparis olusturulurken mahalle secilir, teslimat ucreti otomatik hesaplanir
+- **Adres dogrulama:** Musteri adresi zone ile eslestirilerek dogrulanir
 
 **Kullanim:**
 1. "Yeni Bolge" veya "Haritadan Ciz" tiklanir
@@ -309,9 +334,9 @@ Birden fazla isletme ve kuryeyi yoneten bayiler icin tasarlanmis paneldir. Genis
 4. Teslimat ucreti girilir
 5. Kuryeler atanir
 
-### 2.9 Odemeler
+### 2.10 Odemeler
 
-#### 2.9.1 Nakit Odemeler
+#### 2.10.1 Nakit Odemeler
 **Sayfa:** `/bayi/nakit-odemeler`
 **Amac:** Nakit tahsilat takibi
 
@@ -319,7 +344,7 @@ Birden fazla isletme ve kuryeyi yoneten bayiler icin tasarlanmis paneldir. Genis
 - Tahsilat kayitlari
 - Mutabakat
 
-#### 2.9.2 Kurye Odemeleri
+#### 2.10.2 Kurye Odemeleri
 **Sayfa:** `/bayi/odemeler/kurye`
 **Amac:** Kuryelere yapilan odemeleri yonetme
 
@@ -327,27 +352,27 @@ Birden fazla isletme ve kuryeyi yoneten bayiler icin tasarlanmis paneldir. Genis
 - Haftalik/aylik odemeler
 - Odeme gecmisi
 
-#### 2.9.3 Isletme Odemeleri
+#### 2.10.3 Isletme Odemeleri
 **Sayfa:** `/bayi/odemeler/isletme`
 **Amac:** Isletmelere yapilan odemeleri yonetme
 
-### 2.10 Siparisler
+### 2.11 Siparisler
 
-#### 2.10.1 Gecmis
+#### 2.11.1 Gecmis
 **Sayfa:** `/bayi/siparisler/gecmis`
 **Amac:** Tum siparis gecmisini goruntuleme
 
-#### 2.10.2 Bedelsiz Siparisler
+#### 2.11.2 Bedelsiz Siparisler
 **Sayfa:** `/bayi/siparisler/bedelsiz`
 **Amac:** Ucretsiz teslimatlari takip etme
 
-### 2.11 Ayarlar
+### 2.12 Ayarlar
 
-#### 2.11.1 Genel Ayarlar
+#### 2.12.1 Genel Ayarlar
 **Sayfa:** `/bayi/ayarlar/genel`
 **Amac:** Sistem genel ayarlari
 
-#### 2.11.2 Kurye Ayarlari
+#### 2.12.2 Kurye Ayarlari
 **Sayfa:** `/bayi/ayarlar/kurye`
 **Amac:** Kurye ile ilgili yapilandirmalar
 
@@ -355,11 +380,11 @@ Birden fazla isletme ve kuryeyi yoneten bayiler icin tasarlanmis paneldir. Genis
 - Otomatik atama kurallari
 - Bildirim ayarlari
 
-#### 2.11.3 Uygulama Ayarlari
+#### 2.12.3 Uygulama Ayarlari
 **Sayfa:** `/bayi/ayarlar/uygulama`
 **Amac:** Mobil uygulama ayarlari
 
-#### 2.11.4 Havuz Ayarlari
+#### 2.12.4 Havuz Ayarlari
 **Sayfa:** `/bayi/ayarlar/havuz`
 **Amac:** Siparis havuzu yapilandirmasi
 
@@ -372,7 +397,26 @@ Kurye atanmayan siparisler "havuza" duser. Kuryeler kendi uygulamalarindan havuz
 - Otomatik atama suresi
 - Oncelik kurallari
 
-#### 2.11.5 Bildirim Ayarlari
+#### 2.12.5 Odeme Yontemi Ayarlari
+**Sayfa:** `/bayi/ayarlar/odeme`
+**Amac:** Isletme bazinda kabul edilen odeme yontemlerini yapilandirma
+
+**Desteklenen Odeme Yontemleri:**
+- Nakit
+- Kredi/Banka Karti
+- Online Odeme
+- Pluxee
+- Edenred
+- Multinet
+- Metropol
+- Tokenflex
+- Setcard
+
+**Ozellikler:**
+- Her isletme icin ayri ayri odeme yontemi aktif/pasif yapilabilir
+- Bolunmus odeme (split payment) destegi: Birden fazla yontemle odeme alinabilir
+
+#### 2.12.6 Bildirim Ayarlari
 **Sayfa:** `/bayi/ayarlar/bildirim`
 **Amac:** Bildirim tercihlerini yonetme
 
@@ -381,7 +425,7 @@ Kurye atanmayan siparisler "havuza" duser. Kuryeler kendi uygulamalarindan havuz
 - E-posta bildirim
 - Bildirim turleri
 
-### 2.12 Tema
+### 2.13 Tema
 **Sayfa:** `/bayi/tema`
 **Amac:** Arayuz gorunumunu ozellestirme
 
@@ -434,7 +478,15 @@ Kuryelerin mobil cihazlarindan kullandigi, teslimat odakli paneldir.
 4. "Siparisi Al" tiklar
 5. Siparis kuryeye atanir
 
-### 3.4 Gecmis
+### 3.4 Yemek Restoranlari
+**Sayfa:** `/kurye/yemek`
+**Amac:** Haftalik yemek plani ve restoran bilgilerini goruntuleme
+
+- Anlasmalı restoran listesi
+- Haftalik yemek takvimi
+- Kalan yemek hakki
+
+### 3.5 Gecmis
 **Sayfa:** `/kurye/history`
 **Amac:** Tamamlanan teslimatlari goruntuleme
 
@@ -442,7 +494,7 @@ Kuryelerin mobil cihazlarindan kullandigi, teslimat odakli paneldir.
 - Kazanc detaylari
 - Teslimat sureleri
 
-### 3.5 Profil
+### 3.6 Profil
 **Sayfa:** `/kurye/profile`
 **Amac:** Kisisel bilgiler ve ayarlar
 
@@ -478,7 +530,7 @@ Tum sistemi yoneten ust duzey yonetim panelidir.
 **Islemler:**
 - Yeni bayi olusturma
 - Bayi bilgilerini duzenleme
-- Bayi detaylarini goruntuleme (subeler, kuryeler, siparisler)
+- Bayi detaylarini goruntuleme (isletmeler, kuryeler, siparisler)
 - Bayi silme
 - Durum degistirme (aktif/pasif)
 
@@ -491,13 +543,13 @@ Tum sistemi yoneten ust duzey yonetim panelidir.
 - Kullanici olusturma/duzenleme
 - Erisim yonetimi
 
-### 4.4 Subeler
-**Sayfa:** `/admin/subeler`
-**Amac:** Tum subeleri goruntuleme
+### 4.4 Isletmeler
+**Sayfa:** `/admin/isletmeler`
+**Amac:** Tum isletmeleri goruntuleme
 
-- Sube listesi
+- Isletme listesi
 - Hangi bayiye ait
-- Sube ayarlari
+- Isletme ayarlari
 
 ### 4.5 Kuryeler
 **Sayfa:** `/admin/kuryeler`
@@ -548,9 +600,9 @@ Tum sistemi yoneten ust duzey yonetim panelidir.
 
 ### Trendyol Go Entegrasyonu
 
-**Nasil Calisir:**
+**Nasil Calisir (AutoSync):**
 1. Isletme Trendyol Go API bilgilerini girer
-2. Sistem periyodik olarak yeni siparisleri ceker
+2. Sistem periyodik olarak yeni siparisleri otomatik ceker (manuel sync gerekmez)
 3. Siparisler otomatik olarak sisteme eklenir
 4. Durum degisiklikleri Trendyol'a geri bildirilir
 

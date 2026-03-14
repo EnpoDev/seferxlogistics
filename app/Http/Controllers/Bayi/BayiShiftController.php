@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Bayi;
 
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
+use App\Models\CourierMealShift;
 use App\Models\User;
 use Illuminate\Http\Request;
 
@@ -47,8 +48,20 @@ class BayiShiftController extends Controller
         return view('bayi.vardiya-saatleri', compact('couriers', 'businessInfo'));
     }
 
+    /**
+     * Kurye sahiplik kontrolu - bayinin kuryesi mi?
+     */
+    private function checkCourierOwnership(Courier $courier): void
+    {
+        if (!in_array($courier->user_id, $this->getBayiAndChildUserIds())) {
+            abort(403, 'Bu kuryeye erişim yetkiniz yok.');
+        }
+    }
+
     public function vardiyaGuncelle(Request $request, Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         $validated = $request->validate([
             'day' => 'required|integer|min:0|max:6',
             'hours' => 'nullable|string|max:50',
@@ -178,6 +191,8 @@ class BayiShiftController extends Controller
 
     public function vardiyaSil(Request $request, Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         $validated = $request->validate([
             'day' => 'required|integer|min:0|max:6',
         ]);
@@ -197,6 +212,8 @@ class BayiShiftController extends Controller
 
     public function vardiyaKopyala(Request $request, Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         $validated = $request->validate([
             'source_day' => 'required|integer|min:0|max:6',
             'target_days' => 'required|array',
@@ -227,6 +244,8 @@ class BayiShiftController extends Controller
 
     public function vardiyaSablonUygula(Request $request, Courier $courier)
     {
+        $this->checkCourierOwnership($courier);
+
         $businessInfo = \App\Models\BusinessInfo::first();
 
         if (!$businessInfo || !$businessInfo->default_shifts) {
@@ -250,5 +269,137 @@ class BayiShiftController extends Controller
         $courier->save();
 
         return response()->json(['success' => true]);
+    }
+
+    // ============================================
+    // MEAL SHIFT (Yemek Vardiyası) CRUD
+    // ============================================
+
+    public function mealShifts(Request $request)
+    {
+        $weekOffset = (int) $request->query('week', 0);
+        $startOfWeek = now()->startOfWeek()->addWeeks($weekOffset);
+        $endOfWeek = $startOfWeek->copy()->endOfWeek();
+
+        $userIds = $this->getBayiAndChildUserIds();
+        $couriers = Courier::whereIn('user_id', $userIds)->orderBy('name')->get();
+
+        $mealShifts = CourierMealShift::whereIn('courier_id', $couriers->pluck('id'))
+            ->with('restaurant')
+            ->whereBetween('date', [$startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')])
+            ->orderBy('date')
+            ->orderBy('start_time')
+            ->get()
+            ->groupBy('courier_id');
+
+        $restaurants = \App\Models\Restaurant::where('is_active', true)->orderBy('name')->get();
+
+        return view('bayi.yemek-vardiyalari', compact(
+            'couriers', 'mealShifts', 'restaurants', 'startOfWeek', 'endOfWeek', 'weekOffset'
+        ));
+    }
+
+    public function mealShiftStore(Request $request)
+    {
+        $validated = $request->validate([
+            'courier_id' => 'required|exists:couriers,id',
+            'restaurant_id' => 'nullable|exists:restaurants,id',
+            'date' => 'required|date',
+            'meal_type' => 'required|in:breakfast,lunch,dinner',
+            'start_time' => 'required|date_format:H:i',
+            'end_time' => 'required|date_format:H:i',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $courier = Courier::findOrFail($validated['courier_id']);
+        $this->checkCourierOwnership($courier);
+
+        $mealShift = CourierMealShift::create($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Yemek vardiyası eklendi.',
+            'meal_shift' => $mealShift,
+        ]);
+    }
+
+    public function mealShiftUpdate(Request $request, CourierMealShift $mealShift)
+    {
+        $this->checkCourierOwnership($mealShift->courier);
+
+        $validated = $request->validate([
+            'restaurant_id' => 'nullable|exists:restaurants,id',
+            'date' => 'sometimes|date',
+            'meal_type' => 'sometimes|in:breakfast,lunch,dinner',
+            'start_time' => 'sometimes|date_format:H:i',
+            'end_time' => 'sometimes|date_format:H:i',
+            'is_active' => 'sometimes|boolean',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $mealShift->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Yemek vardiyası güncellendi.',
+            'meal_shift' => $mealShift,
+        ]);
+    }
+
+    public function mealShiftDestroy(CourierMealShift $mealShift)
+    {
+        $this->checkCourierOwnership($mealShift->courier);
+
+        $mealShift->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Yemek vardiyası silindi.',
+        ]);
+    }
+
+    public function getMealCostReport(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->subDays(30)->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->format('Y-m-d'));
+
+        $userId = auth()->id();
+
+        $benefits = \App\Models\CourierMealBenefit::with(['courier', 'restaurant'])
+            ->whereHas('courier', function ($q) use ($userId) {
+                $q->where('user_id', $userId);
+            })
+            ->whereBetween('benefit_date', [$startDate, $endDate])
+            ->where('is_used', true)
+            ->get();
+
+        $report = $benefits->groupBy('courier_id')->map(function ($courierBenefits) {
+            $courier = $courierBenefits->first()->courier;
+
+            $byMealType = $courierBenefits->groupBy('meal_type')->map(function ($typeBenefits, $type) {
+                return [
+                    'meal_type' => $type,
+                    'count' => $typeBenefits->count(),
+                    'total_value' => round($typeBenefits->sum('meal_value'), 2),
+                ];
+            })->values();
+
+            return [
+                'courier_id' => $courier?->id,
+                'courier_name' => $courier?->name ?? 'Bilinmeyen',
+                'total_benefits' => $courierBenefits->count(),
+                'total_cost' => round($courierBenefits->sum('meal_value'), 2),
+                'by_meal_type' => $byMealType,
+            ];
+        })->sortByDesc('total_cost')->values();
+
+        $grandTotal = round($benefits->sum('meal_value'), 2);
+
+        return response()->json([
+            'success' => true,
+            'period' => ['start' => $startDate, 'end' => $endDate],
+            'grand_total' => $grandTotal,
+            'couriers' => $report,
+        ]);
     }
 }

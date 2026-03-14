@@ -1,7 +1,7 @@
 <x-bayi-layout>
     <x-slot name="title">Paketler - Bayi Paneli</x-slot>
 
-    <div class="p-6" x-data="{ billingPeriod: 'monthly' }">
+    <div class="p-6" x-data="{ billingPeriod: 'monthly', selectedPaymentMethod: 'bank_transfer' }">
         <!-- Page Header -->
         <div class="flex items-center justify-between mb-6">
             <div>
@@ -77,11 +77,37 @@
                     @elseif($currentSubscription && $isUpgrade)
                         <form action="{{ route('billing.subscription.upgrade', $plan) }}" method="POST">
                             @csrf
+                            <input type="hidden" name="payment_method" x-model="selectedPaymentMethod">
+                            <div class="flex gap-2 mb-3">
+                                <button type="button" @click="selectedPaymentMethod = 'bank_transfer'"
+                                    :class="selectedPaymentMethod === 'bank_transfer' ? '{{ $plan->is_featured ? "bg-white/20 ring-2 ring-white dark:ring-black" : "bg-gray-200 dark:bg-gray-700 ring-2 ring-black dark:ring-white" }}' : '{{ $plan->is_featured ? "bg-white/10" : "bg-gray-100 dark:bg-gray-800" }}'"
+                                    class="flex-1 py-1.5 rounded text-xs font-medium {{ $plan->is_featured ? 'text-white dark:text-black' : 'text-gray-700 dark:text-gray-300' }} transition-all">
+                                    Havale/EFT
+                                </button>
+                                <button type="button" @click="selectedPaymentMethod = 'credit_card'"
+                                    :class="selectedPaymentMethod === 'credit_card' ? '{{ $plan->is_featured ? "bg-white/20 ring-2 ring-white dark:ring-black" : "bg-gray-200 dark:bg-gray-700 ring-2 ring-black dark:ring-white" }}' : '{{ $plan->is_featured ? "bg-white/10" : "bg-gray-100 dark:bg-gray-800" }}'"
+                                    class="flex-1 py-1.5 rounded text-xs font-medium {{ $plan->is_featured ? 'text-white dark:text-black' : 'text-gray-700 dark:text-gray-300' }} transition-all">
+                                    Kredi Karti
+                                </button>
+                            </div>
                             <button type="submit" class="w-full px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors">Yukselt</button>
                         </form>
                     @elseif(!$currentSubscription)
                         <form action="{{ route('billing.subscribe', $plan) }}" method="POST">
                             @csrf
+                            <input type="hidden" name="payment_method" x-model="selectedPaymentMethod">
+                            <div class="flex gap-2 mb-3">
+                                <button type="button" @click="selectedPaymentMethod = 'bank_transfer'"
+                                    :class="selectedPaymentMethod === 'bank_transfer' ? '{{ $plan->is_featured ? "bg-white/20 ring-2 ring-white dark:ring-black" : "bg-gray-200 dark:bg-gray-700 ring-2 ring-black dark:ring-white" }}' : '{{ $plan->is_featured ? "bg-white/10" : "bg-gray-100 dark:bg-gray-800" }}'"
+                                    class="flex-1 py-1.5 rounded text-xs font-medium {{ $plan->is_featured ? 'text-white dark:text-black' : 'text-gray-700 dark:text-gray-300' }} transition-all">
+                                    Havale/EFT
+                                </button>
+                                <button type="button" @click="selectedPaymentMethod = 'credit_card'"
+                                    :class="selectedPaymentMethod === 'credit_card' ? '{{ $plan->is_featured ? "bg-white/20 ring-2 ring-white dark:ring-black" : "bg-gray-200 dark:bg-gray-700 ring-2 ring-black dark:ring-white" }}' : '{{ $plan->is_featured ? "bg-white/10" : "bg-gray-100 dark:bg-gray-800" }}'"
+                                    class="flex-1 py-1.5 rounded text-xs font-medium {{ $plan->is_featured ? 'text-white dark:text-black' : 'text-gray-700 dark:text-gray-300' }} transition-all">
+                                    Kredi Karti
+                                </button>
+                            </div>
                             <button type="submit" class="w-full px-4 py-2 {{ $plan->is_featured ? 'bg-white dark:bg-black text-black dark:text-white' : 'bg-black dark:bg-white text-white dark:text-black' }} rounded-lg hover:opacity-90 transition-colors">Sec</button>
                         </form>
                     @else
@@ -131,11 +157,37 @@
                     @elseif($currentSubscription && $isUpgrade)
                         <form action="{{ route('billing.subscription.upgrade', $plan) }}" method="POST">
                             @csrf
+                            <input type="hidden" name="payment_method" x-model="selectedPaymentMethod">
+                            <div class="flex gap-2 mb-3">
+                                <button type="button" @click="selectedPaymentMethod = 'bank_transfer'"
+                                    :class="selectedPaymentMethod === 'bank_transfer' ? '{{ $plan->is_featured ? "bg-white/20 ring-2 ring-white dark:ring-black" : "bg-gray-200 dark:bg-gray-700 ring-2 ring-black dark:ring-white" }}' : '{{ $plan->is_featured ? "bg-white/10" : "bg-gray-100 dark:bg-gray-800" }}'"
+                                    class="flex-1 py-1.5 rounded text-xs font-medium {{ $plan->is_featured ? 'text-white dark:text-black' : 'text-gray-700 dark:text-gray-300' }} transition-all">
+                                    Havale/EFT
+                                </button>
+                                <button type="button" @click="selectedPaymentMethod = 'credit_card'"
+                                    :class="selectedPaymentMethod === 'credit_card' ? '{{ $plan->is_featured ? "bg-white/20 ring-2 ring-white dark:ring-black" : "bg-gray-200 dark:bg-gray-700 ring-2 ring-black dark:ring-white" }}' : '{{ $plan->is_featured ? "bg-white/10" : "bg-gray-100 dark:bg-gray-800" }}'"
+                                    class="flex-1 py-1.5 rounded text-xs font-medium {{ $plan->is_featured ? 'text-white dark:text-black' : 'text-gray-700 dark:text-gray-300' }} transition-all">
+                                    Kredi Karti
+                                </button>
+                            </div>
                             <button type="submit" class="w-full px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors">Yukselt</button>
                         </form>
                     @elseif(!$currentSubscription)
                         <form action="{{ route('billing.subscribe', $plan) }}" method="POST">
                             @csrf
+                            <input type="hidden" name="payment_method" x-model="selectedPaymentMethod">
+                            <div class="flex gap-2 mb-3">
+                                <button type="button" @click="selectedPaymentMethod = 'bank_transfer'"
+                                    :class="selectedPaymentMethod === 'bank_transfer' ? '{{ $plan->is_featured ? "bg-white/20 ring-2 ring-white dark:ring-black" : "bg-gray-200 dark:bg-gray-700 ring-2 ring-black dark:ring-white" }}' : '{{ $plan->is_featured ? "bg-white/10" : "bg-gray-100 dark:bg-gray-800" }}'"
+                                    class="flex-1 py-1.5 rounded text-xs font-medium {{ $plan->is_featured ? 'text-white dark:text-black' : 'text-gray-700 dark:text-gray-300' }} transition-all">
+                                    Havale/EFT
+                                </button>
+                                <button type="button" @click="selectedPaymentMethod = 'credit_card'"
+                                    :class="selectedPaymentMethod === 'credit_card' ? '{{ $plan->is_featured ? "bg-white/20 ring-2 ring-white dark:ring-black" : "bg-gray-200 dark:bg-gray-700 ring-2 ring-black dark:ring-white" }}' : '{{ $plan->is_featured ? "bg-white/10" : "bg-gray-100 dark:bg-gray-800" }}'"
+                                    class="flex-1 py-1.5 rounded text-xs font-medium {{ $plan->is_featured ? 'text-white dark:text-black' : 'text-gray-700 dark:text-gray-300' }} transition-all">
+                                    Kredi Karti
+                                </button>
+                            </div>
                             <button type="submit" class="w-full px-4 py-2 {{ $plan->is_featured ? 'bg-white dark:bg-black text-black dark:text-white' : 'bg-black dark:bg-white text-white dark:text-black' }} rounded-lg hover:opacity-90 transition-colors">Sec</button>
                         </form>
                     @else

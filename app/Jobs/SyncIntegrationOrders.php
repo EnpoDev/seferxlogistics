@@ -29,36 +29,46 @@ class SyncIntegrationOrders implements ShouldQueue
 
     public function handle(): void
     {
-        $services = [
-            'yemeksepeti' => new YemeksepetiService(),
-            'getir' => new GetirService(),
-            'trendyol' => new TrendyolService(),
-        ];
+        $platforms = ['yemeksepeti', 'getir', 'trendyol'];
 
         // Belirli platform veya tum platformlar
-        if ($this->platform && isset($services[$this->platform])) {
-            $this->syncPlatform($this->platform, $services[$this->platform]);
-        } else {
-            foreach ($services as $platform => $service) {
-                $this->syncPlatform($platform, $service);
+        if ($this->platform && in_array($this->platform, $platforms)) {
+            $platforms = [$this->platform];
+        }
+
+        // Her platform icin tum baglanti olan entegrasyonlari sync et
+        foreach ($platforms as $platform) {
+            $integrations = Integration::where('platform', $platform)
+                ->where('is_connected', true)
+                ->get();
+
+            foreach ($integrations as $integration) {
+                $this->syncIntegration($platform, $integration);
             }
         }
     }
 
-    private function syncPlatform(string $platform, $service): void
+    private function syncIntegration(string $platform, Integration $integration): void
     {
-        $integration = $service->getIntegration();
+        $service = match ($platform) {
+            'yemeksepeti' => new YemeksepetiService(),
+            'getir' => new GetirService(),
+            'trendyol' => new TrendyolService(),
+            default => null,
+        };
 
-        if (!$integration || !$integration->is_connected) {
+        if (!$service) {
             return;
         }
 
+        $service->setIntegration($integration);
+
         try {
-            Log::info("[Integration Sync] Starting sync for {$platform}");
+            Log::info("[Integration Sync] Starting sync for {$platform} (branch: {$integration->branch_id})");
 
             $orders = $service->fetchOrders();
 
-            Log::info("[Integration Sync] Synced {$platform}: " . count($orders) . " orders");
+            Log::info("[Integration Sync] Synced {$platform} (branch: {$integration->branch_id}): " . count($orders) . " orders");
 
             // Entegrasyon istatistiklerini guncelle
             $integration->update([
@@ -74,11 +84,9 @@ class SyncIntegrationOrders implements ShouldQueue
                 }
             }
         } catch (\Exception $e) {
-            Log::error("[Integration Sync] Error syncing {$platform}: " . $e->getMessage());
+            Log::error("[Integration Sync] Error syncing {$platform} (branch: {$integration->branch_id}): " . $e->getMessage());
 
-            if ($integration) {
-                $integration->markAsError($e->getMessage());
-            }
+            $integration->markAsError($e->getMessage());
         }
     }
 

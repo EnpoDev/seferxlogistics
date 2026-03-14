@@ -88,6 +88,15 @@ class CallController extends Controller
      */
     public function webhook(Request $request)
     {
+        // Twilio signature validation
+        if (!$this->validateVoipWebhook($request)) {
+            \Log::warning('Invalid VOIP webhook request', [
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
         $data = $request->all();
 
         $success = $this->voipService->handleWebhook($data);
@@ -106,6 +115,15 @@ class CallController extends Controller
      */
     public function connectWebhook(Request $request, int $callLogId)
     {
+        // Twilio signature validation
+        if (!$this->validateVoipWebhook($request)) {
+            \Log::warning('Invalid VOIP connect webhook request', [
+                'ip' => $request->ip(),
+                'call_log_id' => $callLogId,
+            ]);
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
         $callLog = CallLog::find($callLogId);
 
         if (!$callLog) {
@@ -120,6 +138,42 @@ class CallController extends Controller
         $callLog->update(['status' => CallLog::STATUS_RINGING]);
 
         return response($twiml, 200)->header('Content-Type', 'text/xml');
+    }
+
+    /**
+     * VOIP webhook dogrulama
+     * Twilio X-Twilio-Signature header'i ile veya auth token ile dogrulama
+     */
+    private function validateVoipWebhook(Request $request): bool
+    {
+        $authToken = config('services.twilio.auth_token');
+
+        // Auth token yoksa (VOIP yapilandirilmamis), istek reddedilir
+        if (empty($authToken)) {
+            return false;
+        }
+
+        // Twilio SDK ile imza dogrulama
+        $signature = $request->header('X-Twilio-Signature');
+        if ($signature) {
+            $url = $request->fullUrl();
+            $params = $request->all();
+            $validator = new \Twilio\Security\RequestValidator($authToken);
+            return $validator->validate($signature, $url, $params);
+        }
+
+        // Twilio signature yoksa, sadece bilinen IP adreslerinden izin ver
+        // Twilio IP ranges: https://www.twilio.com/docs/sip-trunking/ip-addresses
+        $trustedIps = config('services.voip.trusted_ips', []);
+        if (!empty($trustedIps)) {
+            return in_array($request->ip(), $trustedIps);
+        }
+
+        // Ne imza ne IP whitelist varsa - guvenli degil
+        \Log::warning('VOIP webhook received without Twilio signature or IP whitelist', [
+            'ip' => $request->ip(),
+        ]);
+        return false;
     }
 
     /**

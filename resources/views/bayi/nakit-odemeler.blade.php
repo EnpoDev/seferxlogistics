@@ -53,18 +53,72 @@
                     </div>
 
                     {{-- Tutar --}}
-                    <x-form.input
-                        type="number"
-                        name="amount"
-                        id="amount"
-                        label="Tutar"
-                        step="0.01"
-                        min="0.01"
-                        required
-                        placeholder="0.00"
-                        suffix="TL"
-                    />
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tutar</label>
+                            <label class="flex items-center space-x-1 cursor-pointer">
+                                <input type="checkbox" id="splitPaymentToggle" class="rounded text-xs">
+                                <span class="text-xs text-gray-500 dark:text-gray-400">Parcali Odeme</span>
+                            </label>
+                        </div>
+
+                        {{-- Tek tutar --}}
+                        <div id="singleAmountSection">
+                            <x-form.input
+                                type="number"
+                                name="amount"
+                                id="amount"
+                                step="0.01"
+                                min="0.01"
+                                required
+                                placeholder="0.00"
+                                suffix="TL"
+                            />
+                        </div>
+
+                        {{-- Parcali odeme --}}
+                        <div id="splitAmountSection" class="hidden space-y-3">
+                            <div class="flex items-center space-x-2">
+                                <div class="flex-1">
+                                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Nakit</label>
+                                    <div class="relative">
+                                        <input type="number" id="splitCashAmount" step="0.01" min="0" placeholder="0.00"
+                                            class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white text-sm">
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">TL</span>
+                                    </div>
+                                </div>
+                                <div class="flex-1">
+                                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Kart</label>
+                                    <div class="relative">
+                                        <input type="number" id="splitCardAmount" step="0.01" min="0" placeholder="0.00"
+                                            class="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white text-sm">
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">TL</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="splitTotalInfo" class="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <span class="text-xs text-gray-600 dark:text-gray-400">Toplam:</span>
+                                <span id="splitTotalAmount" class="text-sm font-bold text-black dark:text-white">0.00 TL</span>
+                            </div>
+                            <input type="hidden" name="split_cash_amount" id="splitCashHidden">
+                            <input type="hidden" name="split_card_amount" id="splitCardHidden">
+                        </div>
+                    </div>
                 </x-layout.grid>
+
+                {{-- Kurye Bekleyen Nakit Siparisler --}}
+                <div id="pendingCashOrders" class="hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Bekleyen Nakit Siparisler</p>
+                        <span id="pendingCashCount" class="text-xs px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full"></span>
+                    </div>
+                    <div id="pendingCashList" class="space-y-2 max-h-48 overflow-y-auto">
+                    </div>
+                    <div id="pendingCashTotal" class="mt-2 flex items-center justify-between p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                        <span class="text-sm text-amber-700 dark:text-amber-400">Toplam Bekleyen:</span>
+                        <span id="pendingCashTotalAmount" class="text-sm font-bold text-amber-700 dark:text-amber-400"></span>
+                    </div>
+                </div>
 
                 {{-- İşlem Tipi --}}
                 <x-form.form-group label="İşlem Tipi">
@@ -286,7 +340,7 @@
 <script>
     $(document).ready(function() {
         $('#courier_id').select2({
-            placeholder: 'Kurye ara (İsim, Telefon, TC, Plaka)...',
+            placeholder: 'Kurye ara (Isim, Telefon, TC, Plaka)...',
             allowClear: true,
             width: '100%'
         });
@@ -296,23 +350,154 @@
             const balance = selectedOption.data('balance');
             const balanceDiv = $('#courierBalance');
             const balanceAmount = $('#balanceAmount');
+            const courierId = $(this).val();
 
             if (balance !== undefined && balance !== null) {
-                balanceAmount.text('₺' + parseFloat(balance).toFixed(2));
+                balanceAmount.text(parseFloat(balance).toFixed(2) + ' TL');
                 balanceDiv.removeClass('hidden');
             } else {
                 balanceDiv.addClass('hidden');
             }
+
+            // Load pending cash orders for selected courier
+            if (courierId) {
+                loadPendingCashOrders(courierId);
+            } else {
+                $('#pendingCashOrders').addClass('hidden');
+            }
+        });
+
+        // Split payment toggle
+        $('#splitPaymentToggle').on('change', function() {
+            const isSplit = $(this).is(':checked');
+            if (isSplit) {
+                $('#singleAmountSection').addClass('hidden');
+                $('#splitAmountSection').removeClass('hidden');
+                $('#amount').removeAttr('required').val('');
+            } else {
+                $('#singleAmountSection').removeClass('hidden');
+                $('#splitAmountSection').addClass('hidden');
+                $('#amount').attr('required', 'required');
+                $('#splitCashAmount, #splitCardAmount').val('');
+                updateSplitTotal();
+            }
+        });
+
+        // Split amount real-time calculation
+        $('#splitCashAmount, #splitCardAmount').on('input', function() {
+            updateSplitTotal();
         });
     });
+
+    function updateSplitTotal() {
+        const cashAmt = parseFloat($('#splitCashAmount').val()) || 0;
+        const cardAmt = parseFloat($('#splitCardAmount').val()) || 0;
+        const total = cashAmt + cardAmt;
+        $('#splitTotalAmount').text(total.toFixed(2) + ' TL');
+        $('#splitCashHidden').val(cashAmt);
+        $('#splitCardHidden').val(cardAmt);
+    }
+
+    async function loadPendingCashOrders(courierId) {
+        const container = $('#pendingCashOrders');
+        const list = $('#pendingCashList');
+
+        try {
+            const response = await fetch(`/bayi/nakit-odemeler/${courierId}/history`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+            const courier = data.courier;
+
+            // Show pending cash orders (orders delivered with cash payment)
+            // Use courier cash_balance as indicator
+            if (courier && parseFloat(courier.cash_balance) !== 0) {
+                list.empty();
+
+                const transactions = data.transactions?.data || [];
+                const pendingItems = transactions.filter(t => t.status === 'completed').slice(0, 5);
+
+                if (pendingItems.length > 0) {
+                    pendingItems.forEach(t => {
+                        const typeLabel = t.type === 'payment_received' ? 'Odeme Alindi' : 'Avans Verildi';
+                        const typeColor = t.type === 'payment_received' ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400';
+                        const dateStr = new Date(t.created_at).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+                        list.append(`
+                            <div class="flex items-center justify-between p-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-xs">
+                                <div>
+                                    <span class="${typeColor} font-medium">${typeLabel}</span>
+                                    <span class="text-gray-400 ml-2">${dateStr}</span>
+                                </div>
+                                <span class="font-bold text-black dark:text-white">${parseFloat(t.amount).toFixed(2)} TL</span>
+                            </div>
+                        `);
+                    });
+                }
+
+                $('#pendingCashCount').text(parseFloat(courier.cash_balance).toFixed(2) + ' TL bakiye');
+                $('#pendingCashTotalAmount').text(parseFloat(courier.cash_balance).toFixed(2) + ' TL');
+
+                // Auto-fill amount with courier balance (if payment_received)
+                const paymentRadio = $('input[name="type"][value="payment_received"]');
+                if (paymentRadio.is(':checked') || !$('input[name="type"]:checked').length) {
+                    if (!$('#splitPaymentToggle').is(':checked')) {
+                        $('#amount').val(Math.abs(parseFloat(courier.cash_balance)).toFixed(2));
+                    }
+                }
+
+                container.removeClass('hidden');
+            } else {
+                container.addClass('hidden');
+            }
+        } catch (error) {
+            console.error('Pending cash orders load error:', error);
+            container.addClass('hidden');
+        }
+    }
 
     $('#cashTransactionForm').on('submit', async function(e) {
         e.preventDefault();
 
+        const isSplit = $('#splitPaymentToggle').is(':checked');
         const submitBtn = $('#submitBtn');
+
+        // Split payment validation
+        if (isSplit) {
+            const cashAmt = parseFloat($('#splitCashAmount').val()) || 0;
+            const cardAmt = parseFloat($('#splitCardAmount').val()) || 0;
+            const total = cashAmt + cardAmt;
+
+            if (total <= 0) {
+                showToast('Parcali odeme tutarlari girilmeli.', 'error');
+                return;
+            }
+
+            // Set the hidden amount field to total for backend
+            $('#amount').val(total.toFixed(2));
+        } else {
+            const amount = parseFloat($('#amount').val()) || 0;
+            if (amount <= 0) {
+                showToast('Tutar giriniz.', 'error');
+                return;
+            }
+        }
+
         submitBtn.prop('disabled', true);
 
         const formData = new FormData(this);
+
+        // Add split payment info
+        if (isSplit) {
+            formData.set('amount', (parseFloat($('#splitCashAmount').val() || 0) + parseFloat($('#splitCardAmount').val() || 0)).toFixed(2));
+            formData.set('split_cash_amount', $('#splitCashAmount').val() || '0');
+            formData.set('split_card_amount', $('#splitCardAmount').val() || '0');
+            formData.set('is_split_payment', '1');
+        }
 
         try {
             const response = await fetch('{{ route('bayi.nakit-odemeler.store') }}', {
@@ -327,10 +512,16 @@
                 showToast(data.message, 'success');
                 setTimeout(() => window.location.reload(), 1000);
             } else {
-                showToast(data.message || 'Bir hata oluştu.', 'error');
+                // Show server-side validation errors
+                if (data.errors) {
+                    const errorMessages = Object.values(data.errors).flat().join('\n');
+                    showToast(errorMessages, 'error');
+                } else {
+                    showToast(data.message || 'Bir hata olustu.', 'error');
+                }
             }
         } catch (error) {
-            showToast('Bir hata oluştu. Lütfen tekrar deneyin.', 'error');
+            showToast('Bir hata olustu. Lutfen tekrar deneyin.', 'error');
         } finally {
             submitBtn.prop('disabled', false);
         }

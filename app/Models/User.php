@@ -362,6 +362,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the active branch ID (shortcut for getActiveBranch()->id)
+     */
+    public function getActiveBranchId(): ?int
+    {
+        return $this->getActiveBranch()?->id;
+    }
+
+    /**
      * Set the active branch in session
      */
     public function setActiveBranch(int $branchId): bool

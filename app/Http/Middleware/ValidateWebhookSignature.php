@@ -38,6 +38,11 @@ class ValidateWebhookSignature
      */
     public function handle(Request $request, Closure $next, string $platform): Response
     {
+        // Route parametresinden platform adini al (dinamik route'lar icin)
+        if ($platform === 'platform') {
+            $platform = $request->route('platform', '');
+        }
+
         // Webhook secret'ini al
         $secret = $this->getWebhookSecret($platform);
 
@@ -94,10 +99,10 @@ class ValidateWebhookSignature
     private function getWebhookSecret(string $platform): ?string
     {
         return match (strtolower($platform)) {
-            'getir' => config('services.getir.webhook_secret') ?? env('WEBHOOK_SECRET_GETIR'),
-            'trendyol' => config('services.trendyol.webhook_secret') ?? env('WEBHOOK_SECRET_TRENDYOL'),
-            'yemeksepeti' => config('services.yemeksepeti.webhook_secret') ?? env('WEBHOOK_SECRET_YEMEKSEPETI'),
-            default => env('WEBHOOK_SECRET_' . strtoupper($platform)),
+            'getir' => config('services.getir.webhook_secret'),
+            'trendyol' => config('services.trendyol.webhook_secret'),
+            'yemeksepeti' => config('services.yemeksepeti.webhook_secret'),
+            default => config('services.' . strtolower($platform) . '.webhook_secret'),
         };
     }
 

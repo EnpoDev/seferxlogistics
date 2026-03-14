@@ -85,11 +85,19 @@
                     <div class="grid grid-cols-3 gap-4">
                         <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Kullanıcı</label><input type="number" name="max_users" class="w-full px-4 py-2 bg-gray-50 dark:bg-black border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white"></div>
                         <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Sipariş</label><input type="number" name="max_orders" class="w-full px-4 py-2 bg-gray-50 dark:bg-black border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white"></div>
-                        <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Şube</label><input type="number" name="max_branches" class="w-full px-4 py-2 bg-gray-50 dark:bg-black border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white"></div>
+                        <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max İşletme</label><input type="number" name="max_branches" class="w-full px-4 py-2 bg-gray-50 dark:bg-black border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white"></div>
                     </div>
                     <div class="flex space-x-4">
-                        <label class="flex items-center"><input type="checkbox" name="is_active" value="1" checked class="rounded border-gray-300"><span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Aktif</span></label>
-                        <label class="flex items-center"><input type="checkbox" name="is_featured" value="1" class="rounded border-gray-300"><span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Öne Çıkan</span></label>
+                        <label class="flex items-center">
+                            <input type="hidden" name="is_active" value="0">
+                            <input type="checkbox" name="is_active" value="1" checked class="rounded border-gray-300">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Aktif</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="hidden" name="is_featured" value="0">
+                            <input type="checkbox" name="is_featured" value="1" class="rounded border-gray-300">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Öne Çıkan</span>
+                        </label>
                     </div>
                     <div class="flex gap-3 pt-4">
                         <button type="button" @click="showCreateModal = false" class="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-black dark:text-white rounded-lg">İptal</button>
@@ -106,7 +114,7 @@
             <div class="fixed inset-0 bg-black/50" @click="showEditModal = false"></div>
             <div class="relative bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-gray-800 w-full max-w-lg p-6">
                 <h3 class="text-lg font-semibold text-black dark:text-white mb-4">Plan Düzenle</h3>
-                <form :action="'/admin/planlar/' + (editingPlan?.id || '')" method="POST" class="space-y-4">
+                <form :action="'{{ url('admin/planlar') }}/' + (editingPlan?.id || '')" method="POST" class="space-y-4">
                     @csrf
                     @method('PUT')
                     <div class="grid grid-cols-2 gap-4">
@@ -121,11 +129,19 @@
                     <div class="grid grid-cols-3 gap-4">
                         <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Kullanıcı</label><input type="number" name="max_users" x-model="editingPlan.max_users" class="w-full px-4 py-2 bg-gray-50 dark:bg-black border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white"></div>
                         <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Sipariş</label><input type="number" name="max_orders" x-model="editingPlan.max_orders" class="w-full px-4 py-2 bg-gray-50 dark:bg-black border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white"></div>
-                        <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Şube</label><input type="number" name="max_branches" x-model="editingPlan.max_branches" class="w-full px-4 py-2 bg-gray-50 dark:bg-black border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white"></div>
+                        <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max İşletme</label><input type="number" name="max_branches" x-model="editingPlan.max_branches" class="w-full px-4 py-2 bg-gray-50 dark:bg-black border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white"></div>
                     </div>
                     <div class="flex space-x-4">
-                        <label class="flex items-center"><input type="checkbox" name="is_active" value="1" :checked="editingPlan?.is_active" class="rounded border-gray-300"><span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Aktif</span></label>
-                        <label class="flex items-center"><input type="checkbox" name="is_featured" value="1" :checked="editingPlan?.is_featured" class="rounded border-gray-300"><span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Öne Çıkan</span></label>
+                        <label class="flex items-center">
+                            <input type="hidden" name="is_active" value="0">
+                            <input type="checkbox" name="is_active" value="1" :checked="editingPlan?.is_active" class="rounded border-gray-300">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Aktif</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="hidden" name="is_featured" value="0">
+                            <input type="checkbox" name="is_featured" value="1" :checked="editingPlan?.is_featured" class="rounded border-gray-300">
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Öne Çıkan</span>
+                        </label>
                     </div>
                     <div class="flex gap-3 pt-4">
                         <button type="button" @click="showEditModal = false" class="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-black dark:text-white rounded-lg">İptal</button>

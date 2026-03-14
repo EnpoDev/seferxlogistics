@@ -198,6 +198,79 @@
                         </label>
                     </div>
 
+                    <!-- Varyasyon Gruplari -->
+                    <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Varyasyon Gruplari</label>
+                            <button type="button" @click="addOptionGroup()"
+                                class="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                                + Grup Ekle
+                            </button>
+                        </div>
+
+                        <template x-for="(group, gIndex) in formData.option_groups" :key="gIndex">
+                            <div class="mb-4 p-4 bg-gray-50 dark:bg-black rounded-lg border border-gray-200 dark:border-gray-700">
+                                <!-- Grup Basligi -->
+                                <div class="flex items-start gap-3 mb-3">
+                                    <div class="flex-1">
+                                        <input type="text" :name="'option_groups[' + gIndex + '][name]'" x-model="group.name" placeholder="Grup adi (Porsiyon, Ekstralar...)"
+                                            class="w-full px-3 py-2 bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white text-sm">
+                                    </div>
+                                    <select :name="'option_groups[' + gIndex + '][type]'" x-model="group.type"
+                                        class="px-3 py-2 bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white text-sm">
+                                        <option value="single">Tekli Secim</option>
+                                        <option value="multiple">Coklu Secim</option>
+                                    </select>
+                                    <button type="button" @click="removeOptionGroup(gIndex)" class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    </button>
+                                </div>
+
+                                <!-- Zorunlu/Opsiyonel Toggle -->
+                                <div class="flex items-center gap-4 mb-3">
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" :name="'option_groups[' + gIndex + '][is_required]'" value="1" x-model="group.is_required"
+                                            class="rounded border-gray-300 dark:border-gray-700">
+                                        <span class="text-xs text-gray-600 dark:text-gray-400">Zorunlu</span>
+                                    </label>
+                                    <div class="flex items-center gap-2" x-show="group.type === 'multiple'">
+                                        <span class="text-xs text-gray-500">Max secim:</span>
+                                        <input type="number" :name="'option_groups[' + gIndex + '][max_selections]'" x-model="group.max_selections" min="0" placeholder="0=sinirsiz"
+                                            class="w-16 px-2 py-1 bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-700 rounded text-black dark:text-white text-xs">
+                                    </div>
+                                </div>
+
+                                <!-- Secenekler -->
+                                <div class="space-y-2">
+                                    <template x-for="(option, oIndex) in group.options" :key="oIndex">
+                                        <div class="flex items-center gap-2">
+                                            <input type="text" :name="'option_groups[' + gIndex + '][options][' + oIndex + '][name]'" x-model="option.name" placeholder="Secenek adi"
+                                                class="flex-1 px-3 py-1.5 bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white text-sm">
+                                            <div class="flex items-center gap-1">
+                                                <span class="text-xs text-gray-500">+/-</span>
+                                                <input type="number" :name="'option_groups[' + gIndex + '][options][' + oIndex + '][price_diff]'" x-model="option.price_diff" step="0.01" placeholder="0.00"
+                                                    class="w-20 px-2 py-1.5 bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white text-sm text-right">
+                                                <span class="text-xs text-gray-500">TL</span>
+                                            </div>
+                                            <button type="button" @click="removeOption(gIndex, oIndex)" class="p-1 text-red-400 hover:text-red-600">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                            </button>
+                                        </div>
+                                    </template>
+
+                                    <button type="button" @click="addOption(gIndex)"
+                                        class="w-full px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
+                                        + Secenek Ekle
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div x-show="formData.option_groups.length === 0" class="text-center py-4 text-xs text-gray-400 dark:text-gray-600 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
+                            Varyasyon grubu eklenmemis. "Grup Ekle" ile baslayin.
+                        </div>
+                    </div>
+
                     <div class="flex gap-3 pt-4">
                         <button type="button" @click="showModal = false" class="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-900 text-black dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors">
                             Iptal
@@ -225,7 +298,8 @@ function productManager() {
             price: '',
             description: '',
             is_active: true,
-            in_stock: true
+            in_stock: true,
+            option_groups: []
         },
 
         openModal(mode, product = null) {
@@ -238,7 +312,17 @@ function productManager() {
                     price: product.price,
                     description: product.description || '',
                     is_active: product.is_active,
-                    in_stock: product.in_stock
+                    in_stock: product.in_stock,
+                    option_groups: (product.option_groups || []).map(g => ({
+                        name: g.name,
+                        type: g.type || 'single',
+                        is_required: g.is_required || false,
+                        max_selections: g.max_selections || 0,
+                        options: (g.options || []).map(o => ({
+                            name: o.name,
+                            price_diff: o.price_diff || 0
+                        }))
+                    }))
                 };
             } else {
                 this.formData = {
@@ -248,10 +332,33 @@ function productManager() {
                     price: '',
                     description: '',
                     is_active: true,
-                    in_stock: true
+                    in_stock: true,
+                    option_groups: []
                 };
             }
             this.showModal = true;
+        },
+
+        addOptionGroup() {
+            this.formData.option_groups.push({
+                name: '',
+                type: 'single',
+                is_required: false,
+                max_selections: 0,
+                options: [{ name: '', price_diff: 0 }]
+            });
+        },
+
+        removeOptionGroup(index) {
+            this.formData.option_groups.splice(index, 1);
+        },
+
+        addOption(groupIndex) {
+            this.formData.option_groups[groupIndex].options.push({ name: '', price_diff: 0 });
+        },
+
+        removeOption(groupIndex, optionIndex) {
+            this.formData.option_groups[groupIndex].options.splice(optionIndex, 1);
         }
     }
 }

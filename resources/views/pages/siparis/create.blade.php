@@ -55,7 +55,17 @@
                             'price' => $product->getCurrentPrice(),
                             'category' => $category->name,
                             'image' => $product->image,
-                            'restaurant' => $product->restaurant?->name
+                            'restaurant' => $product->restaurant?->name,
+                            'option_groups' => $product->optionGroups ? $product->optionGroups->map(fn($g) => [
+                                'name' => $g->name,
+                                'type' => $g->type,
+                                'is_required' => $g->required,
+                                'max_selections' => $g->max_selections,
+                                'options' => $g->options->map(fn($o) => ['name' => $o->name, 'price_diff' => $o->price_modifier])
+                            ]) : [],
+                            'variations' => $product->variations ?? [],
+                            'extras' => $product->extras ?? [],
+                            'removables' => $product->removables ?? []
                         ]) }})"
                         class="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all group">
                         
@@ -163,6 +173,26 @@
                 rows="2"
                 class="w-full px-4 py-2.5 bg-gray-50 dark:bg-black border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white mb-3 resize-none"></textarea>
 
+            <!-- Mahalle (Zone) Secimi -->
+            <div class="mb-3">
+                <select x-model="zoneId" @change="onZoneChange()" class="w-full px-3 py-2 bg-gray-50 dark:bg-black border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white text-sm">
+                    <option value="">Mahalle Seciniz</option>
+                    @foreach($zones as $zone)
+                    <option value="{{ $zone->id }}">{{ $zone->name }} @if($zone->delivery_fee) ({{ number_format($zone->delivery_fee, 2) }} TL) @endif</option>
+                    @endforeach
+                </select>
+                <!-- Zone Info Badge -->
+                <div x-show="zoneInfo" x-cloak class="mt-2 p-2 rounded-lg text-xs" :class="zoneInfo?.canAccept ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400' : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'">
+                    <div class="flex items-center justify-between">
+                        <span x-text="zoneInfo?.label"></span>
+                        <span x-show="zoneInfo?.remaining !== null" x-text="'Kalan: ' + zoneInfo?.remaining + ' siparis'"></span>
+                    </div>
+                    <div x-show="zoneInfo?.estimatedMinutes" class="mt-1 text-gray-500 dark:text-gray-400">
+                        Tahmini teslimat: <span x-text="zoneInfo?.estimatedMinutes + ' dk'" class="font-medium"></span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Saved Addresses -->
             <div x-show="customer?.addresses?.length > 0" x-cloak class="mb-3">
                 <p class="text-xs text-gray-500 mb-2">Kayıtlı Adresler:</p>
@@ -221,6 +251,9 @@
                     <div class="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-black rounded-lg">
                         <div class="flex-1 min-w-0">
                             <p class="font-medium text-black dark:text-white text-sm truncate" x-text="item.name"></p>
+                            <p x-show="item.optionLabels && item.optionLabels.length > 0" class="text-xs text-purple-500 dark:text-purple-400" x-text="item.optionLabels.join(', ')"></p>
+                            <p x-show="!item.optionLabels?.length && item.variation" class="text-xs text-purple-500 dark:text-purple-400" x-text="item.variation"></p>
+                            <p x-show="item.extras && item.extras.length > 0" class="text-xs text-green-500 dark:text-green-400" x-text="getExtrasLabel(item.extras)"></p>
                             <p class="text-xs text-gray-500" x-text="'₺' + item.price.toFixed(2) + ' x ' + item.quantity"></p>
                         </div>
                         <div class="flex items-center space-x-2">
@@ -267,27 +300,95 @@
             </div>
 
             <!-- Payment Method -->
-            <div class="flex items-center space-x-2 mb-4">
-                <button @click="paymentMethod = 'cash'" 
-                    :class="paymentMethod === 'cash' ? 'bg-black dark:bg-white text-white dark:text-black' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300'"
-                    class="flex-1 py-2 rounded-lg text-sm font-medium transition-colors">
-                    Nakit
-                </button>
-                <button @click="paymentMethod = 'card'" 
-                    :class="paymentMethod === 'card' ? 'bg-black dark:bg-white text-white dark:text-black' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300'"
-                    class="flex-1 py-2 rounded-lg text-sm font-medium transition-colors">
-                    Kart
-                </button>
-                <button @click="paymentMethod = 'online'" 
-                    :class="paymentMethod === 'online' ? 'bg-black dark:bg-white text-white dark:text-black' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300'"
-                    class="flex-1 py-2 rounded-lg text-sm font-medium transition-colors">
-                    Online
-                </button>
+            <div class="mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Odeme Yontemi</p>
+                    <label class="flex items-center space-x-1 cursor-pointer">
+                        <input type="checkbox" x-model="splitPayment" @change="onSplitPaymentToggle()" class="rounded text-xs">
+                        <span class="text-xs text-gray-500 dark:text-gray-400">Parcali Odeme</span>
+                    </label>
+                </div>
+
+                <!-- Single Payment Mode -->
+                <div x-show="!splitPayment">
+                    <div class="grid grid-cols-3 gap-2 mb-2">
+                        <template x-for="method in paymentMethods" :key="method.key">
+                            <button type="button" @click="paymentMethod = method.key"
+                                :class="paymentMethod === method.key ? 'bg-black dark:bg-white text-white dark:text-black' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300'"
+                                class="py-2 rounded-lg font-medium transition-colors"
+                                :style="method.isMealCard ? 'font-size: 0.7rem' : 'font-size: 0.875rem'"
+                                x-text="method.label">
+                            </button>
+                        </template>
+                    </div>
+
+                    <!-- Meal Card Info -->
+                    <div x-show="isMealCardSelected" x-cloak class="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                        <p class="text-xs text-amber-700 dark:text-amber-400 font-medium mb-1" x-text="getSelectedMethodLabel() + ' ile odeme'"></p>
+                        <p class="text-xs text-amber-600 dark:text-amber-500">Kapida yemek karti ile tahsil edilecektir.</p>
+                    </div>
+                </div>
+
+                <!-- Split Payment Mode -->
+                <div x-show="splitPayment" x-cloak>
+                    <div class="space-y-2 mb-2">
+                        <template x-for="(sp, spIndex) in splitPayments" :key="spIndex">
+                            <div class="flex items-center space-x-2 p-2 bg-gray-50 dark:bg-black rounded-lg">
+                                <select x-model="sp.method" class="flex-1 px-2 py-1.5 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded text-sm text-black dark:text-white">
+                                    <template x-for="method in paymentMethods" :key="method.key">
+                                        <option :value="method.key" x-text="method.label"></option>
+                                    </template>
+                                </select>
+                                <div class="flex items-center space-x-1">
+                                    <span class="text-gray-500 text-sm">TL</span>
+                                    <input type="number" x-model.number="sp.amount" step="0.01" min="0" :max="total"
+                                        @input="onSplitAmountChange(spIndex)"
+                                        class="w-20 px-2 py-1.5 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded text-right text-sm text-black dark:text-white">
+                                </div>
+                                <button type="button" x-show="splitPayments.length > 2" @click="removeSplitPayment(spIndex)" class="p-1 text-red-500 hover:text-red-700">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <button type="button" @click="addSplitPayment()" class="text-xs text-blue-600 dark:text-blue-400 font-medium">+ Yontem Ekle</button>
+                        <span class="text-xs" :class="splitPaymentRemaining === 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+                              x-text="splitPaymentRemaining === 0 ? 'Tam eslesti' : 'Kalan: ' + splitPaymentRemaining.toFixed(2) + ' TL'"></span>
+                    </div>
+                </div>
             </div>
 
             <!-- Notes -->
             <textarea x-model="notes" placeholder="Sipariş notu (opsiyonel)" rows="2"
                 class="w-full px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg text-black dark:text-white text-sm mb-4 resize-none"></textarea>
+
+            <!-- Print Option -->
+            <div class="flex items-center justify-between mb-4 p-3 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                    </svg>
+                    <span class="text-sm text-gray-700 dark:text-gray-300">Yazdir</span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button type="button" @click="printMode = 'auto'"
+                        :class="printMode === 'auto' ? 'bg-black dark:bg-white text-white dark:text-black' : 'bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400'"
+                        class="px-3 py-1 rounded text-xs font-medium transition-colors">
+                        Otomatik
+                    </button>
+                    <button type="button" @click="printMode = 'manual'"
+                        :class="printMode === 'manual' ? 'bg-black dark:bg-white text-white dark:text-black' : 'bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400'"
+                        class="px-3 py-1 rounded text-xs font-medium transition-colors">
+                        Manuel
+                    </button>
+                    <button type="button" @click="printMode = 'none'"
+                        :class="printMode === 'none' ? 'bg-black dark:bg-white text-white dark:text-black' : 'bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400'"
+                        class="px-3 py-1 rounded text-xs font-medium transition-colors">
+                        Yazma
+                    </button>
+                </div>
+            </div>
 
             <!-- Submit Button -->
             <button @click="submitOrder()" 
@@ -302,6 +403,78 @@
                 </template>
                 <span x-text="isSubmitting ? 'Oluşturuluyor...' : 'Siparişi Oluştur'"></span>
             </button>
+        </div>
+    </div>
+
+    <!-- Variation Selection Modal (option_groups based) -->
+    <div x-show="showVariationModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto" x-transition>
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="fixed inset-0 bg-black/50" @click="showVariationModal = false"></div>
+            <div class="relative bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-gray-800 w-full max-w-md p-6 max-h-[80vh] overflow-y-auto">
+                <h3 class="text-lg font-semibold text-black dark:text-white mb-1" x-text="selectedProduct?.name"></h3>
+                <p class="text-sm text-gray-500 mb-4" x-text="'Temel fiyat: ₺' + (selectedProduct?.price || 0).toFixed(2)"></p>
+
+                <!-- Dynamic Option Groups -->
+                <template x-for="(group, gIdx) in (selectedProduct?.option_groups || [])" :key="gIdx">
+                    <div class="mb-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <p class="text-sm font-medium text-gray-700 dark:text-gray-300" x-text="group.name"></p>
+                            <span x-show="group.is_required" class="text-xs text-red-500">*</span>
+                            <span class="text-xs text-gray-400" x-text="group.type === 'single' ? '(Birini secin)' : '(Birden fazla secilebilir)'"></span>
+                        </div>
+                        <div class="space-y-2">
+                            <template x-for="(option, oIdx) in group.options" :key="oIdx">
+                                <label class="flex items-center p-3 bg-gray-50 dark:bg-black rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+                                    :class="isOptionSelected(gIdx, option.name) ? 'ring-2 ring-black dark:ring-white' : ''">
+                                    <!-- Single select: radio -->
+                                    <template x-if="group.type === 'single'">
+                                        <input type="radio" :name="'option_group_' + gIdx" :value="option.name"
+                                            @change="selectSingleOption(gIdx, option.name)" :checked="isOptionSelected(gIdx, option.name)" class="mr-3">
+                                    </template>
+                                    <!-- Multiple select: checkbox -->
+                                    <template x-if="group.type === 'multiple'">
+                                        <input type="checkbox" :value="option.name"
+                                            @change="toggleMultiOption(gIdx, option.name, $event.target.checked)" :checked="isOptionSelected(gIdx, option.name)" class="mr-3 rounded">
+                                    </template>
+                                    <span class="flex-1 text-sm text-black dark:text-white" x-text="option.name"></span>
+                                    <span class="text-sm text-gray-500" x-show="option.price_diff && option.price_diff !== 0"
+                                        x-text="(option.price_diff > 0 ? '+' : '') + '₺' + parseFloat(option.price_diff || 0).toFixed(2)"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- No option groups fallback (legacy variations/extras/removables) -->
+                <template x-if="(!selectedProduct?.option_groups || selectedProduct?.option_groups?.length === 0) && selectedProduct?.variations?.length > 0">
+                    <div class="mb-4">
+                        <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Porsiyon</p>
+                        <div class="space-y-2">
+                            <template x-for="variation in selectedProduct.variations" :key="variation.name">
+                                <label class="flex items-center p-3 bg-gray-50 dark:bg-black rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+                                       :class="selectedVariation === variation.name ? 'ring-2 ring-black dark:ring-white' : ''">
+                                    <input type="radio" :value="variation.name" x-model="selectedVariation" class="mr-3">
+                                    <span class="flex-1 text-sm text-black dark:text-white" x-text="variation.name"></span>
+                                    <span class="text-sm text-gray-500" x-show="variation.price_diff" x-text="(variation.price_diff > 0 ? '+' : '') + '₺' + (variation.price_diff || 0).toFixed(2)"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Dynamic Price Preview -->
+                <div class="pt-3 border-t border-gray-200 dark:border-gray-700 mb-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">Toplam Fiyat:</span>
+                        <span class="text-lg font-bold text-black dark:text-white" x-text="'₺' + getVariationPreviewPrice().toFixed(2)"></span>
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <button type="button" @click="showVariationModal = false" class="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-black dark:text-white rounded-lg">Iptal</button>
+                    <button type="button" @click="confirmVariation()" class="flex-1 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg">Sepete Ekle</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -322,6 +495,34 @@ function orderForm() {
         @endforeach
     @endforeach
 
+    // Zone data for dynamic info display
+    const zonesData = {
+        @foreach($zones as $zone)
+        {{ $zone->id }}: {
+            id: {{ $zone->id }},
+            name: @json($zone->name),
+            deliveryFee: {{ $zone->delivery_fee ?? 0 }},
+            estimatedMinutes: {{ $zone->estimated_delivery_minutes ?? 'null' }},
+            dailyLimit: {{ $zone->daily_order_limit ?? 'null' }},
+            currentCount: {{ $zone->current_order_count ?? 0 }},
+            canAccept: {{ $zone->canAcceptOrders() ? 'true' : 'false' }}
+        },
+        @endforeach
+    };
+
+    // Payment method definitions
+    const allPaymentMethods = [
+        { key: 'cash', label: 'Nakit', isMealCard: false },
+        { key: 'card', label: 'Kart', isMealCard: false },
+        { key: 'online', label: 'Online', isMealCard: false },
+        { key: 'pluxee', label: 'Pluxee', isMealCard: true },
+        { key: 'edenred', label: 'Edenred', isMealCard: true },
+        { key: 'multinet', label: 'Multinet', isMealCard: true },
+        { key: 'metropol', label: 'Metropol', isMealCard: true },
+        { key: 'tokenflex', label: 'Tokenflex', isMealCard: true },
+        { key: 'setcard', label: 'Setcard', isMealCard: true },
+    ];
+
     return {
         selectedCategory: null,
         cart: [],
@@ -331,14 +532,34 @@ function orderForm() {
         customer: @json($customer),
         lat: @json(old('lat', $customer?->lat ?? null)),
         lng: @json(old('lng', $customer?->lng ?? null)),
-        deliveryFee: @json(old('delivery_fee', 10)),
+        deliveryFee: @json(old('delivery_fee', 0)),
         paymentMethod: @json(old('payment_method', 'cash')),
         notes: @json(old('notes', '')),
         restaurantId: @json(old('restaurant_id', '')),
         courierId: @json(old('courier_id', '')),
+        zoneId: @json(old('zone_id', '')),
+        printMode: @json(old('print_mode', 'auto')),
         autoAssignCourier: {{ old('auto_assign_courier') ? 'true' : 'false' }},
         isSearching: false,
         isSubmitting: false,
+
+        // Payment
+        paymentMethods: allPaymentMethods,
+        splitPayment: false,
+        splitPayments: [
+            { method: 'cash', amount: 0 },
+            { method: 'card', amount: 0 }
+        ],
+
+        // Zone info
+        zoneInfo: null,
+
+        // Variation modal
+        showVariationModal: false,
+        selectedProduct: null,
+        selectedVariation: '',
+        selectedExtras: [],
+        selectedGroupOptions: {},
 
         init() {
             const oldItems = @json(old('items', []));
@@ -351,7 +572,14 @@ function orderForm() {
                     return null;
                 }).filter(Boolean);
             }
+
+            // Initialize zone info if zone was previously selected
+            if (this.zoneId) {
+                this.onZoneChange();
+            }
         },
+
+        // --- Computed Properties ---
 
         get subtotal() {
             return this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -361,13 +589,255 @@ function orderForm() {
             return this.subtotal + parseFloat(this.deliveryFee || 0);
         },
 
+        get isMealCardSelected() {
+            const mealCards = ['pluxee', 'edenred', 'multinet', 'metropol', 'tokenflex', 'setcard'];
+            return mealCards.includes(this.paymentMethod);
+        },
+
+        get splitPaymentRemaining() {
+            const totalPaid = this.splitPayments.reduce((sum, sp) => sum + (parseFloat(sp.amount) || 0), 0);
+            return Math.round((this.total - totalPaid) * 100) / 100;
+        },
+
+        // --- Payment Methods ---
+
+        getSelectedMethodLabel() {
+            const method = allPaymentMethods.find(m => m.key === this.paymentMethod);
+            return method ? method.label : '';
+        },
+
+        onSplitPaymentToggle() {
+            if (this.splitPayment) {
+                this.splitPayments = [
+                    { method: 'cash', amount: 0 },
+                    { method: 'card', amount: 0 }
+                ];
+            }
+        },
+
+        addSplitPayment() {
+            this.splitPayments.push({ method: 'cash', amount: 0 });
+        },
+
+        removeSplitPayment(index) {
+            if (this.splitPayments.length > 2) {
+                this.splitPayments.splice(index, 1);
+            }
+        },
+
+        onSplitAmountChange(changedIndex) {
+            // Auto-fill last split with remaining amount
+            if (this.splitPayments.length === 2) {
+                const otherIndex = changedIndex === 0 ? 1 : 0;
+                const changedAmount = parseFloat(this.splitPayments[changedIndex].amount) || 0;
+                const remaining = Math.max(0, this.total - changedAmount);
+                this.splitPayments[otherIndex].amount = Math.round(remaining * 100) / 100;
+            }
+        },
+
+        // --- Zone Management ---
+
+        onZoneChange() {
+            const zone = zonesData[this.zoneId];
+            if (!zone) {
+                this.zoneInfo = null;
+                return;
+            }
+
+            // Auto-fill delivery fee from zone
+            if (zone.deliveryFee > 0) {
+                this.deliveryFee = zone.deliveryFee;
+            }
+
+            // Set zone info for display
+            const remaining = zone.dailyLimit !== null ? (zone.dailyLimit - zone.currentCount) : null;
+            this.zoneInfo = {
+                label: zone.canAccept ? zone.name : zone.name + ' - Limit doldu!',
+                canAccept: zone.canAccept,
+                remaining: remaining,
+                estimatedMinutes: zone.estimatedMinutes
+            };
+        },
+
+        // --- Cart & Variations ---
+
+        getExtrasLabel(extras) {
+            if (!extras || extras.length === 0) return '';
+            return extras.map(e => e.startsWith('remove_') ? e.replace('remove_', '') + ' cikar' : '+ ' + e).join(', ');
+        },
+
         addToCart(product) {
-            const existingIndex = this.cart.findIndex(item => item.id === product.id);
+            // Check for option_groups (new system) or legacy variations/extras
+            if ((product.option_groups && product.option_groups.length > 0) ||
+                (product.variations && product.variations.length > 0) ||
+                (product.extras && product.extras.length > 0) ||
+                (product.removables && product.removables.length > 0)) {
+                this.selectedProduct = product;
+                this.selectedVariation = product.variations?.[0]?.name || '';
+                this.selectedExtras = [];
+                // Initialize selectedGroupOptions for each group
+                this.selectedGroupOptions = {};
+                if (product.option_groups) {
+                    product.option_groups.forEach((group, gIdx) => {
+                        this.selectedGroupOptions[gIdx] = group.type === 'single' ? '' : [];
+                    });
+                }
+                this.showVariationModal = true;
+                return;
+            }
+            this.addToCartDirect(product);
+        },
+
+        // --- Option Group Selection Methods ---
+
+        isOptionSelected(gIdx, optionName) {
+            const selection = this.selectedGroupOptions[gIdx];
+            if (Array.isArray(selection)) {
+                return selection.includes(optionName);
+            }
+            return selection === optionName;
+        },
+
+        selectSingleOption(gIdx, optionName) {
+            this.selectedGroupOptions[gIdx] = optionName;
+        },
+
+        toggleMultiOption(gIdx, optionName, checked) {
+            if (!Array.isArray(this.selectedGroupOptions[gIdx])) {
+                this.selectedGroupOptions[gIdx] = [];
+            }
+            if (checked) {
+                // Enforce max_selections if set
+                const group = this.selectedProduct?.option_groups?.[gIdx];
+                const max = group?.max_selections;
+                if (max && this.selectedGroupOptions[gIdx].length >= max) {
+                    return; // Already at max
+                }
+                this.selectedGroupOptions[gIdx].push(optionName);
+            } else {
+                this.selectedGroupOptions[gIdx] = this.selectedGroupOptions[gIdx].filter(n => n !== optionName);
+            }
+        },
+
+        // --- Cart Direct Add ---
+
+        addToCartDirect(product, variation = null, extras = [], selectedOptions = null) {
+            // Build cart key from selected options or legacy variation/extras
+            let cartKey = '' + product.id;
+            if (selectedOptions && Object.keys(selectedOptions).length > 0) {
+                cartKey += '-opts:' + JSON.stringify(selectedOptions);
+            } else {
+                cartKey += (variation ? '-' + variation : '') + (extras.length ? '-' + extras.sort().join(',') : '');
+            }
+
+            const existingIndex = this.cart.findIndex(item => item.cartKey === cartKey);
             if (existingIndex !== -1) {
                 this.cart[existingIndex].quantity++;
             } else {
-                this.cart.push({ ...product, quantity: 1 });
+                let optionsPrice = 0;
+                let optionLabels = [];
+
+                if (selectedOptions && product.option_groups) {
+                    // Calculate price from option_groups
+                    product.option_groups.forEach((group, gIdx) => {
+                        const sel = selectedOptions[gIdx];
+                        if (!sel) return;
+                        const names = Array.isArray(sel) ? sel : (sel ? [sel] : []);
+                        names.forEach(optName => {
+                            const opt = group.options.find(o => o.name === optName);
+                            if (opt && opt.price_diff) optionsPrice += parseFloat(opt.price_diff);
+                            optionLabels.push(optName);
+                        });
+                    });
+                } else {
+                    // Legacy calculation
+                    if (extras.length && product.extras) {
+                        extras.forEach(extraName => {
+                            if (extraName.startsWith('remove_')) return;
+                            const extra = product.extras.find(e => e.name === extraName);
+                            if (extra) optionsPrice += extra.price || 0;
+                        });
+                    }
+                    if (variation && product.variations) {
+                        const v = product.variations.find(v => v.name === variation);
+                        if (v) optionsPrice += v.price_diff || 0;
+                    }
+                }
+
+                const finalPrice = product.price + optionsPrice;
+                this.cart.push({
+                    ...product,
+                    cartKey: cartKey,
+                    quantity: 1,
+                    variation: variation,
+                    extras: extras,
+                    selectedOptions: selectedOptions,
+                    optionLabels: optionLabels,
+                    unitPrice: finalPrice,
+                    price: finalPrice
+                });
             }
+        },
+
+        getVariationPreviewPrice() {
+            if (!this.selectedProduct) return 0;
+            let price = this.selectedProduct.price;
+
+            // New option_groups price calculation
+            if (this.selectedProduct.option_groups && this.selectedProduct.option_groups.length > 0) {
+                this.selectedProduct.option_groups.forEach((group, gIdx) => {
+                    const sel = this.selectedGroupOptions[gIdx];
+                    if (!sel) return;
+                    const names = Array.isArray(sel) ? sel : (sel ? [sel] : []);
+                    names.forEach(optName => {
+                        const opt = group.options.find(o => o.name === optName);
+                        if (opt && opt.price_diff) price += parseFloat(opt.price_diff);
+                    });
+                });
+                return price;
+            }
+
+            // Legacy fallback
+            if (this.selectedVariation && this.selectedProduct.variations) {
+                const v = this.selectedProduct.variations.find(v => v.name === this.selectedVariation);
+                if (v) price += v.price_diff || 0;
+            }
+            if (this.selectedExtras.length && this.selectedProduct.extras) {
+                this.selectedExtras.forEach(extraName => {
+                    if (extraName.startsWith('remove_')) return;
+                    const extra = this.selectedProduct.extras.find(e => e.name === extraName);
+                    if (extra) price += extra.price || 0;
+                });
+            }
+            return price;
+        },
+
+        confirmVariation() {
+            if (!this.selectedProduct) return;
+
+            // Validate required groups
+            if (this.selectedProduct.option_groups && this.selectedProduct.option_groups.length > 0) {
+                for (let gIdx = 0; gIdx < this.selectedProduct.option_groups.length; gIdx++) {
+                    const group = this.selectedProduct.option_groups[gIdx];
+                    if (group.is_required) {
+                        const sel = this.selectedGroupOptions[gIdx];
+                        const hasSelection = Array.isArray(sel) ? sel.length > 0 : !!sel;
+                        if (!hasSelection) {
+                            alert(group.name + ' secimi zorunludur.');
+                            return;
+                        }
+                    }
+                }
+                // Deep copy selected options
+                const optionsCopy = JSON.parse(JSON.stringify(this.selectedGroupOptions));
+                this.addToCartDirect(this.selectedProduct, null, [], optionsCopy);
+            } else {
+                // Legacy path
+                this.addToCartDirect(this.selectedProduct, this.selectedVariation, [...this.selectedExtras]);
+            }
+
+            this.showVariationModal = false;
+            this.selectedProduct = null;
         },
 
         increaseQuantity(index) {
@@ -381,6 +851,8 @@ function orderForm() {
                 this.cart.splice(index, 1);
             }
         },
+
+        // --- Customer Search ---
 
         async searchCustomer() {
             if (this.customerPhone.length < 3) {
@@ -419,8 +891,22 @@ function orderForm() {
             this.isSearching = false;
         },
 
+        // --- Form Submission ---
+
         async submitOrder() {
             if (this.cart.length === 0 || !this.customerPhone || !this.customerName || !this.customerAddress) {
+                return;
+            }
+
+            // Zone limit check
+            if (this.zoneInfo && !this.zoneInfo.canAccept) {
+                alert('Secilen mahalle icin siparis limiti dolmustur.');
+                return;
+            }
+
+            // Split payment validation
+            if (this.splitPayment && Math.abs(this.splitPaymentRemaining) > 0.01) {
+                alert('Parcali odeme tutarlari toplam ile eslesmiyor. Kalan: ' + this.splitPaymentRemaining.toFixed(2) + ' TL');
                 return;
             }
 
@@ -433,22 +919,32 @@ function orderForm() {
                 lat: this.lat,
                 lng: this.lng,
                 delivery_fee: this.deliveryFee,
-                payment_method: this.paymentMethod,
+                payment_method: this.splitPayment ? this.splitPayments[0].method : this.paymentMethod,
                 notes: this.notes,
+                zone_id: this.zoneId || null,
                 restaurant_id: this.restaurantId || null,
                 courier_id: this.courierId || null,
+                print_mode: this.printMode,
                 auto_assign_courier: this.autoAssignCourier ? 1 : 0,
                 items: this.cart.map(item => ({
                     product_id: item.id,
-                    quantity: item.quantity
+                    quantity: item.quantity,
+                    variation: item.variation || null,
+                    extras: item.extras || [],
+                    selected_options: item.selectedOptions ? JSON.stringify(item.selectedOptions) : null
                 }))
             };
+
+            // Add split payment data
+            if (this.splitPayment) {
+                formData.payment_methods = JSON.stringify(this.splitPayments.filter(sp => sp.amount > 0));
+            }
 
             try {
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = '{{ route("siparis.store") }}';
-                
+
                 const csrfInput = document.createElement('input');
                 csrfInput.type = 'hidden';
                 csrfInput.name = '_token';
@@ -458,17 +954,24 @@ function orderForm() {
                 Object.keys(formData).forEach(key => {
                     if (key === 'items') {
                         formData.items.forEach((item, index) => {
-                            const productInput = document.createElement('input');
-                            productInput.type = 'hidden';
-                            productInput.name = `items[${index}][product_id]`;
-                            productInput.value = item.product_id;
-                            form.appendChild(productInput);
-
-                            const quantityInput = document.createElement('input');
-                            quantityInput.type = 'hidden';
-                            quantityInput.name = `items[${index}][quantity]`;
-                            quantityInput.value = item.quantity;
-                            form.appendChild(quantityInput);
+                            ['product_id', 'quantity', 'variation', 'selected_options'].forEach(field => {
+                                if (item[field] !== null && item[field] !== undefined) {
+                                    const input = document.createElement('input');
+                                    input.type = 'hidden';
+                                    input.name = `items[${index}][${field}]`;
+                                    input.value = item[field];
+                                    form.appendChild(input);
+                                }
+                            });
+                            if (item.extras && item.extras.length > 0) {
+                                item.extras.forEach((extra, ei) => {
+                                    const input = document.createElement('input');
+                                    input.type = 'hidden';
+                                    input.name = `items[${index}][extras][${ei}]`;
+                                    input.value = extra;
+                                    form.appendChild(input);
+                                });
+                            }
                         });
                     } else if (formData[key] !== null && formData[key] !== '') {
                         const input = document.createElement('input');

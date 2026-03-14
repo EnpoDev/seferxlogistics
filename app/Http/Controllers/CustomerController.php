@@ -122,6 +122,17 @@ class CustomerController extends Controller
 
     public function destroy(Customer $customer)
     {
+        $user = auth()->user();
+        $activeBranch = $user->getActiveBranch();
+
+        // İşletme kullanıcısı için yetki kontrolü
+        if ($user->isIsletme() && $activeBranch) {
+            $hasAccess = $customer->orders()->where('branch_id', $activeBranch->id)->exists();
+            if (!$hasAccess) {
+                abort(403, 'Bu müşteriye erişim yetkiniz yok.');
+            }
+        }
+
         $customer->delete();
 
         return redirect()
@@ -236,6 +247,16 @@ class CustomerController extends Controller
      */
     public function updateAddress(Request $request, CustomerAddress $address): JsonResponse
     {
+        // Adresin sahibi olan müşteriye erişim yetkisi kontrolü
+        $user = auth()->user();
+        $activeBranch = $user->getActiveBranch();
+        if ($user->isIsletme() && $activeBranch) {
+            $hasAccess = $address->customer->orders()->where('branch_id', $activeBranch->id)->exists();
+            if (!$hasAccess) {
+                return response()->json(['error' => 'Bu adrese erişim yetkiniz yok.'], 403);
+            }
+        }
+
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:50'],
             'address' => ['required', 'string'],
@@ -266,6 +287,16 @@ class CustomerController extends Controller
      */
     public function deleteAddress(CustomerAddress $address): JsonResponse
     {
+        // Adresin sahibi olan müşteriye erişim yetkisi kontrolü
+        $user = auth()->user();
+        $activeBranch = $user->getActiveBranch();
+        if ($user->isIsletme() && $activeBranch) {
+            $hasAccess = $address->customer->orders()->where('branch_id', $activeBranch->id)->exists();
+            if (!$hasAccess) {
+                return response()->json(['error' => 'Bu adrese erişim yetkiniz yok.'], 403);
+            }
+        }
+
         $address->delete();
 
         return response()->json([

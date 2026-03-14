@@ -2,15 +2,19 @@
 
 namespace App\Models;
 
+use App\Observers\CourierMealShiftObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+#[ObservedBy(CourierMealShiftObserver::class)]
 class CourierMealShift extends Model
 {
     use HasFactory;
     protected $fillable = [
         'courier_id',
+        'restaurant_id',
         'date',
         'meal_type',
         'start_time',
@@ -46,6 +50,11 @@ class CourierMealShift extends Model
     public function courier(): BelongsTo
     {
         return $this->belongsTo(Courier::class);
+    }
+
+    public function restaurant(): BelongsTo
+    {
+        return $this->belongsTo(Restaurant::class);
     }
 
     /**

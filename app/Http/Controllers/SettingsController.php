@@ -10,6 +10,7 @@ use App\Models\PaymentSetting;
 use App\Models\PrinterSetting;
 use App\Models\ThemeSetting;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class SettingsController extends Controller
 {
@@ -30,16 +31,26 @@ class SettingsController extends Controller
 
     public function updateApplication(Request $request)
     {
+        $validated = $request->validate([
+            'language' => ['required', 'string', Rule::in(['tr', 'en'])],
+            'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
+            'currency' => ['required', 'string', Rule::in(['TRY', 'USD', 'EUR'])],
+            'auto_accept_orders' => ['nullable', 'boolean'],
+            'sound_notifications' => ['nullable', 'boolean'],
+            'default_order_timeout' => ['required', 'integer', 'min:5', 'max:120'],
+            'default_preparation_time' => ['required', 'integer', 'min:5', 'max:120'],
+        ]);
+
         $settings = ApplicationSetting::getOrCreateForUser(auth()->id());
-        
+
         $settings->update([
-            'language' => $request->input('language', 'tr'),
-            'timezone' => $request->input('timezone', 'Europe/Istanbul'),
-            'currency' => $request->input('currency', 'TRY'),
+            'language' => $validated['language'],
+            'timezone' => $validated['timezone'],
+            'currency' => $validated['currency'],
             'auto_accept_orders' => $request->boolean('auto_accept_orders'),
             'sound_notifications' => $request->boolean('sound_notifications'),
-            'default_order_timeout' => $request->input('default_order_timeout', 30),
-            'default_preparation_time' => $request->input('default_preparation_time', 20),
+            'default_order_timeout' => $validated['default_order_timeout'],
+            'default_preparation_time' => $validated['default_preparation_time'],
         ]);
         
         return redirect()
@@ -55,16 +66,26 @@ class SettingsController extends Controller
 
     public function updatePayment(Request $request)
     {
+        $validated = $request->validate([
+            'accept_cash' => ['nullable', 'boolean'],
+            'accept_card' => ['nullable', 'boolean'],
+            'accept_card_on_delivery' => ['nullable', 'boolean'],
+            'accept_online' => ['nullable', 'boolean'],
+            'payment_provider' => ['nullable', 'string', Rule::in(['iyzico', 'paytr', 'stripe', 'none'])],
+            'min_order_amount' => ['nullable', 'numeric', 'min:0', 'max:99999'],
+            'max_cash_amount' => ['nullable', 'numeric', 'min:0', 'max:99999'],
+        ]);
+
         $settings = PaymentSetting::getOrCreateForUser(auth()->id());
-        
+
         $settings->update([
             'accept_cash' => $request->boolean('accept_cash'),
             'accept_card' => $request->boolean('accept_card'),
             'accept_card_on_delivery' => $request->boolean('accept_card_on_delivery'),
             'accept_online' => $request->boolean('accept_online'),
-            'payment_provider' => $request->input('payment_provider'),
-            'min_order_amount' => $request->input('min_order_amount'),
-            'max_cash_amount' => $request->input('max_cash_amount'),
+            'payment_provider' => $validated['payment_provider'] ?? null,
+            'min_order_amount' => $validated['min_order_amount'] ?? null,
+            'max_cash_amount' => $validated['max_cash_amount'] ?? null,
         ]);
         
         return redirect()
@@ -240,14 +261,22 @@ class SettingsController extends Controller
 
     public function updateTheme(Request $request)
     {
+        $validated = $request->validate([
+            'theme_mode' => ['required', 'string', Rule::in(['light', 'dark', 'system'])],
+            'compact_mode' => ['nullable', 'boolean'],
+            'animations_enabled' => ['nullable', 'boolean'],
+            'sidebar_auto_hide' => ['nullable', 'boolean'],
+            'sidebar_width' => ['required', 'string', Rule::in(['narrow', 'normal', 'wide'])],
+        ]);
+
         $settings = ThemeSetting::getOrCreateForUser(auth()->id());
-        
+
         $settings->update([
-            'theme_mode' => $request->input('theme_mode', 'system'),
+            'theme_mode' => $validated['theme_mode'],
             'compact_mode' => $request->boolean('compact_mode'),
             'animations_enabled' => $request->boolean('animations_enabled'),
             'sidebar_auto_hide' => $request->boolean('sidebar_auto_hide'),
-            'sidebar_width' => $request->input('sidebar_width', 'normal'),
+            'sidebar_width' => $validated['sidebar_width'],
         ]);
         
         return redirect()
@@ -283,7 +312,7 @@ class SettingsController extends Controller
             'email' => ['required', 'email', 'max:255'],
             'address' => ['required', 'string'],
             'tax_number' => ['nullable', 'string', 'max:50'],
-            'logo' => ['nullable', 'image', 'max:2048'],
+            'logo' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
         ]);
 
         $businessInfo = BusinessInfo::first();

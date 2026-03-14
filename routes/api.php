@@ -91,8 +91,9 @@ Route::prefix('caller-id')->middleware(['api.key', 'throttle:60,1'])->group(func
 |
 */
 
-Route::prefix('cagri')->middleware(['throttle:120,1'])->group(function () {
+Route::prefix('cagri')->middleware(['throttle:30,1'])->group(function () {
     // Receive incoming call from Caller ID device
+    // Branch-specific token validated in controller
     Route::get('/al/{branchId}', [CallerIdController::class, 'receive']);
 });
 

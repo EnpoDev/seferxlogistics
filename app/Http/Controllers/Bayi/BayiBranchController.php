@@ -550,6 +550,15 @@ class BayiBranchController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'is_active' => 'nullable|boolean',
+            // Inline rule fields (for fixed/unit_price types)
+            'rule_price' => 'nullable|numeric|min:0',
+            'rule_percentage' => 'nullable|numeric|min:0|max:100',
+            // Multiple rules (for range-based types)
+            'rules' => 'nullable|array',
+            'rules.*.min_value' => 'nullable|numeric|min:0',
+            'rules.*.max_value' => 'nullable|numeric|min:0',
+            'rules.*.price' => 'nullable|numeric|min:0',
+            'rules.*.percentage' => 'nullable|numeric|min:0|max:100',
         ]);
 
         $policy = $branch->pricingPolicies()->create([
@@ -560,10 +569,42 @@ class BayiBranchController extends Controller
             'is_active' => $request->boolean('is_active'),
         ]);
 
+        // Create rules based on policy type
+        $policyType = $validated['policy_type'];
+
+        if (in_array($policyType, ['fixed', 'unit_price'])) {
+            $price = $request->input('rule_price');
+            $percentage = $request->input('rule_percentage');
+            if ($price || $percentage) {
+                $policy->rules()->create([
+                    'min_value' => 0,
+                    'max_value' => 999999,
+                    'price' => $price ?? 0,
+                    'percentage' => $percentage ?? 0,
+                    'order' => 1,
+                ]);
+            }
+        } else {
+            $rules = $request->input('rules', []);
+            foreach ($rules as $index => $rule) {
+                $rulePrice = $rule['price'] ?? 0;
+                $rulePercentage = $rule['percentage'] ?? 0;
+                if ($rulePrice > 0 || $rulePercentage > 0) {
+                    $policy->rules()->create([
+                        'min_value' => $rule['min_value'] ?? 0,
+                        'max_value' => $rule['max_value'] ?? 999999,
+                        'price' => $rulePrice,
+                        'percentage' => $rulePercentage,
+                        'order' => $index + 1,
+                    ]);
+                }
+            }
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Fiyatlandırma politikası başarıyla oluşturuldu.',
-            'policy' => $policy,
+            'policy' => $policy->load('rules'),
         ]);
     }
 

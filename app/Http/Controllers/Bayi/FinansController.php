@@ -80,9 +80,10 @@ class FinansController extends Controller
     public function kuryeKazanc(Request $request)
     {
         $period = $request->get('period', 'month');
+        $userBranchIds = $this->getUserBranchIds();
         [$startDate, $endDate] = $this->getPeriodDates($period);
 
-        $courierEarnings = $this->reportService->getCourierEarningsReport($startDate, $endDate);
+        $courierEarnings = $this->reportService->getCourierEarningsReport($startDate, $endDate, null, $userBranchIds);
 
         return view('bayi.finans.kurye-kazanc', compact('courierEarnings', 'period', 'startDate', 'endDate'));
     }
@@ -93,9 +94,10 @@ class FinansController extends Controller
     public function subePerformans(Request $request)
     {
         $period = $request->get('period', 'month');
+        $userBranchIds = $this->getUserBranchIds();
         [$startDate, $endDate] = $this->getPeriodDates($period);
 
-        $branchPerformance = $this->reportService->getBranchPerformanceReport($startDate, $endDate);
+        $branchPerformance = $this->reportService->getBranchPerformanceReport($startDate, $endDate, $userBranchIds);
 
         return view('bayi.finans.sube-performans', compact('branchPerformance', 'period', 'startDate', 'endDate'));
     }
@@ -114,6 +116,25 @@ class FinansController extends Controller
         $dailyRevenue = $this->reportService->getDailyRevenueReport($startDate, $endDate, $branchId, $userBranchIds);
 
         return view('bayi.finans.nakit-akis', compact('cashFlow', 'dailyRevenue', 'period', 'startDate', 'endDate'));
+    }
+
+    /**
+     * Yemek maliyet raporu
+     */
+    public function mealCostReport(Request $request)
+    {
+        $period = $request->get('period', 'month');
+        $branchId = $this->validateBranchAccess($request->get('branch_id'));
+        $userBranchIds = $this->getUserBranchIds();
+        [$startDate, $endDate] = $this->getPeriodDates($period);
+
+        $mealCost = $this->reportService->getMealCostReport($startDate, $endDate, $branchId, $userBranchIds);
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'data' => $mealCost]);
+        }
+
+        return view('bayi.finans.yemek-maliyet', compact('mealCost', 'period', 'startDate', 'endDate'));
     }
 
     /**

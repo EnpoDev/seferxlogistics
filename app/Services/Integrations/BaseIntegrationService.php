@@ -20,6 +20,23 @@ abstract class BaseIntegrationService implements IntegrationInterface
     }
 
     /**
+     * Scope the service to a specific branch. Re-resolves the integration record
+     * so that only the integration belonging to the given branch is used.
+     */
+    public function setBranchId(?int $branchId): self
+    {
+        if ($branchId === null) {
+            return $this;
+        }
+
+        $this->integration = Integration::where('platform', $this->getPlatform())
+            ->where('branch_id', $branchId)
+            ->first();
+
+        return $this;
+    }
+
+    /**
      * Get the integration model
      */
     public function getIntegration(): ?Integration
@@ -37,17 +54,27 @@ abstract class BaseIntegrationService implements IntegrationInterface
     }
 
     /**
-     * Get or create integration record
+     * Get or create integration record, optionally scoped to a branch.
+     * When a branch_id is available on the current integration, it is carried
+     * through to the firstOrCreate call so new records are tenant-aware.
      */
     protected function getOrCreateIntegration(array $data = []): Integration
     {
+        $branchId = $this->integration?->branch_id;
+
+        $searchCriteria = ['platform' => $this->getPlatform()];
+        if ($branchId) {
+            $searchCriteria['branch_id'] = $branchId;
+        }
+
         return Integration::firstOrCreate(
-            ['platform' => $this->getPlatform()],
+            $searchCriteria,
             array_merge([
                 'name' => $this->getPlatformName(),
                 'description' => $this->getPlatformDescription(),
                 'is_active' => false,
                 'status' => Integration::STATUS_INACTIVE,
+                'branch_id' => $branchId,
             ], $data)
         );
     }

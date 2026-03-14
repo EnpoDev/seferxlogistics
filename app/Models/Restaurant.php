@@ -27,6 +27,7 @@ class Restaurant extends Model
         'max_delivery_time',
         'working_hours',
         'order',
+        'branch_id',
     ];
 
     protected $casts = [
@@ -52,6 +53,11 @@ class Restaurant extends Model
     }
 
     // Relationships
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
     public function categories(): BelongsToMany
     {
         return $this->belongsToMany(Category::class)->withTimestamps();

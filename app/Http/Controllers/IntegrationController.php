@@ -25,9 +25,16 @@ class IntegrationController extends Controller
 
     public function index()
     {
+        $branchId = auth()->user()->getActiveBranchId();
         $integrations = [];
 
         foreach ($this->services as $platform => $service) {
+            // Scope each service to the authenticated user's branch so that
+            // getIntegration() returns only their tenant's record.
+            if ($branchId) {
+                $service->setBranchId($branchId);
+            }
+
             $integration = $service->getIntegration();
 
             $integrations[$platform] = [
@@ -48,7 +55,10 @@ class IntegrationController extends Controller
      */
     public function dashboard(): JsonResponse
     {
-        $integrations = Integration::all();
+        $branchId = auth()->user()->getActiveBranchId();
+        $integrations = $branchId
+            ? Integration::where('branch_id', $branchId)->get()
+            : Integration::all();
 
         $data = [];
         foreach ($integrations as $integration) {
@@ -60,15 +70,14 @@ class IntegrationController extends Controller
                 default => strtoupper(substr($integration->platform, 0, 2)) . '-',
             };
 
-            $todayOrders = Order::where('order_number', 'like', $orderPrefix . '%')
-                ->whereDate('created_at', today())
-                ->count();
+            $baseQuery = Order::where('order_number', 'like', $orderPrefix . '%');
+            if ($integration->branch_id) {
+                $baseQuery->where('branch_id', $integration->branch_id);
+            }
 
-            $weekOrders = Order::where('order_number', 'like', $orderPrefix . '%')
-                ->where('created_at', '>=', now()->startOfWeek())
-                ->count();
-
-            $totalRevenue = Order::where('order_number', 'like', $orderPrefix . '%')
+            $todayOrders = (clone $baseQuery)->whereDate('created_at', today())->count();
+            $weekOrders = (clone $baseQuery)->where('created_at', '>=', now()->startOfWeek())->count();
+            $totalRevenue = (clone $baseQuery)
                 ->where('status', 'delivered')
                 ->where('created_at', '>=', now()->startOfMonth())
                 ->sum('total');
@@ -103,6 +112,8 @@ class IntegrationController extends Controller
             return response()->json(['success' => false, 'message' => __('messages.error.invalid_platform')], 400);
         }
 
+        $branchId = auth()->user()->getActiveBranchId();
+
         $orderPrefix = match ($platform) {
             'yemeksepeti' => 'YS-',
             'getir' => 'GT-',
@@ -114,13 +125,13 @@ class IntegrationController extends Controller
         $dailyStats = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = now()->subDays($i)->format('Y-m-d');
-            $count = Order::where('order_number', 'like', $orderPrefix . '%')
-                ->whereDate('created_at', $date)
-                ->count();
-            $revenue = Order::where('order_number', 'like', $orderPrefix . '%')
-                ->whereDate('created_at', $date)
-                ->where('status', 'delivered')
-                ->sum('total');
+            $query = Order::where('order_number', 'like', $orderPrefix . '%')
+                ->whereDate('created_at', $date);
+            if ($branchId) {
+                $query->where('branch_id', $branchId);
+            }
+            $count = (clone $query)->count();
+            $revenue = (clone $query)->where('status', 'delivered')->sum('total');
 
             $dailyStats[] = [
                 'date' => now()->subDays($i)->format('d.m'),
@@ -130,8 +141,12 @@ class IntegrationController extends Controller
         }
 
         // Durum dagilimi
-        $statusStats = Order::where('order_number', 'like', $orderPrefix . '%')
-            ->where('created_at', '>=', now()->subDays(30))
+        $statusQuery = Order::where('order_number', 'like', $orderPrefix . '%')
+            ->where('created_at', '>=', now()->subDays(30));
+        if ($branchId) {
+            $statusQuery->where('branch_id', $branchId);
+        }
+        $statusStats = $statusQuery
             ->selectRaw('status, count(*) as count')
             ->groupBy('status')
             ->pluck('count', 'status')
@@ -156,6 +171,12 @@ class IntegrationController extends Controller
         }
 
         $service = $this->services[$platform];
+
+        $branchId = auth()->user()->getActiveBranchId();
+        if ($branchId) {
+            $service->setBranchId($branchId);
+        }
+
         $credentials = $request->input('credentials', []);
 
         // Validate required credentials
@@ -185,7 +206,13 @@ class IntegrationController extends Controller
             ], 400);
         }
 
-        $success = $this->services[$platform]->disconnect();
+        $service = $this->services[$platform];
+        $branchId = auth()->user()->getActiveBranchId();
+        if ($branchId) {
+            $service->setBranchId($branchId);
+        }
+
+        $success = $service->disconnect();
 
         return response()->json([
             'success' => $success,
@@ -202,8 +229,14 @@ class IntegrationController extends Controller
             ], 400);
         }
 
+        $service = $this->services[$platform];
+        $branchId = auth()->user()->getActiveBranchId();
+        if ($branchId) {
+            $service->setBranchId($branchId);
+        }
+
         $credentials = $request->input('credentials', []);
-        $success = $this->services[$platform]->testConnection($credentials);
+        $success = $service->testConnection($credentials);
 
         return response()->json([
             'success' => $success,
@@ -213,16 +246,37 @@ class IntegrationController extends Controller
 
     public function webhook(Request $request, string $platform, string $token)
     {
+        // Platform validasyonu - sadece bilinen platformlari kabul et
+        if (!isset($this->services[$platform])) {
+            return response()->json(['error' => 'Unknown platform'], 400);
+        }
+
         $integration = Integration::where('platform', $platform)
             ->where('webhook_secret', $token)
             ->first();
 
         if (!$integration) {
+            \Log::warning('Invalid webhook token attempt', [
+                'platform' => $platform,
+                'ip' => $request->ip(),
+            ]);
             return response()->json(['error' => 'Invalid webhook'], 401);
         }
 
-        if (isset($this->services[$platform])) {
-            $this->services[$platform]->handleWebhook($request->all());
+        // Payload bos olmamali
+        $payload = $request->all();
+        if (empty($payload)) {
+            return response()->json(['error' => 'Empty payload'], 400);
+        }
+
+        try {
+            $this->services[$platform]->handleWebhook($payload);
+        } catch (\Exception $e) {
+            \Log::error('Webhook handler error', [
+                'platform' => $platform,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json(['error' => 'Webhook processing failed'], 500);
         }
 
         return response()->json(['success' => true]);
@@ -237,7 +291,13 @@ class IntegrationController extends Controller
             ], 400);
         }
 
-        $orders = $this->services[$platform]->fetchOrders();
+        $service = $this->services[$platform];
+        $branchId = auth()->user()->getActiveBranchId();
+        if ($branchId) {
+            $service->setBranchId($branchId);
+        }
+
+        $orders = $service->fetchOrders();
 
         return response()->json([
             'success' => true,

@@ -314,31 +314,56 @@ class AdvancedStatisticsService
     }
 
     /**
-     * Payment Method Analysis
+     * Payment Method Analysis (supports split payments)
      */
     public function getPaymentMethodAnalysis(): array
     {
-        $methods = Order::whereBetween('created_at', [$this->startDate, $this->endDate])
+        $orders = Order::whereBetween('created_at', [$this->startDate, $this->endDate])
             ->where('status', Order::STATUS_DELIVERED)
-            ->select('payment_method', DB::raw('count(*) as count'), DB::raw('sum(total) as revenue'))
-            ->groupBy('payment_method')
+            ->select('payment_method', 'payment_methods', 'total')
             ->get();
 
-        $total = $methods->sum('count');
+        $methodStats = [];
+        $totalOrders = $orders->count();
+
+        foreach ($orders as $order) {
+            if ($order->hasSplitPayment()) {
+                // Split payment: distribute revenue per method
+                foreach ($order->payment_methods as $pm) {
+                    $method = $pm['method'] ?? 'unknown';
+                    if (!isset($methodStats[$method])) {
+                        $methodStats[$method] = ['count' => 0, 'revenue' => 0];
+                    }
+                    $methodStats[$method]['count']++;
+                    $methodStats[$method]['revenue'] += $pm['amount'] ?? 0;
+                }
+            } else {
+                // Single payment method
+                $method = $order->payment_method ?? 'unknown';
+                if (!isset($methodStats[$method])) {
+                    $methodStats[$method] = ['count' => 0, 'revenue' => 0];
+                }
+                $methodStats[$method]['count']++;
+                $methodStats[$method]['revenue'] += $order->total ?? 0;
+            }
+        }
 
         $data = [];
-        foreach ($methods as $method) {
+        foreach ($methodStats as $method => $stats) {
             $data[] = [
-                'method' => $this->getPaymentMethodLabel($method->payment_method),
-                'count' => $method->count,
-                'revenue' => $method->revenue,
-                'ratio' => $total > 0 ? round(($method->count / $total) * 100, 1) : 0,
+                'method' => $this->getPaymentMethodLabel($method),
+                'count' => $stats['count'],
+                'revenue' => $stats['revenue'],
+                'ratio' => $totalOrders > 0 ? round(($stats['count'] / $totalOrders) * 100, 1) : 0,
             ];
         }
 
+        // Sort by revenue descending
+        usort($data, fn($a, $b) => $b['revenue'] <=> $a['revenue']);
+
         return [
             'methods' => $data,
-            'total' => $total,
+            'total' => $totalOrders,
         ];
     }
 
@@ -489,6 +514,12 @@ class AdvancedStatisticsService
             'cash' => 'Nakit',
             'card' => 'Kredi Kartı',
             'online' => 'Online',
+            'pluxee' => 'Pluxee',
+            'edenred' => 'Edenred',
+            'multinet' => 'Multinet',
+            'metropol' => 'Metropol',
+            'tokenflex' => 'Tokenflex',
+            'setcard' => 'Setcard',
             default => $method,
         };
     }

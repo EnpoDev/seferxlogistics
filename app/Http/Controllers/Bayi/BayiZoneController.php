@@ -13,12 +13,13 @@ class BayiZoneController extends Controller
     public function bolgelendirme()
     {
         $branches = \App\Models\Branch::all();
-        $couriers = Courier::all();
+        $couriers = Courier::where('user_id', auth()->id())->get();
         $zones = Zone::withCount('couriers')->get();
 
-        // Unassigned couriers (not in any zone)
+        // Unassigned couriers (not in any zone) - only own couriers
         $assignedCourierIds = \DB::table('courier_zone')->pluck('courier_id')->toArray();
-        $unassignedCouriers = Courier::whereNotIn('id', $assignedCourierIds)->get();
+        $unassignedCouriers = Courier::where('user_id', auth()->id())
+            ->whereNotIn('id', $assignedCourierIds)->get();
 
         return view('bayi.bolgelendirme', compact('branches', 'couriers', 'zones', 'unassignedCouriers'));
     }

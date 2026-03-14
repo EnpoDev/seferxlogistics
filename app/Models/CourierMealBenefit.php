@@ -12,6 +12,7 @@ class CourierMealBenefit extends Model
     protected $fillable = [
         'courier_id',
         'branch_id',
+        'restaurant_id',
         'benefit_date',
         'meal_type',
         'meal_value',
@@ -41,6 +42,11 @@ class CourierMealBenefit extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function restaurant(): BelongsTo
+    {
+        return $this->belongsTo(Restaurant::class);
     }
 
     /**
@@ -76,14 +82,30 @@ class CourierMealBenefit extends Model
     }
 
     /**
-     * Mark the benefit as used
+     * Mark the benefit as used at a specific restaurant
      */
-    public function markAsUsed(): void
+    public function markAsUsed(?int $restaurantId = null): bool
     {
+        // If a restaurant ID is provided, validate against the courier's assigned restaurant
+        if ($restaurantId) {
+            $assignedShift = CourierMealShift::where('courier_id', $this->courier_id)
+                ->whereDate('date', $this->benefit_date)
+                ->where('restaurant_id', $restaurantId)
+                ->where('is_active', true)
+                ->first();
+
+            if (!$assignedShift) {
+                return false;
+            }
+        }
+
         $this->update([
             'is_used' => true,
             'used_at' => now(),
+            'restaurant_id' => $restaurantId,
         ]);
+
+        return true;
     }
 
     /**

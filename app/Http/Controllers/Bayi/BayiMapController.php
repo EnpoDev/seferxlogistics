@@ -10,10 +10,11 @@ class BayiMapController extends Controller
 {
     public function harita()
     {
-        $couriers = Courier::with(['currentOrder', 'orders' => function($q) {
-            $q->whereDate('created_at', today())
-              ->whereNotIn('status', ['delivered', 'cancelled']);
-        }])->get();
+        $couriers = Courier::where('user_id', auth()->id())
+            ->with(['currentOrder', 'orders' => function($q) {
+                $q->whereDate('created_at', today())
+                  ->whereNotIn('status', ['delivered', 'cancelled']);
+            }])->get();
 
         $activeOrders = Order::whereNotIn('status', ['delivered', 'cancelled'])->count();
         $newOrders = Order::where('status', 'pending')->count();

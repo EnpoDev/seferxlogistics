@@ -10,6 +10,7 @@ use App\Models\Customer;
 use App\Models\Category;
 use App\Models\Restaurant;
 use App\Models\OrderItem;
+use App\Models\ProductOption;
 use App\Services\CourierAssignmentService;
 use App\Services\CustomerNotificationService;
 use App\Services\OrderStatusService;
@@ -23,6 +24,7 @@ use App\Http\Requests\Order\UpdateOrderStatusRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use App\Models\User;
+use App\Models\Zone;
 
 class OrderController extends Controller
 {
@@ -85,6 +87,46 @@ class OrderController extends Controller
         if ($branchIds !== null) {
             $query->whereIn('branch_id', $branchIds);
         }
+    }
+
+    /**
+     * Verify that the authenticated user has access to the given order
+     */
+    private function authorizeOrder(Order $order): void
+    {
+        $branchIds = $this->getUserBranchIds();
+
+        // null means admin - no filter needed
+        if ($branchIds === null) {
+            return;
+        }
+
+        if (!in_array($order->branch_id, $branchIds)) {
+            abort(403, 'Bu siparişe erişim yetkiniz yok.');
+        }
+    }
+
+    /**
+     * Get the bayi user ID for courier filtering
+     * Returns the bayi's user ID (or admin null for no filter)
+     */
+    private function getBayiUserIdForCouriers(): ?int
+    {
+        $user = auth()->user();
+
+        if ($user->isAdmin()) {
+            return null; // Admin sees all
+        }
+
+        if ($user->isBayi()) {
+            return $user->id;
+        }
+
+        if ($user->isIsletme()) {
+            return $user->parent_id;
+        }
+
+        return -1; // No access
     }
 
     /**
@@ -234,22 +276,30 @@ class OrderController extends Controller
         $categories = Category::with(['products' => function ($query) {
                 $query->where('is_active', true)
                       ->where('in_stock', true)
-                      ->with('restaurant');
+                      ->with(['restaurant', 'optionGroups.options' => function ($q) {
+                          $q->where('is_available', true)->orderBy('order');
+                      }]);
             }])
             ->where('is_active', true)
             ->orderBy('order')
             ->get();
-        
+
         // Get all active products grouped by category
         $products = Product::where('is_active', true)
             ->where('in_stock', true)
-            ->with(['category', 'restaurant'])
+            ->with(['category', 'restaurant', 'optionGroups.options' => function ($q) {
+                $q->where('is_available', true)->orderBy('order');
+            }])
             ->get()
             ->groupBy('category_id');
         
-        $couriers = Courier::whereIn('status', ['available', 'active'])
-            ->orderBy('name')
-            ->get();
+        $courierQuery = Courier::whereIn('status', ['available', 'active'])
+            ->orderBy('name');
+        $bayiUserId = $this->getBayiUserIdForCouriers();
+        if ($bayiUserId !== null) {
+            $courierQuery->where('user_id', $bayiUserId);
+        }
+        $couriers = $courierQuery->get();
         
         $branches = Branch::where('is_active', true)
             ->orderBy('is_main', 'desc')
@@ -260,13 +310,15 @@ class OrderController extends Controller
             ->orderBy('name')
             ->get();
 
+        $zones = Zone::active()->orderBy('name')->get();
+
         // If customer_id is provided, load the customer
         $customer = null;
         if ($request->has('customer_id')) {
             $customer = Customer::with('addresses')->find($request->customer_id);
         }
 
-        return view('pages.siparis.create', compact('categories', 'products', 'couriers', 'branches', 'restaurants', 'customer'));
+        return view('pages.siparis.create', compact('categories', 'products', 'couriers', 'branches', 'restaurants', 'customer', 'zones'));
     }
 
     public function store(StoreOrderRequest $request)
@@ -304,19 +356,58 @@ class OrderController extends Controller
         
         foreach ($validated['items'] as $item) {
             $product = Product::find($item['product_id']);
-            $itemTotal = $product->getCurrentPrice() * $item['quantity'];
+            $unitPrice = $product->getCurrentPrice();
+
+            // Calculate price modifiers from selected options
+            $variationsData = [];
+            $priceModifier = 0;
+
+            if (!empty($item['variation'])) {
+                $variationsData['variation'] = $item['variation'];
+            }
+
+            if (!empty($item['extras'])) {
+                $variationsData['extras'] = $item['extras'];
+            }
+
+            if (!empty($item['selected_options'])) {
+                $selectedOptionIds = is_array($item['selected_options']) ? $item['selected_options'] : [];
+                $options = ProductOption::whereIn('id', $selectedOptionIds)
+                    ->where('is_available', true)
+                    ->get();
+
+                $optionDetails = [];
+                foreach ($options as $option) {
+                    $priceModifier += (float) $option->price_modifier;
+                    $optionDetails[] = [
+                        'id' => $option->id,
+                        'name' => $option->name,
+                        'price_modifier' => (float) $option->price_modifier,
+                    ];
+                }
+                $variationsData['selected_options'] = $optionDetails;
+            }
+
+            $adjustedPrice = $unitPrice + $priceModifier;
+            $itemTotal = $adjustedPrice * $item['quantity'];
             $subtotal += $itemTotal;
-            
+
             $orderItems[] = [
                 'product_id' => $product->id,
                 'product_name' => $product->name,
-                'price' => $product->getCurrentPrice(),
+                'price' => $adjustedPrice,
                 'quantity' => $item['quantity'],
                 'total' => $itemTotal,
+                'variations' => !empty($variationsData) ? $variationsData : null,
             ];
         }
 
-        $total = $subtotal + $validated['delivery_fee'];
+        // Default delivery_fee to 0 for panel orders when not explicitly provided
+        $deliveryFee = isset($validated['delivery_fee']) && $validated['delivery_fee'] !== null
+            ? (float) $validated['delivery_fee']
+            : 0;
+
+        $total = $subtotal + $deliveryFee;
 
         // Auto-assign courier if requested
         $courierId = $validated['courier_id'] ?? null;
@@ -360,6 +451,28 @@ class OrderController extends Controller
             }
         }
 
+        // Validate zone order limit using real-time DB count
+        $zone = null;
+        if ($request->filled('zone_id')) {
+            $zone = Zone::find($validated['zone_id']);
+            if ($zone && $zone->daily_order_limit) {
+                $todayOrderCount = Order::where('zone_id', $zone->id)
+                    ->whereDate('created_at', today())
+                    ->whereNotIn('status', ['cancelled'])
+                    ->count();
+
+                if ($todayOrderCount >= $zone->daily_order_limit) {
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "'{$zone->name}' mahallesinin günlük sipariş limiti doldu ({$zone->daily_order_limit} sipariş).",
+                        ], 422);
+                    }
+                    return back()->withInput()->with('error', "'{$zone->name}' mahallesinin günlük sipariş limiti doldu.");
+                }
+            }
+        }
+
         // Create order (use branchIdForValidation determined earlier)
         $order = Order::create([
             'order_number' => $orderNumber,
@@ -375,9 +488,10 @@ class OrderController extends Controller
             'lat' => $validated['lat'] ?? null,
             'lng' => $validated['lng'] ?? null,
             'subtotal' => $subtotal,
-            'delivery_fee' => $validated['delivery_fee'],
+            'delivery_fee' => $deliveryFee,
             'total' => $total,
             'payment_method' => $validated['payment_method'] ?? 'cash',
+            'payment_methods' => isset($validated['payment_methods']) ? json_decode($validated['payment_methods'], true) : null,
             'status' => 'pending',
             'notes' => $validated['notes'] ?? null,
         ]);
@@ -396,22 +510,30 @@ class OrderController extends Controller
             $courier?->incrementActiveOrders();
         }
 
-        // Increment zone order count if zone is set
-        if (isset($validated['zone_id'])) {
-            $zone = \App\Models\Zone::find($validated['zone_id']);
-            $zone?->incrementOrderCount();
+        // Increment zone order count if zone is set (reuse $zone from limit check above)
+        if ($zone) {
+            $zone->incrementOrderCount();
+        } elseif (!empty($validated['zone_id'])) {
+            // zone_id provided but limit check was skipped (no daily_order_limit set)
+            Zone::find($validated['zone_id'])?->incrementOrderCount();
         }
 
         // Broadcast order created event
         broadcast(new OrderCreated($order))->toOthers();
 
+        $printMode = $request->input('print_mode', 'auto');
+
         return redirect()
             ->route('siparis.liste')
-            ->with('success', __('messages.success.order_created'));
+            ->with('success', __('messages.success.order_created'))
+            ->with('print_order_id', $order->id)
+            ->with('print_mode', $printMode);
     }
 
     public function edit(Order $order)
     {
+        $this->authorizeOrder($order);
+
         $order->load(['items.product', 'courier', 'branch', 'customer', 'restaurant']);
         
         $categories = Category::with(['products' => function ($query) {
@@ -426,8 +548,13 @@ class OrderController extends Controller
             ->get()
             ->groupBy('category_id');
         
-        $couriers = Courier::orderBy('name')->get();
-        
+        $courierQuery = Courier::orderBy('name');
+        $bayiUserId = $this->getBayiUserIdForCouriers();
+        if ($bayiUserId !== null) {
+            $courierQuery->where('user_id', $bayiUserId);
+        }
+        $couriers = $courierQuery->get();
+
         $branches = Branch::where('is_active', true)
             ->orderBy('is_main', 'desc')
             ->orderBy('name')
@@ -442,6 +569,8 @@ class OrderController extends Controller
 
     public function update(UpdateOrderRequest $request, Order $order)
     {
+        $this->authorizeOrder($order);
+
         $validated = $request->validated();
 
         // Siparis guncelleme validasyonu
@@ -580,6 +709,8 @@ class OrderController extends Controller
 
     public function destroy(Order $order)
     {
+        $this->authorizeOrder($order);
+
         // Only allow deletion of pending orders or cancelled orders
         if (!in_array($order->status, ['pending', 'cancelled'])) {
             return redirect()
@@ -610,6 +741,8 @@ class OrderController extends Controller
 
     public function updateStatus(UpdateOrderStatusRequest $request, Order $order)
     {
+        $this->authorizeOrder($order);
+
         $validated = $request->validated();
 
         $oldStatus = $order->status;

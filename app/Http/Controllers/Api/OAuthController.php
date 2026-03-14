@@ -226,7 +226,7 @@ class OAuthController extends Controller
             ]);
             return response()->json([
                 'error' => 'server_error',
-                'message' => $e->getMessage(),
+                'message' => 'Bir hata olustu. Lutfen tekrar deneyin.',
             ], 500);
         }
     }

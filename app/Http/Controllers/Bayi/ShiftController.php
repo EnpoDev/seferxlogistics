@@ -41,8 +41,9 @@ class ShiftController extends Controller
         // Vardiya şablonları
         $templates = $this->shiftService->getShiftTemplates();
 
-        // Aktif kuryeler ve durumları
-        $couriers = Courier::where('status', 'active')->get()->map(function ($courier) {
+        // Aktif kuryeler ve durumları - sadece kendi kuryeleri
+        $couriers = Courier::where('user_id', auth()->id())
+            ->where('status', 'active')->get()->map(function ($courier) {
             $status = $this->shiftService->checkCourierShiftStatus($courier);
             return [
                 'id' => $courier->id,

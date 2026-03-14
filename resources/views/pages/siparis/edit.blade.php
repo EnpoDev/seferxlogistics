@@ -68,7 +68,7 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-black dark:text-white mb-2">Şube</label>
+                    <label class="block text-sm font-medium text-black dark:text-white mb-2">İşletme</label>
                     <select name="branch_id" 
                         class="w-full px-3 py-2 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg text-black dark:text-white">
                         <option value="">Seçiniz...</option>

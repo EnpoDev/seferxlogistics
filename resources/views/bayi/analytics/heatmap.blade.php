@@ -17,7 +17,7 @@
             </div>
             <div class="flex items-center gap-3">
                 <select onchange="applyFilters()" id="branchFilter" class="px-4 py-2 bg-white dark:bg-[#181818] border border-gray-200 dark:border-gray-800 rounded-lg text-sm">
-                    <option value="">Tum Subeler</option>
+                    <option value="">Tum Isletmeler</option>
                     @foreach($branches as $branch)
                         <option value="{{ $branch->id }}" {{ $branchId == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>
                     @endforeach

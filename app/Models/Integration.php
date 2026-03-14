@@ -20,6 +20,7 @@ class Integration extends Model
         'error_message',
         'webhook_url',
         'webhook_secret',
+        'branch_id',
     ];
 
     protected $casts = [
@@ -43,6 +44,12 @@ class Integration extends Model
     const STATUS_CONNECTING = 'connecting';
     const STATUS_CONNECTED = 'connected';
     const STATUS_ERROR = 'error';
+
+    // Relationships
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
 
     // Scopes
     public function scopeActive($query)

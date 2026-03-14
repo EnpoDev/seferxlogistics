@@ -129,6 +129,24 @@ class Order extends Model
     public const PAYMENT_CASH = 'cash';
     public const PAYMENT_CARD = 'card';
     public const PAYMENT_ONLINE = 'online';
+    public const PAYMENT_PLUXEE = 'pluxee';
+    public const PAYMENT_EDENRED = 'edenred';
+    public const PAYMENT_MULTINET = 'multinet';
+    public const PAYMENT_METROPOL = 'metropol';
+    public const PAYMENT_TOKENFLEX = 'tokenflex';
+    public const PAYMENT_SETCARD = 'setcard';
+
+    public const PAYMENT_METHODS = [
+        self::PAYMENT_CASH,
+        self::PAYMENT_CARD,
+        self::PAYMENT_ONLINE,
+        self::PAYMENT_PLUXEE,
+        self::PAYMENT_EDENRED,
+        self::PAYMENT_MULTINET,
+        self::PAYMENT_METROPOL,
+        self::PAYMENT_TOKENFLEX,
+        self::PAYMENT_SETCARD,
+    ];
 
     // Relationships
     public function user(): BelongsTo
@@ -294,8 +312,14 @@ class Order extends Model
     {
         return match ($this->payment_method) {
             self::PAYMENT_CASH => 'Nakit',
-            self::PAYMENT_CARD => 'Kredi Kartı',
+            self::PAYMENT_CARD => 'Kredi Karti',
             self::PAYMENT_ONLINE => 'Online',
+            self::PAYMENT_PLUXEE => 'Pluxee',
+            self::PAYMENT_EDENRED => 'Edenred',
+            self::PAYMENT_MULTINET => 'Multinet',
+            self::PAYMENT_METROPOL => 'Metropol',
+            self::PAYMENT_TOKENFLEX => 'Tokenflex',
+            self::PAYMENT_SETCARD => 'Setcard',
             default => $this->payment_method,
         };
     }
@@ -485,28 +509,32 @@ class Order extends Model
      */
     public function updateCourierCashBalance(): void
     {
-        // Sadece nakit ödemeli ve teslim edilmiş siparişler için
-        if ($this->payment_method !== self::PAYMENT_CASH || $this->status !== self::STATUS_DELIVERED) {
+        // Teslim edilmiş ve kurye atanmış olmalı
+        if ($this->status !== self::STATUS_DELIVERED || !$this->courier_id) {
             return;
         }
 
-        // Kurye atanmış olmalı
-        if (!$this->courier_id) {
+        // Nakit tutarı: split payment veya tek nakit ödeme
+        $cashAmount = 0;
+        if ($this->hasSplitPayment()) {
+            $cashAmount = $this->getPaymentMethodAmount('cash');
+        } elseif ($this->payment_method === self::PAYMENT_CASH) {
+            $cashAmount = $this->total;
+        }
+
+        if ($cashAmount <= 0) {
             return;
         }
 
         $courier = $this->courier;
         if ($courier) {
-            // Kuryenin nakit bakiyesini artır (toplanan nakit)
-            $courier->increment('cash_balance', $this->total);
+            $courier->increment('cash_balance', $cashAmount);
 
-            // TODO: Create transaction log for cash balance update
-            // This should be logged in transactions table with type CASH_COLLECTED
             \Log::info('Courier cash balance updated', [
                 'order_id' => $this->id,
                 'courier_id' => $courier->id,
-                'amount' => $this->total,
-                'payment_method' => $this->payment_method,
+                'amount' => $cashAmount,
+                'is_split' => $this->hasSplitPayment(),
             ]);
         }
     }
